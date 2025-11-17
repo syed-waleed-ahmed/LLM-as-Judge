@@ -56,7 +56,7 @@ llm-as-judge-groq/
 ## 🧪 Usage Example
 
 1. Describe the task:
-- "Write a friendly tweet announcing our new AI tool."
+"Write a friendly tweet announcing our new AI tool."
 2. Paste two different outputs from any models.
 3. Select a criterion (e.g., Creativity)
 4. Click Evaluate Outputs

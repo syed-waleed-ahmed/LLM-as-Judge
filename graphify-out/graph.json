@@ -369,7 +369,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\config.py",
       "source_location": "L21",
       "id": "config_settings",
-      "community": 5,
+      "community": 6,
       "norm_label": "settings"
     },
     {
@@ -378,7 +378,7 @@
       "source_file": "",
       "source_location": "",
       "id": "basesettings",
-      "community": 5,
+      "community": 6,
       "norm_label": "basesettings"
     },
     {
@@ -396,7 +396,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\config.py",
       "source_location": "L60",
       "id": "config_settings_require_api_key",
-      "community": 5,
+      "community": 6,
       "norm_label": ".require_api_key()"
     },
     {
@@ -422,7 +422,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\config.py",
       "source_location": "L22",
-      "community": 5,
+      "community": 6,
       "norm_label": "runtime settings sourced from the environment and ``.env``.      all values have",
       "id": "config_rationale_22"
     },
@@ -431,7 +431,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\config.py",
       "source_location": "L61",
-      "community": 5,
+      "community": 6,
       "norm_label": "return the groq api key or raise :class:`configurationerror`.          call this",
       "id": "config_rationale_61"
     },
@@ -450,7 +450,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\criteria.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_src_llm_judge_criteria_py",
-      "community": 10,
+      "community": 11,
       "norm_label": "criteria.py"
     },
     {
@@ -459,7 +459,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\criteria.py",
       "source_location": "L36",
       "id": "criteria_resolve_criterion",
-      "community": 10,
+      "community": 11,
       "norm_label": "resolve_criterion()"
     },
     {
@@ -467,7 +467,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\criteria.py",
       "source_location": "L1",
-      "community": 10,
+      "community": 11,
       "norm_label": "built-in evaluation criteria and helpers for resolving user selections.",
       "id": "criteria_rationale_1"
     },
@@ -476,7 +476,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\criteria.py",
       "source_location": "L37",
-      "community": 10,
+      "community": 11,
       "norm_label": "return a :class:`criterion` for ``name``.      if ``name`` matches a preset it i",
       "id": "criteria_rationale_37"
     },
@@ -531,7 +531,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\exceptions.py",
       "source_location": "L27",
       "id": "exceptions_providererror_init",
-      "community": 4,
+      "community": 5,
       "norm_label": ".__init__()"
     },
     {
@@ -540,7 +540,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\exceptions.py",
       "source_location": "L32",
       "id": "exceptions_responseparsingerror",
-      "community": 4,
+      "community": 5,
       "norm_label": "responseparsingerror"
     },
     {
@@ -549,7 +549,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\exceptions.py",
       "source_location": "L35",
       "id": "exceptions_responseparsingerror_init",
-      "community": 4,
+      "community": 5,
       "norm_label": ".__init__()"
     },
     {
@@ -558,7 +558,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\exceptions.py",
       "source_location": "L40",
       "id": "exceptions_validationerror",
-      "community": 7,
+      "community": 4,
       "norm_label": "validationerror"
     },
     {
@@ -602,7 +602,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\exceptions.py",
       "source_location": "L33",
-      "community": 4,
+      "community": 5,
       "norm_label": "raised when the judge response cannot be parsed into a valid result.",
       "id": "exceptions_rationale_33"
     },
@@ -611,7 +611,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\exceptions.py",
       "source_location": "L41",
-      "community": 7,
+      "community": 4,
       "norm_label": "raised when user-supplied input fails validation before a request.",
       "id": "exceptions_rationale_41"
     },
@@ -621,7 +621,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_src_llm_judge_judge_py",
-      "community": 9,
+      "community": 10,
       "norm_label": "judge.py"
     },
     {
@@ -630,7 +630,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L37",
       "id": "judge_is_retryable",
-      "community": 9,
+      "community": 10,
       "norm_label": "_is_retryable()"
     },
     {
@@ -639,7 +639,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L41",
       "id": "judge_judge",
-      "community": 7,
+      "community": 4,
       "norm_label": "judge"
     },
     {
@@ -648,7 +648,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L44",
       "id": "judge_judge_init",
-      "community": 9,
+      "community": 10,
       "norm_label": ".__init__()"
     },
     {
@@ -657,7 +657,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L53",
       "id": "judge_build_default_provider",
-      "community": 9,
+      "community": 10,
       "norm_label": "_build_default_provider()"
     },
     {
@@ -666,7 +666,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L63",
       "id": "judge_judge_evaluate",
-      "community": 7,
+      "community": 4,
       "norm_label": ".evaluate()"
     },
     {
@@ -675,7 +675,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L105",
       "id": "judge_judge_evaluate_once",
-      "community": 7,
+      "community": 4,
       "norm_label": "._evaluate_once()"
     },
     {
@@ -684,7 +684,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L123",
       "id": "judge_judge_call_with_retries",
-      "community": 7,
+      "community": 4,
       "norm_label": "._call_with_retries()"
     },
     {
@@ -693,7 +693,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L142",
       "id": "judge_judge_normalise",
-      "community": 9,
+      "community": 10,
       "norm_label": "._normalise()"
     },
     {
@@ -702,7 +702,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L175",
       "id": "judge_judge_merge",
-      "community": 7,
+      "community": 4,
       "norm_label": "._merge()"
     },
     {
@@ -711,7 +711,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L204",
       "id": "judge_judge_resolve_criteria",
-      "community": 7,
+      "community": 4,
       "norm_label": "._resolve_criteria()"
     },
     {
@@ -720,7 +720,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L216",
       "id": "judge_judge_validate_text",
-      "community": 7,
+      "community": 4,
       "norm_label": "._validate_text()"
     },
     {
@@ -729,7 +729,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L226",
       "id": "judge_clamp",
-      "community": 9,
+      "community": 10,
       "norm_label": "_clamp()"
     },
     {
@@ -738,7 +738,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L230",
       "id": "judge_winner_from_scores",
-      "community": 9,
+      "community": 10,
       "norm_label": "_winner_from_scores()"
     },
     {
@@ -746,7 +746,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L1",
-      "community": 9,
+      "community": 10,
       "norm_label": "the core judging engine.  :class:`judge` orchestrates a single pairwise evaluati",
       "id": "judge_rationale_1"
     },
@@ -755,7 +755,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L42",
-      "community": 13,
+      "community": 4,
       "norm_label": "evaluate and compare pairs of model outputs with an llm judge.",
       "id": "judge_rationale_42"
     },
@@ -764,7 +764,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L70",
-      "community": 7,
+      "community": 4,
       "norm_label": "judge ``output_a`` against ``output_b`` for ``task_description``.          ``cri",
       "id": "judge_rationale_70"
     },
@@ -773,7 +773,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L124",
-      "community": 13,
+      "community": 4,
       "norm_label": "call the provider, retrying only on retryable :class:`providererror`s.",
       "id": "judge_rationale_124"
     },
@@ -782,7 +782,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L143",
-      "community": 9,
+      "community": 10,
       "norm_label": "clamp scores to each criterion's range and recompute winners.          llms occa",
       "id": "judge_rationale_143"
     },
@@ -791,7 +791,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\judge.py",
       "source_location": "L178",
-      "community": 7,
+      "community": 4,
       "norm_label": "average two runs (original + swapped) into one bias-mitigated result.",
       "id": "judge_rationale_178"
     },
@@ -837,7 +837,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_src_llm_judge_models_py",
-      "community": 11,
+      "community": 8,
       "norm_label": "models.py"
     },
     {
@@ -846,7 +846,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L19",
       "id": "models_winner",
-      "community": 11,
+      "community": 8,
       "norm_label": "winner"
     },
     {
@@ -864,7 +864,7 @@
       "source_file": "",
       "source_location": "",
       "id": "enum",
-      "community": 11,
+      "community": 8,
       "norm_label": "enum"
     },
     {
@@ -873,7 +873,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L26",
       "id": "models_winner_swapped",
-      "community": 11,
+      "community": 8,
       "norm_label": ".swapped()"
     },
     {
@@ -882,7 +882,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L35",
       "id": "models_criterion",
-      "community": 6,
+      "community": 7,
       "norm_label": "criterion"
     },
     {
@@ -891,7 +891,7 @@
       "source_file": "",
       "source_location": "",
       "id": "basemodel",
-      "community": 6,
+      "community": 7,
       "norm_label": "basemodel"
     },
     {
@@ -900,7 +900,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L46",
       "id": "models_check_scale",
-      "community": 11,
+      "community": 8,
       "norm_label": "_check_scale()"
     },
     {
@@ -909,7 +909,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L55",
       "id": "models_criterionscore",
-      "community": 8,
+      "community": 12,
       "norm_label": "criterionscore"
     },
     {
@@ -918,7 +918,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L65",
       "id": "models_criterionscore_swapped",
-      "community": 8,
+      "community": 12,
       "norm_label": ".swapped()"
     },
     {
@@ -927,7 +927,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L82",
       "id": "models_judgeresult",
-      "community": 12,
+      "community": 7,
       "norm_label": "judgeresult"
     },
     {
@@ -936,7 +936,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L94",
       "id": "models_judgeresult_score_for",
-      "community": 12,
+      "community": 7,
       "norm_label": ".score_for()"
     },
     {
@@ -944,7 +944,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L1",
-      "community": 11,
+      "community": 8,
       "norm_label": "typed data models for evaluation inputs and results.  using pydantic gives us th",
       "id": "models_rationale_1"
     },
@@ -953,7 +953,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L20",
-      "community": 11,
+      "community": 8,
       "norm_label": "which output a judge preferred.",
       "id": "models_rationale_20"
     },
@@ -962,7 +962,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L27",
-      "community": 11,
+      "community": 8,
       "norm_label": "return the winner as if outputs a and b had been swapped.",
       "id": "models_rationale_27"
     },
@@ -971,7 +971,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L36",
-      "community": 6,
+      "community": 7,
       "norm_label": "a single dimension to evaluate outputs against.",
       "id": "models_rationale_36"
     },
@@ -980,7 +980,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L56",
-      "community": 8,
+      "community": 12,
       "norm_label": "the judge's assessment of both outputs on one criterion.",
       "id": "models_rationale_56"
     },
@@ -989,7 +989,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L66",
-      "community": 8,
+      "community": 12,
       "norm_label": "return a copy with a/b roles exchanged.          used by position-bias mitigatio",
       "id": "models_rationale_66"
     },
@@ -998,7 +998,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L83",
-      "community": 12,
+      "community": 7,
       "norm_label": "the complete result of judging a pair of outputs.      this is the model the llm",
       "id": "models_rationale_83"
     },
@@ -1007,7 +1007,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\models.py",
       "source_location": "L95",
-      "community": 12,
+      "community": 7,
       "norm_label": "return the mean score across criteria for ``\"a\"`` or ``\"b\"``.",
       "id": "models_rationale_95"
     },
@@ -1017,7 +1017,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\parsing.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_src_llm_judge_parsing_py",
-      "community": 4,
+      "community": 5,
       "norm_label": "parsing.py"
     },
     {
@@ -1026,7 +1026,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\parsing.py",
       "source_location": "L16",
       "id": "parsing_strip_code_fences",
-      "community": 4,
+      "community": 5,
       "norm_label": "_strip_code_fences()"
     },
     {
@@ -1035,7 +1035,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\parsing.py",
       "source_location": "L24",
       "id": "parsing_extract_json_object",
-      "community": 4,
+      "community": 5,
       "norm_label": "_extract_json_object()"
     },
     {
@@ -1044,7 +1044,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\parsing.py",
       "source_location": "L37",
       "id": "parsing_parse_judge_result",
-      "community": 4,
+      "community": 5,
       "norm_label": "parse_judge_result()"
     },
     {
@@ -1052,7 +1052,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\parsing.py",
       "source_location": "L1",
-      "community": 4,
+      "community": 5,
       "norm_label": "defensive parsing of raw llm output into a validated :class:`judgeresult`.",
       "id": "parsing_rationale_1"
     },
@@ -1061,7 +1061,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\parsing.py",
       "source_location": "L17",
-      "community": 4,
+      "community": 5,
       "norm_label": "remove a surrounding ```json ... ``` fence if the model added one.",
       "id": "parsing_rationale_17"
     },
@@ -1070,7 +1070,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\parsing.py",
       "source_location": "L25",
-      "community": 4,
+      "community": 5,
       "norm_label": "return the outermost ``{...}`` block from ``text``.      even with json mode ena",
       "id": "parsing_rationale_25"
     },
@@ -1079,7 +1079,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\parsing.py",
       "source_location": "L38",
-      "community": 4,
+      "community": 5,
       "norm_label": "parse and validate raw model output into a :class:`judgeresult`.      raises :cl",
       "id": "parsing_rationale_38"
     },
@@ -1089,7 +1089,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\prompts.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_src_llm_judge_prompts_py",
-      "community": 6,
+      "community": 9,
       "norm_label": "prompts.py"
     },
     {
@@ -1098,7 +1098,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\prompts.py",
       "source_location": "L15",
       "id": "prompts_build_system_prompt",
-      "community": 6,
+      "community": 9,
       "norm_label": "build_system_prompt()"
     },
     {
@@ -1107,7 +1107,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\prompts.py",
       "source_location": "L60",
       "id": "prompts_build_user_prompt",
-      "community": 6,
+      "community": 9,
       "norm_label": "build_user_prompt()"
     },
     {
@@ -1115,7 +1115,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\prompts.py",
       "source_location": "L1",
-      "community": 6,
+      "community": 9,
       "norm_label": "prompt construction for the judge.  the prompts are deliberately explicit about",
       "id": "prompts_rationale_1"
     },
@@ -1124,7 +1124,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\prompts.py",
       "source_location": "L16",
-      "community": 6,
+      "community": 9,
       "norm_label": "build the system prompt describing the judging task and output schema.",
       "id": "prompts_rationale_16"
     },
@@ -1133,7 +1133,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\prompts.py",
       "source_location": "L61",
-      "community": 6,
+      "community": 9,
       "norm_label": "build the user message containing the task and the two outputs.",
       "id": "prompts_rationale_61"
     },
@@ -1188,7 +1188,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\providers\\base.py",
       "source_location": "L16",
       "id": "base_llmprovider",
-      "community": 13,
+      "community": 4,
       "norm_label": "llmprovider"
     },
     {
@@ -1197,7 +1197,7 @@
       "source_file": "",
       "source_location": "",
       "id": "protocol",
-      "community": 13,
+      "community": 4,
       "norm_label": "protocol"
     },
     {
@@ -1206,7 +1206,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\providers\\base.py",
       "source_location": "L28",
       "id": "base_llmprovider_complete_json",
-      "community": 13,
+      "community": 4,
       "norm_label": ".complete_json()"
     },
     {
@@ -1232,7 +1232,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\providers\\base.py",
       "source_location": "L17",
-      "community": 13,
+      "community": 4,
       "norm_label": "minimal interface the judge needs from an llm backend.      implementations are",
       "id": "base_rationale_17"
     },
@@ -1241,7 +1241,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\src\\llm_judge\\providers\\base.py",
       "source_location": "L29",
-      "community": 13,
+      "community": 4,
       "norm_label": "return the assistant's response content as a json string.          implementatio",
       "id": "base_rationale_29"
     },
@@ -1377,7 +1377,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\conftest.py",
       "source_location": "L30",
       "id": "conftest_positionbiasedprovider",
-      "community": 5,
+      "community": 6,
       "norm_label": "positionbiasedprovider"
     },
     {
@@ -1386,7 +1386,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\conftest.py",
       "source_location": "L35",
       "id": "conftest_positionbiasedprovider_init",
-      "community": 5,
+      "community": 6,
       "norm_label": ".__init__()"
     },
     {
@@ -1395,7 +1395,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\conftest.py",
       "source_location": "L39",
       "id": "conftest_positionbiasedprovider_complete_json",
-      "community": 5,
+      "community": 6,
       "norm_label": ".complete_json()"
     },
     {
@@ -1431,7 +1431,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\conftest.py",
       "source_location": "L78",
       "id": "conftest_hermetic_settings",
-      "community": 5,
+      "community": 6,
       "norm_label": "hermetic_settings()"
     },
     {
@@ -1466,7 +1466,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\conftest.py",
       "source_location": "L31",
-      "community": 5,
+      "community": 6,
       "norm_label": "always scores whatever is in position a higher \u2014 a pure position bias.",
       "id": "conftest_rationale_31"
     },
@@ -1484,7 +1484,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\conftest.py",
       "source_location": "L79",
-      "community": 5,
+      "community": 6,
       "norm_label": "settings that ignore the developer's real ``.env`` file.",
       "id": "conftest_rationale_79"
     },
@@ -1593,7 +1593,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_cli.py",
       "source_location": "L14",
       "id": "test_cli_fakejudge",
-      "community": 12,
+      "community": 8,
       "norm_label": "_fakejudge"
     },
     {
@@ -1602,7 +1602,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_cli.py",
       "source_location": "L19",
       "id": "test_cli_fakejudge_init",
-      "community": 12,
+      "community": 8,
       "norm_label": ".__init__()"
     },
     {
@@ -1620,7 +1620,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_cli.py",
       "source_location": "L45",
       "id": "test_cli_patched_judge",
-      "community": 5,
+      "community": 6,
       "norm_label": "patched_judge()"
     },
     {
@@ -1691,7 +1691,7 @@
       "file_type": "rationale",
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_cli.py",
       "source_location": "L15",
-      "community": 12,
+      "community": 8,
       "norm_label": "stand-in for judge that records inputs and returns a fixed result.",
       "id": "test_cli_rationale_15"
     },
@@ -1701,7 +1701,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_config.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_tests_test_config_py",
-      "community": 5,
+      "community": 6,
       "norm_label": "test_config.py"
     },
     {
@@ -1710,7 +1710,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_config.py",
       "source_location": "L9",
       "id": "test_config_test_require_api_key_raises_when_missing",
-      "community": 5,
+      "community": 6,
       "norm_label": "test_require_api_key_raises_when_missing()"
     },
     {
@@ -1719,7 +1719,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_config.py",
       "source_location": "L15",
       "id": "test_config_test_require_api_key_returns_value",
-      "community": 5,
+      "community": 6,
       "norm_label": "test_require_api_key_returns_value()"
     },
     {
@@ -1728,7 +1728,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_config.py",
       "source_location": "L20",
       "id": "test_config_test_log_level_is_uppercased",
-      "community": 5,
+      "community": 6,
       "norm_label": "test_log_level_is_uppercased()"
     },
     {
@@ -1737,7 +1737,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_config.py",
       "source_location": "L25",
       "id": "test_config_test_get_settings_is_cached",
-      "community": 5,
+      "community": 6,
       "norm_label": "test_get_settings_is_cached()"
     },
     {
@@ -1746,7 +1746,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_config.py",
       "source_location": "L29",
       "id": "test_config_test_reads_from_environment",
-      "community": 5,
+      "community": 6,
       "norm_label": "test_reads_from_environment()"
     },
     {
@@ -1755,7 +1755,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_criteria.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_tests_test_criteria_py",
-      "community": 10,
+      "community": 11,
       "norm_label": "test_criteria.py"
     },
     {
@@ -1764,7 +1764,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_criteria.py",
       "source_location": "L7",
       "id": "test_criteria_test_resolve_preset_returns_registered_criterion",
-      "community": 10,
+      "community": 11,
       "norm_label": "test_resolve_preset_returns_registered_criterion()"
     },
     {
@@ -1773,7 +1773,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_criteria.py",
       "source_location": "L12",
       "id": "test_criteria_test_resolve_custom_builds_new_criterion",
-      "community": 10,
+      "community": 11,
       "norm_label": "test_resolve_custom_builds_new_criterion()"
     },
     {
@@ -1782,7 +1782,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_criteria.py",
       "source_location": "L19",
       "id": "test_criteria_test_resolve_custom_uses_supplied_description",
-      "community": 10,
+      "community": 11,
       "norm_label": "test_resolve_custom_uses_supplied_description()"
     },
     {
@@ -1791,7 +1791,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_criteria.py",
       "source_location": "L24",
       "id": "test_criteria_test_all_presets_are_valid_criteria",
-      "community": 10,
+      "community": 11,
       "norm_label": "test_all_presets_are_valid_criteria()"
     },
     {
@@ -1917,7 +1917,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_models.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_tests_test_models_py",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_models.py"
     },
     {
@@ -1926,7 +1926,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_models.py",
       "source_location": "L9",
       "id": "test_models_test_winner_swapped",
-      "community": 8,
+      "community": 12,
       "norm_label": "test_winner_swapped()"
     },
     {
@@ -1935,7 +1935,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_models.py",
       "source_location": "L15",
       "id": "test_models_test_criterion_rejects_invalid_scale",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_criterion_rejects_invalid_scale()"
     },
     {
@@ -1944,7 +1944,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_models.py",
       "source_location": "L22",
       "id": "test_models_test_criterion_is_frozen",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_criterion_is_frozen()"
     },
     {
@@ -1953,7 +1953,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_models.py",
       "source_location": "L28",
       "id": "test_models_test_criterion_score_swapped",
-      "community": 8,
+      "community": 12,
       "norm_label": "test_criterion_score_swapped()"
     },
     {
@@ -1962,7 +1962,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_models.py",
       "source_location": "L44",
       "id": "test_models_test_judge_result_score_for_averages_criteria",
-      "community": 12,
+      "community": 7,
       "norm_label": "test_judge_result_score_for_averages_criteria()"
     },
     {
@@ -1971,7 +1971,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_models.py",
       "source_location": "L58",
       "id": "test_models_test_judge_result_requires_at_least_one_criterion",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_judge_result_requires_at_least_one_criterion()"
     },
     {
@@ -1980,7 +1980,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_parsing.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_tests_test_parsing_py",
-      "community": 4,
+      "community": 5,
       "norm_label": "test_parsing.py"
     },
     {
@@ -1989,7 +1989,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_parsing.py",
       "source_location": "L26",
       "id": "test_parsing_test_parses_plain_json",
-      "community": 4,
+      "community": 5,
       "norm_label": "test_parses_plain_json()"
     },
     {
@@ -1998,7 +1998,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_parsing.py",
       "source_location": "L32",
       "id": "test_parsing_test_parses_json_wrapped_in_code_fence",
-      "community": 4,
+      "community": 5,
       "norm_label": "test_parses_json_wrapped_in_code_fence()"
     },
     {
@@ -2007,7 +2007,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_parsing.py",
       "source_location": "L38",
       "id": "test_parsing_test_parses_json_with_leading_prose",
-      "community": 4,
+      "community": 5,
       "norm_label": "test_parses_json_with_leading_prose()"
     },
     {
@@ -2016,7 +2016,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_parsing.py",
       "source_location": "L44",
       "id": "test_parsing_test_raises_on_non_json",
-      "community": 4,
+      "community": 5,
       "norm_label": "test_raises_on_non_json()"
     },
     {
@@ -2025,7 +2025,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_parsing.py",
       "source_location": "L49",
       "id": "test_parsing_test_raises_on_schema_mismatch",
-      "community": 4,
+      "community": 5,
       "norm_label": "test_raises_on_schema_mismatch()"
     },
     {
@@ -2034,7 +2034,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_prompts.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_tests_test_prompts_py",
-      "community": 6,
+      "community": 9,
       "norm_label": "test_prompts.py"
     },
     {
@@ -2043,7 +2043,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_prompts.py",
       "source_location": "L7",
       "id": "test_prompts_test_system_prompt_lists_every_criterion",
-      "community": 6,
+      "community": 9,
       "norm_label": "test_system_prompt_lists_every_criterion()"
     },
     {
@@ -2052,7 +2052,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\test_prompts.py",
       "source_location": "L17",
       "id": "test_prompts_test_user_prompt_contains_task_and_outputs",
-      "community": 6,
+      "community": 9,
       "norm_label": "test_user_prompt_contains_task_and_outputs()"
     },
     {
@@ -2142,7 +2142,7 @@
       "source_file": "D:\\Projects & Stuff\\llm-as-judge\\tests\\__init__.py",
       "source_location": "L1",
       "id": "d_projects_stuff_llm_as_judge_tests_init_py",
-      "community": 14,
+      "community": 13,
       "norm_label": "__init__.py"
     }
   ],

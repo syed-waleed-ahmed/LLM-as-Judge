@@ -36,3 +36,6 @@ Thumbs.db
 # Local batch outputs
 *.results.csv
 *.results.jsonl
+
+# Tooling / generated output (not part of the project)
+graphify-out/

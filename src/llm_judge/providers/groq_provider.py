@@ -54,7 +54,7 @@ class GroqProvider:
                 temperature=self._temperature,
                 response_format={"type": "json_object"},
             )
-        except Exception as exc:  # noqa: BLE001 - normalised into ProviderError below
+        except Exception as exc:  # normalised into ProviderError below
             raise self._to_provider_error(exc) from exc
 
         try:

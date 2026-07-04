@@ -22,7 +22,7 @@ class FakeProvider:
         self.model = model
         self.calls = 0
 
-    def complete_json(self, messages):  # noqa: ANN001, ANN201
+    def complete_json(self, messages: list[dict[str, str]]) -> str:
         self.calls += 1
         return self._payload
 
@@ -36,7 +36,7 @@ class PositionBiasedProvider:
         self.criterion = criterion
         self.calls = 0
 
-    def complete_json(self, messages):  # noqa: ANN001, ANN201
+    def complete_json(self, messages: list[dict[str, str]]) -> str:
         self.calls += 1
         return json.dumps(
             {
@@ -67,7 +67,7 @@ class FlakyProvider:
         self.retryable = retryable
         self.calls = 0
 
-    def complete_json(self, messages):  # noqa: ANN001, ANN201
+    def complete_json(self, messages: list[dict[str, str]]) -> str:
         self.calls += 1
         if self.calls <= self.fail_times:
             raise ProviderError("transient boom", retryable=self.retryable)

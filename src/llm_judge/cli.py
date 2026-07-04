@@ -21,6 +21,7 @@ from . import __version__
 from .criteria import CRITERIA_PRESETS
 from .exceptions import LLMJudgeError
 from .logging_config import configure_logging
+from .models import JudgeResult
 
 
 def _read_text_arg(value: str | None, file_value: str | None, name: str) -> str:
@@ -144,7 +145,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
     return 0 if ok == len(results) else 1
 
 
-def _print_summary(result) -> None:  # noqa: ANN001 - JudgeResult, kept loose for CLI
+def _print_summary(result: JudgeResult) -> None:
     print(f"\nOverall winner: {result.overall_winner.value.upper()}")
     if result.overall_comment:
         print(f"Comment: {result.overall_comment}\n")

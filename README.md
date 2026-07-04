@@ -11,6 +11,23 @@ tool**, and a **Streamlit web app** — all sharing the same evaluation core.
 
 ---
 
+## Contents
+
+- [Why this exists](#why-this-exists)
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Batch input format](#batch-input-format)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Security](#security)
+- [Contributing](#contributing)
+- [Roadmap](#roadmap)
+- [License](#license)
+
+---
+
 ## Why this exists
 
 "LLM-as-Judge" is a common pattern for scoring subjective qualities — creativity,
@@ -125,6 +142,30 @@ print(result.score_for("A"))            # mean score across criteria
 print(result.model_dump(mode="json"))   # full structured result
 ```
 
+Every evaluation returns a validated, structured result:
+
+```json
+{
+  "criteria": [
+    {
+      "criterion": "Helpfulness",
+      "output_a_score": 8.0,
+      "output_b_score": 3.0,
+      "output_a_explanation": "Directly and accurately answers the task.",
+      "output_b_explanation": "Vague and largely off-topic.",
+      "winner": "A"
+    }
+  ],
+  "overall_winner": "A",
+  "overall_comment": "Output A is clearly more helpful.",
+  "metadata": {
+    "model": "llama-3.3-70b-versatile",
+    "position_bias_mitigated": false,
+    "latency_seconds": 0.93
+  }
+}
+```
+
 ---
 
 ## Batch input format
@@ -205,8 +246,18 @@ deterministically — no API key or network required.
 ## Security
 
 - `.env` is git-ignored; **never commit real keys**.
-- If a key is exposed, rotate it immediately in the Groq console.
+- If a key is exposed, rotate it immediately in the [Groq console](https://console.groq.com/keys).
 - The library never logs secret values.
+
+See [`SECURITY.md`](SECURITY.md) for the vulnerability-reporting policy.
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
+development setup and the quality gate (`ruff`, `mypy`, `pytest`) your change
+should pass, then open an issue or pull request.
 
 ---
 
@@ -216,8 +267,6 @@ deterministically — no API key or network required.
 - Pointwise (single-output) grading in addition to pairwise
 - Confidence intervals via multi-sample judging
 - Experiment-tracking integrations (W&B, LangSmith)
-
-Contributions are welcome — please open an issue or PR.
 
 ---
 

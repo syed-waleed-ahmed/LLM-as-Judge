@@ -15,7 +15,7 @@ import json
 
 import streamlit as st
 
-from llm_judge import CRITERIA_PRESETS, Judge, Winner, get_settings
+from llm_judge import CRITERIA_PRESETS, Judge, JudgeResult, Winner, get_settings
 from llm_judge.exceptions import ConfigurationError, LLMJudgeError
 
 st.set_page_config(page_title="LLM-as-Judge", page_icon="🤖", layout="wide")
@@ -63,7 +63,7 @@ def _sidebar() -> tuple[list[str], bool]:
         return criteria, mitigate_bias
 
 
-def _render_result(result) -> None:  # noqa: ANN001 - JudgeResult
+def _render_result(result: JudgeResult) -> None:
     st.subheader("📊 Judgment Results")
 
     winner = result.overall_winner

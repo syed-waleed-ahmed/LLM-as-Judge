@@ -152,7 +152,7 @@ class BatchEvaluator:
                 output_b=record.output_b,
                 criteria=criteria,
             )
-        except Exception as exc:  # noqa: BLE001 - isolate per-row failures
+        except Exception as exc:  # isolate per-row failures so one bad row never aborts the batch
             logger.error("Failed to judge record %s: %s", record.id, exc)
             return BatchRowResult(id=record.id, ok=False, error=str(exc))
 

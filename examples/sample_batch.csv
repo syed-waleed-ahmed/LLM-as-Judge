@@ -1,0 +1,4 @@
+id,task_description,output_a,output_b
+1,Write a friendly tweet announcing our new AI tool,"🚀 Meet our new AI tool! It saves you hours every week. Try it free today.","We have released a new artificial intelligence product. It is available now."
+2,Summarise the plot of Cinderella in one sentence,"A mistreated young woman attends a royal ball with magical help and wins the prince's heart, identified later by a lost glass slipper.","Cinderella is a story about a girl."
+3,"Refactor this for readability: def f(x):return x*2 if x>0 else -x","def double_or_abs(value):\n    return value * 2 if value > 0 else -value","def f(x):\n  return x*2 if x>0 else -x"

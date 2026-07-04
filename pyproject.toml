@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-as-judge"
+version = "1.0.0"
+description = "A production-grade LLM-as-Judge framework for evaluating and comparing model outputs, with position-bias mitigation, multi-criteria scoring, batch evaluation, a CLI, and a Streamlit UI."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Syed Waleed Ahmed", email = "syedwaleedahmed9@gmail.com" }]
+keywords = ["llm", "evaluation", "judge", "groq", "llm-as-judge", "benchmarking", "nlp"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "groq>=0.11.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "python-dotenv>=1.0.0",
+    "tenacity>=8.2.0",
+]
+
+[project.optional-dependencies]
+ui = ["streamlit>=1.35.0"]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+]
+
+[project.scripts]
+llm-judge = "llm_judge.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/syed-waleed-ahmed/LLM-as-Judge"
+Repository = "https://github.com/syed-waleed-ahmed/LLM-as-Judge"
+Issues = "https://github.com/syed-waleed-ahmed/LLM-as-Judge/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["llm_judge*"]
+
+[tool.setuptools.package-data]
+llm_judge = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "src"
+files = ["src/llm_judge"]
+warn_unused_ignores = true
+ignore_missing_imports = true

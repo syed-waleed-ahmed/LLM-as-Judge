@@ -1,3 +1,6 @@
-streamlit>=1.35.0
-groq>=0.9.0
-python-dotenv>=1.0.0
+# Runtime + UI dependencies.
+#
+# pyproject.toml is the single source of truth for versions; this file simply
+# installs the project with its "ui" extra so `pip install -r requirements.txt`
+# keeps working for users who prefer it.
+.[ui]

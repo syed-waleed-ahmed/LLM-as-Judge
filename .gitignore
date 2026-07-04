@@ -1,16 +1,38 @@
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
 
-# Virtual environment
+# Virtual environments
 .venv/
+venv/
+env/
 
-# Environment variables
+# Environment variables & secrets
 .env
 
 # Streamlit
 .streamlit/
 
+# Testing / coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Editors / IDEs
+.idea/
+.vscode/
+
 # OS-specific
 .DS_Store
 Thumbs.db
+
+# Local batch outputs
+*.results.csv
+*.results.jsonl

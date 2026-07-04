@@ -18,7 +18,7 @@ import streamlit as st
 from llm_judge import CRITERIA_PRESETS, Judge, JudgeResult, Winner, get_settings
 from llm_judge.exceptions import ConfigurationError, LLMJudgeError
 
-st.set_page_config(page_title="LLM-as-Judge", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="LLM-as-Judge", layout="wide")
 
 
 @st.cache_resource(show_spinner=False)
@@ -30,7 +30,7 @@ def _get_judge(mitigate_bias: bool) -> Judge:
 
 def _sidebar() -> tuple[list[str], bool]:
     with st.sidebar:
-        st.header("⚙️ Evaluation Settings")
+        st.header("Evaluation Settings")
 
         selected = st.multiselect(
             "Criteria",
@@ -64,15 +64,15 @@ def _sidebar() -> tuple[list[str], bool]:
 
 
 def _render_result(result: JudgeResult) -> None:
-    st.subheader("📊 Judgment Results")
+    st.subheader("Judgment Results")
 
     winner = result.overall_winner
     if winner == Winner.A:
-        st.success("🏆 Output A is preferred overall.")
+        st.success("Output A is preferred overall.")
     elif winner == Winner.B:
-        st.success("🏆 Output B is preferred overall.")
+        st.success("Output B is preferred overall.")
     else:
-        st.info("⚖️ The judge declared an overall tie.")
+        st.info("The judge declared an overall tie.")
 
     if result.overall_comment:
         st.write(result.overall_comment)
@@ -93,7 +93,7 @@ def _render_result(result: JudgeResult) -> None:
         st.json(result.model_dump(mode="json"))
 
     st.download_button(
-        "⬇️ Download result (JSON)",
+        "Download result (JSON)",
         data=json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False),
         file_name="judgment.json",
         mime="application/json",
@@ -101,7 +101,7 @@ def _render_result(result: JudgeResult) -> None:
 
 
 def main() -> None:
-    st.title("🤖 LLM-as-Judge Evaluation Framework")
+    st.title("LLM-as-Judge Evaluation Framework")
     st.markdown(
         "Let a powerful LLM act as an impartial judge to compare **two model "
         "outputs** across one or more criteria — with optional position-bias "
@@ -124,7 +124,7 @@ def main() -> None:
 
     st.markdown("---")
 
-    if st.button("⚖️ Evaluate Outputs", type="primary"):
+    if st.button("Evaluate Outputs", type="primary"):
         if not task.strip() or not output_a.strip() or not output_b.strip():
             st.error("Please fill in the task description and both outputs.")
             return

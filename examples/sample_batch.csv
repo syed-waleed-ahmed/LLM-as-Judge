@@ -1,4 +1,4 @@
 id,task_description,output_a,output_b
-1,Write a friendly tweet announcing our new AI tool,"🚀 Meet our new AI assistant — it saves you hours every week. Try it free today!","We have released a new artificial intelligence product. It is now available."
+1,Write a friendly tweet announcing our new AI tool,"Meet our new AI assistant - it saves you hours every week. Try it free today!","We have released a new artificial intelligence product. It is now available."
 2,Summarise the plot of Cinderella in one sentence,"A mistreated young woman attends a royal ball with magical help and wins the prince's heart, later identified by a lost glass slipper.","Cinderella is a story about a girl."
 3,Explain what an API is to a non-technical reader,"An API is like a waiter: it takes your request to the kitchen, then brings back exactly what you asked for — without you needing to know how the kitchen works.","An API is an application programming interface used by software."

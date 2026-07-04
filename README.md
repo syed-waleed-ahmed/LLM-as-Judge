@@ -1,4 +1,4 @@
-# 🤖 LLM-as-Judge
+# LLM-as-Judge
 
 A **production-grade LLM-as-Judge framework** for evaluating and comparing model
 outputs. It uses a [Groq](https://groq.com)-hosted LLM (Llama 3 by default) as an
@@ -51,16 +51,16 @@ this project handles the parts that usually get skipped:
 
 ## Features
 
-| | |
+| Capability | Description |
 |---|---|
-| 🧩 **Library, CLI & UI** | One evaluation core, three ways to use it. |
-| 🎯 **Multi-criteria** | Score on several criteria at once (built-in or custom). |
-| ⚖️ **Bias mitigation** | Optional A/B order swapping to reduce position bias. |
-| 🔁 **Retries & backoff** | Automatic retry of transient errors via `tenacity`. |
-| 📦 **Batch mode** | Concurrent CSV/JSONL evaluation for large datasets. |
-| 🧪 **Fully tested** | 59 unit tests, ~97% coverage, no network calls in CI. |
-| 🔌 **Pluggable providers** | Add a backend by implementing one method. |
-| 🛡️ **Typed & linted** | Pydantic models, `mypy`-clean, `ruff`-clean. |
+| **Library, CLI & UI** | One evaluation core, three ways to use it. |
+| **Multi-criteria** | Score on several criteria at once (built-in or custom). |
+| **Bias mitigation** | Optional A/B order swapping to reduce position bias. |
+| **Retries & backoff** | Automatic retry of transient errors via `tenacity`. |
+| **Batch mode** | Concurrent CSV/JSONL evaluation for large datasets. |
+| **Fully tested** | 59 unit tests, ~97% coverage, no network calls in CI. |
+| **Pluggable providers** | Add a backend by implementing one method. |
+| **Typed & linted** | Pydantic models, `mypy`-clean, `ruff`-clean. |
 
 ---
 
@@ -109,7 +109,7 @@ llm-judge list-criteria
 # Judge a single pair
 llm-judge evaluate \
   --task "Write a friendly tweet announcing our new AI tool" \
-  --output-a "🚀 Meet our new AI tool! Saves you hours every week. Try it free." \
+  --output-a "Meet our new AI assistant - it saves you hours every week. Try it free!" \
   --output-b "We have released a new artificial intelligence product." \
   --criteria "Creativity,Brand Tone Adherence" \
   --mitigate-bias

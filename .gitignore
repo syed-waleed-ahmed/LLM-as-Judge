@@ -37,5 +37,5 @@ Thumbs.db
 *.results.csv
 *.results.jsonl
 
-# Tooling / generated output (not part of the project)
-graphify-out/
+# Graphify: ignore only the regenerable cache; the graph artifacts are kept as docs.
+graphify-out/cache/

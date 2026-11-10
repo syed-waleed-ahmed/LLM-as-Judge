@@ -99,7 +99,13 @@ with sync_playwright() as p:
     nav(page, "Playground")
     page.get_by_text("Summary", exact=True).first.click()
     idle(page)
-    task_value = page.get_by_label("Task").first.input_value()
+    task_box = page.get_by_label("Task").first
+    task_value = ""
+    for _ in range(40):  # the rerun that fills the example can lag on a cold start
+        task_value = task_box.input_value()
+        if "Summarise" in task_value:
+            break
+        page.wait_for_timeout(250)
     check("playground: example loads", "Summarise" in task_value, task_value[:40])
     page.get_by_role("button", name="Compare", exact=True).click()
     idle(page, 120)

@@ -7,8 +7,9 @@ Set ``JUDGE_EMBEDDINGS_PROVIDER`` to ``ollama`` (local, for example
 output's and the reference's embeddings. It complements token F1, which only
 measures word overlap.
 
-Both backends are free to run. They're tested against simulated HTTP
-responses; neither had a live server to check against when this was written.
+Both backends are free to run. The Ollama backend is verified live in CI (the
+"Live Ollama" workflow, with ``nomic-embed-text``); the OpenAI-compatible one is
+tested against simulated responses.
 An embedding failure never fails an evaluation: the metric is left empty and
 the result carries a ``semantic_similarity_unavailable`` warning.
 """

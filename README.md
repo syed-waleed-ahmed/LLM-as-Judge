@@ -13,6 +13,7 @@ labelled mock judge.
 [![CI](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fsyed-waleed-ahmed.github.io%2FLLM-as-Judge%2Fbadges%2Fcoverage.json)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/docs.yml)
 [![CodeQL](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/codeql.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/codeql.yml)
+[![Live Ollama](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/live-ollama.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/live-ollama.yml)
 [![Docs](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/docs.yml/badge.svg)](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)
 [![Release](https://img.shields.io/github/v/release/syed-waleed-ahmed/LLM-as-Judge)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases)
 ![Python 3.10 to 3.13](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
@@ -147,11 +148,11 @@ release tag or from the wheel attached to a
 [GitHub Release](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases):
 
 ```bash
-# From the v2.1.0 tag (extras: ui, api, yaml, all)
-pip install "llm-as-judge[all] @ git+https://github.com/syed-waleed-ahmed/LLM-as-Judge@v2.1.0"
+# From the v2.2.0 tag (extras: ui, api, yaml, postgres, all)
+pip install "llm-as-judge[all] @ git+https://github.com/syed-waleed-ahmed/LLM-as-Judge@v2.2.0"
 
 # Or from the release wheel
-pip install "llm-as-judge[all] @ https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/download/v2.1.0/llm_as_judge-2.1.0-py3-none-any.whl"
+pip install "llm-as-judge[all] @ https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/download/v2.2.0/llm_as_judge-2.2.0-py3-none-any.whl"
 ```
 
 Either way you get the `llm-judge` command. To run the dashboard, clone the
@@ -669,7 +670,7 @@ The judge runs on any of these backends. Pick one with `JUDGE_PROVIDER` or the
 | Provider | API key | Runs | Notes |
 |---|---|---|---|
 | `groq` (default) | yes ([free](https://console.groq.com/keys)) | cloud | Free plan, rate-limited per model. Default judge `openai/gpt-oss-120b`. |
-| `ollama` | no | your machine | Free local models via [Ollama](https://ollama.com): `ollama pull llama3.2`. |
+| `ollama` | no | your machine | Free local models via [Ollama](https://ollama.com): `ollama pull llama3.2`. Verified live weekly in CI with `qwen2.5:1.5b`. |
 | `openai_compatible` | optional | either | Any `/chat/completions` server: LM Studio, vLLM, llama.cpp, or hosted free models. Verified live against Groq's OpenAI-compatible endpoint (`https://api.groq.com/openai/v1`). |
 | `mock` | no | offline | Deterministic heuristic, **not an LLM**. For demos, tests and trying the tool without a key. |
 
@@ -856,8 +857,8 @@ benchmark samples.
 - **Semantic similarity is optional.** Reference grading always combines the
   judge's correctness and completeness scores with exact match and token F1,
   which are lexical. Embedding-based semantic similarity needs an embedding
-  backend (`JUDGE_EMBEDDINGS_PROVIDER`). It has been tested against simulated
-  responses only, because Groq offers no embeddings API.
+  backend (`JUDGE_EMBEDDINGS_PROVIDER`). Ollama embeddings are verified live in
+  CI; Groq offers no embeddings API.
 - **Single-node jobs.** REST API jobs run in an in-process queue that doesn't
   survive a restart, and nothing scales horizontally. Recorded runs can live in
   PostgreSQL or Supabase, so they can outlive a single machine.
@@ -865,8 +866,7 @@ benchmark samples.
   Pillow, which Streamlit needs, require Python 3.11+, so run the dashboard on
   3.11 or later. The library, CLI and API still run on 3.10, and CI audits their
   dependencies there.
-- **Not externally verified everywhere.** The Ollama provider is tested against
-  simulated responses only. The REST API isn't hosted publicly; run it locally
+- **Not hosted everywhere.** The REST API isn't hosted publicly; run it locally
   or on your own server. The package isn't on PyPI yet.
 
 <!-- --8<-- [end:limitations] -->

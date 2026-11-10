@@ -43,9 +43,6 @@ before starting.
   registry or the `llm_judge.providers` entry-point group.
 - **More benchmark samples.** Nine ship today. More small, synthetic, clearly
   licensed datasets are welcome, for example translation or multi-turn dialogue.
-- **Live checks for Ollama and embeddings.** The Ollama provider and the
-  embedding backends are tested against simulated responses only; a CI job
-  with a small local model would verify them end to end.
 - **Drop Python 3.10.** It is deprecated (end of life since October 2026) and
   can be removed in the next major or minor release.
 

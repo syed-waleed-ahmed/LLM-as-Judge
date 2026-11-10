@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-10
+
+The next phases from the roadmap:
+- a PostgreSQL experiment store, including Supabase, tested in CI against a
+  real server;
+- live CI checks for the Ollama provider and Ollama embeddings, both passing;
+- three more benchmark samples.
+
+The public API and the result schema are unchanged.
+
 ### Added
 - PostgreSQL experiment store, including Supabase.
   - Set `JUDGE_DB_PATH` to a `postgresql://` URL (`pip install -e ".[postgres]"`)
@@ -582,7 +592,8 @@ of scripts into an installable, tested, and documented framework.
 - Legacy flat modules (`config.py`, `judge.py`, `prompts.py`) superseded by the
   package.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/tag/v2.0.0

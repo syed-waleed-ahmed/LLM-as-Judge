@@ -130,7 +130,7 @@ def _document_rows(path: Path, suffix: str) -> Iterator[dict[str, Any]]:
         try:
             # A SafeLoader that also forbids aliases: anchors and aliases let a tiny
             # file expand into gigabytes ("billion laughs").
-            data = yaml.load(text, Loader=_no_alias_loader(yaml))
+            data = yaml.load(text, Loader=_no_alias_loader(yaml))  # nosec B506 - SafeLoader subclass
         except (yaml.YAMLError, RecursionError) as exc:
             raise DatasetError(f"{path.name}: invalid YAML ({exc}).") from None
 

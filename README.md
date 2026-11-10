@@ -164,17 +164,18 @@ result = judge.evaluate(
     output_a="A concise, accurate one-line summary.",
     output_b="A rambling three-paragraph response.",
     criteria=["Helpfulness", "Conciseness"],
-    candidate_a_model="gpt-4o",          # optional; recorded in metadata
+    candidate_a_model="gpt-4o",  # optional; recorded in metadata
 )
 
-print(result.overall_winner)            # Winner.A
-print(result.overall_score_a)           # weighted, scale-normalised score (0-1)
-for warning in result.warnings:         # reliability signals worth a second look
+print(result.overall_winner)  # Winner.A
+print(result.overall_score_a)  # weighted, scale-normalised score (0-1)
+for warning in result.warnings:  # reliability signals worth a second look
     print(warning.code, warning.message)
 
 # Custom criteria can set their own scale and weight.
-coverage = Criterion(name="Coverage", description="Covers every key point.",
-                     scale_min=0, scale_max=100, weight=2)
+coverage = Criterion(
+    name="Coverage", description="Covers every key point.", scale_min=0, scale_max=100, weight=2
+)
 judge.evaluate("...", "...", "...", [resolve_criterion("Helpfulness"), coverage])
 ```
 
@@ -186,11 +187,10 @@ grade = judge.evaluate_pointwise("Explain DNS.", answer, ["Helpfulness", "Concis
 print(grade.overall_score, grade.feedback)
 
 # Reference-based: compare with an expected answer (defaults to Correctness + Completeness).
-check = judge.evaluate_reference("When did Apollo 11 land?", "In 1968.",
-                                 reference="20 July 1969.")
-print(check.unsupported_claims)        # hallucination indicators
-print(check.missing_information)       # key points the output omits
-print(check.reference_metrics)         # exact_match and token_f1 (no LLM involved)
+check = judge.evaluate_reference("When did Apollo 11 land?", "In 1968.", reference="20 July 1969.")
+print(check.unsupported_claims)  # hallucination indicators
+print(check.missing_information)  # key points the output omits
+print(check.reference_metrics)  # exact_match and token_f1 (no LLM involved)
 
 # Ranking: round robin (every pair head to head) or pointwise (cheaper).
 ranking = judge.rank("Write a tagline", {"v1": "...", "v2": "...", "v3": "..."})

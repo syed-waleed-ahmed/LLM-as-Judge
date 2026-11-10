@@ -661,6 +661,8 @@ def _print_summary_stats(summary: DatasetSummary) -> None:
             print(f"  mean overall score: {summary.mean_overall_score:.3f}")
         if summary.mean_token_f1 is not None:
             print(f"  mean token F1 vs reference: {summary.mean_token_f1:.3f}")
+        if summary.mean_semantic_similarity is not None:
+            print(f"  mean semantic similarity: {summary.mean_semantic_similarity:.3f}")
         if summary.rows_with_unsupported_claims is not None:
             print(f"  rows with unsupported claims: {summary.rows_with_unsupported_claims}")
         for m in summary.models:
@@ -1122,6 +1124,8 @@ def _print_grade(result: PointwiseResult) -> None:
     if result.reference_metrics:
         m = result.reference_metrics
         print(f"\nReference metrics: token F1 {m.token_f1:.3f}, exact match {m.exact_match}")
+        if m.semantic_similarity is not None:
+            print(f"  semantic similarity {m.semantic_similarity:.3f} ({m.embedding_model})")
     _print_warnings(result.warnings)
 
 

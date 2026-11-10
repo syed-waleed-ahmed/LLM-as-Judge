@@ -135,6 +135,8 @@ def _results_section(run: RunInfo) -> list[str]:
         rows: list[tuple[str, object]] = [("Mean overall score (0-1)", s.get("mean_overall_score"))]
         if s.get("mean_token_f1") is not None:
             rows.append(("Mean token F1 vs reference", s.get("mean_token_f1")))
+        if s.get("mean_semantic_similarity") is not None:
+            rows.append(("Mean semantic similarity", s.get("mean_semantic_similarity")))
         if s.get("rows_with_unsupported_claims") is not None:
             rows.append(
                 (

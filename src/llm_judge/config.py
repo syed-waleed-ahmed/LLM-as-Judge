@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     openai_model: str | None = Field(default=None, alias="JUDGE_OPENAI_MODEL")
     openai_json_mode: bool = Field(default=True, alias="JUDGE_OPENAI_JSON_MODE")
 
+    #: Optional embeddings for semantic similarity in reference grading.
+    embeddings_provider: str = Field(default="", alias="JUDGE_EMBEDDINGS_PROVIDER")
+    embeddings_model: str | None = Field(default=None, alias="JUDGE_EMBEDDINGS_MODEL")
+    embeddings_base_url: str | None = Field(default=None, alias="JUDGE_EMBEDDINGS_BASE_URL")
+    embeddings_api_key: str | None = Field(
+        default=None, alias="JUDGE_EMBEDDINGS_API_KEY", repr=False
+    )
+
     #: Opt-in fallback: comma-separated providers tried, in order, when a call to
     #: the primary provider fails (e.g. "ollama"). Empty disables fallback.
     fallback_providers: str = Field(default="", alias="JUDGE_FALLBACK_PROVIDERS")

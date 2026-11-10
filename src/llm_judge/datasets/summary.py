@@ -49,6 +49,7 @@ class DatasetSummary(BaseModel):
     # Pointwise and reference only.
     mean_overall_score: float | None = None
     mean_token_f1: float | None = None
+    mean_semantic_similarity: float | None = None
     rows_with_unsupported_claims: int | None = None
     #: Mean raw score per criterion: {"A": .., "B": ..} (pairwise) or {"score": ..}.
     criteria_means: dict[str, dict[str, float]] = Field(default_factory=dict)
@@ -132,6 +133,7 @@ def _pairwise(summary: DatasetSummary, ok: list[RowOutcome]) -> None:
 def _graded(summary: DatasetSummary, ok: list[RowOutcome]) -> None:
     overall: list[float] = []
     f1: list[float] = []
+    semantic: list[float] = []
     unsupported = 0
     per_criterion: dict[str, list[float]] = defaultdict(list)
     per_model: dict[str, list[float]] = defaultdict(list)
@@ -147,6 +149,8 @@ def _graded(summary: DatasetSummary, ok: list[RowOutcome]) -> None:
             per_criterion[c.criterion].append(c.score)
         if result.reference_metrics is not None:
             f1.append(result.reference_metrics.token_f1)
+            if result.reference_metrics.semantic_similarity is not None:
+                semantic.append(result.reference_metrics.semantic_similarity)
         if result.unsupported_claims:
             unsupported += 1
 
@@ -156,6 +160,7 @@ def _graded(summary: DatasetSummary, ok: list[RowOutcome]) -> None:
     }
     if summary.kind == "reference":
         summary.mean_token_f1 = _mean(f1)
+        summary.mean_semantic_similarity = _mean(semantic)
         summary.rows_with_unsupported_claims = unsupported
     summary.models = sorted(
         (

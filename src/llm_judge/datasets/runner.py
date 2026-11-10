@@ -453,6 +453,9 @@ def flat_row(outcome: RowOutcome) -> dict[str, object]:
         row.update(
             {
                 "token_f1": "" if metrics is None else metrics.token_f1,
+                "semantic_similarity": ""
+                if metrics is None or metrics.semantic_similarity is None
+                else metrics.semantic_similarity,
                 "exact_match": "" if metrics is None else metrics.exact_match,
                 "missing_information": _join(graded.missing_information) if graded else "",
                 "unsupported_claims": _join(graded.unsupported_claims) if graded else "",

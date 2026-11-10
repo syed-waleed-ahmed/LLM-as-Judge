@@ -297,7 +297,7 @@ print(grade.overall_score, grade.feedback)
 check = judge.evaluate_reference("When did Apollo 11 land?", "In 1968.", reference="20 July 1969.")
 print(check.unsupported_claims)  # hallucination indicators
 print(check.missing_information)  # key points the output omits
-print(check.reference_metrics)  # exact_match and token_f1 (no LLM involved)
+print(check.reference_metrics)  # exact_match, token_f1, optional semantic_similarity
 
 # Ranking: round robin (every pair head to head) or pointwise (cheaper).
 ranking = judge.rank("Write a tagline", {"v1": "...", "v2": "...", "v3": "..."})
@@ -623,6 +623,9 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_MAX_INPUT_CHARS` | `50000` | Longer inputs are truncated (with a warning). |
 | `JUDGE_MAX_INSTRUCTIONS_CHARS` | `2000` | Longest judge guidance (`instructions`); longer text is truncated with a warning. |
 | `JUDGE_CACHE_SIZE` | `0` (off) | Opt-in in-memory cache of identical temperature-0 results; hits are marked `cache_hit`. |
+| `JUDGE_EMBEDDINGS_PROVIDER` | *(empty)* | `ollama` or `openai_compatible`: adds embedding-based `semantic_similarity` to reference grading. |
+| `JUDGE_EMBEDDINGS_MODEL` | *(empty)* | Embedding model, e.g. `nomic-embed-text` on Ollama. |
+| `JUDGE_EMBEDDINGS_BASE_URL` / `JUDGE_EMBEDDINGS_API_KEY` | *(provider defaults)* | Override the embeddings endpoint and key (default: the Ollama or OpenAI-compatible settings). |
 | `JUDGE_API_KEYS` | — | Comma-separated keys required by `/api/v1` (open if unset). |
 | `JUDGE_API_ADMIN_KEY` | — | Enables admin routes (they're disabled if unset). |
 | `JUDGE_API_RATE_LIMIT` | `60` | Requests per minute per client (0 disables). |
@@ -836,9 +839,11 @@ benchmark samples.
   The public demo caps live calls, and its app sleeps when idle.
 - **The mock judge isn't an LLM.** It's a text heuristic for demos and tests,
   and it ignores judge instructions. Its results are always labelled.
-- **Reference similarity is lexical.** Reference grading combines the judge's
-  correctness and completeness scores with exact match and token F1. It doesn't
-  use embedding-based semantic similarity.
+- **Semantic similarity is optional.** Reference grading always combines the
+  judge's correctness and completeness scores with exact match and token F1,
+  which are lexical. Embedding-based semantic similarity needs an embedding
+  backend (`JUDGE_EMBEDDINGS_PROVIDER`). It has been tested against simulated
+  responses only, because Groq offers no embeddings API.
 - **Single-node storage and jobs.** Runs live in SQLite, and API jobs run in an
   in-process queue that doesn't survive a restart. There's no Supabase/Postgres
   adapter and no horizontal scaling.

@@ -37,6 +37,13 @@ process-wide cache of that size. Only temperature-0 results are cached, hits
 carry `metadata["cache_hit"] = True`, and `judge.without_cache()` returns an
 uncached copy.
 
+`Judge(..., embedder=None)`: an optional `llm_judge.providers.embeddings`
+backend (`OllamaEmbeddings`, `OpenAICompatibleEmbeddings`, or anything with
+`model` and `embed(texts)`). By default it comes from `JUDGE_EMBEDDINGS_*`. With
+one, reference grading fills `reference_metrics.semantic_similarity` (cosine,
+-1 to 1) and `embedding_model`. If embedding fails, the grade still succeeds
+and carries a `semantic_similarity_unavailable` warning.
+
 `instructions` is optional guidance for the judge (for example "Penalise answers
 that state facts without a source"). It goes into the system prompt as evaluator
 guidance, outside the untrusted-content markers, and can't change the response

@@ -47,6 +47,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   metadata. Mock runs are labelled. The dashboard's Experiments page offers
   run and comparison reports as downloads.
 - `GET /api/v1/experiments/{name}`: one experiment and a page of its runs.
+- Optional semantic similarity for reference grading.
+  - With `JUDGE_EMBEDDINGS_PROVIDER` set to `ollama` (local, e.g.
+    `nomic-embed-text`) or `openai_compatible` (any `/v1/embeddings` server),
+    `reference_metrics.semantic_similarity` holds the cosine similarity of
+    the output's and the reference's embeddings, alongside token F1.
+  - Batch outputs, run summaries (`mean_semantic_similarity`), reports, the
+    CLI and the dashboard show it.
+  - An embedding failure leaves it empty, with a
+    `semantic_similarity_unavailable` warning.
+  - Tested against simulated responses only: Groq offers no embeddings API.
 - README and docs site:
   - screenshots of the Playground, RAG evaluation, Experiments and Analytics
     pages, with live Groq judgments;

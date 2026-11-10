@@ -33,6 +33,7 @@ from .models import (
 from .parsing import extract_json_object
 from .prompts import PROMPT_VERSION, guidance_block, new_boundary
 from .providers.base import ChatMessage
+from .providers.embeddings import cosine_similarity
 from .providers.fallback import fallback_warnings, track_fallbacks
 from .scoring import match_criteria, weighted_mean
 
@@ -243,7 +244,23 @@ def run_pointwise(
     update: dict[str, object] = {"mode": "pointwise"}
     if reference is not None:
         update["mode"] = "reference"
-        update["reference_metrics"] = reference_metrics(output, reference)
+        metrics = reference_metrics(output, reference)
+        embedder = getattr(judge, "embedder", None)
+        if embedder is not None:
+            try:
+                vectors = embedder.embed([output, reference])
+                metrics.semantic_similarity = round(
+                    max(-1.0, min(1.0, cosine_similarity(vectors[0], vectors[1]))), 4
+                )
+                metrics.embedding_model = embedder.model
+            except Exception as exc:  # an optional metric must never fail the grade
+                warnings.append(
+                    EvaluationWarning(
+                        code="semantic_similarity_unavailable",
+                        message=f"Semantic similarity couldn't be computed: {exc}",
+                    )
+                )
+        update["reference_metrics"] = metrics
         if result.unsupported_claims:
             warnings.append(
                 EvaluationWarning(

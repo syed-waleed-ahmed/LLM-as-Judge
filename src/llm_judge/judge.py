@@ -62,6 +62,7 @@ from .prompts import (
     new_boundary,
 )
 from .providers.base import ChatMessage, LLMProvider
+from .providers.embeddings import EmbeddingProvider, build_embedder
 from .providers.fallback import fallback_warnings, track_fallbacks
 from .scoring import criterion_key, decide_winner, match_criteria, weighted_mean
 
@@ -171,9 +172,14 @@ class Judge:
         settings: Settings | None = None,
         *,
         cache: ResultCache[Any] | None = None,
+        embedder: EmbeddingProvider | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.provider = provider or self._build_default_provider(self.settings)
+        #: Optional embeddings for reference grading's semantic similarity.
+        self.embedder: EmbeddingProvider | None = (
+            embedder if embedder is not None else build_embedder(self.settings)
+        )
         #: Optional result cache. Defaults to the shared cache when JUDGE_CACHE_SIZE > 0.
         self.cache: ResultCache[Any] | None = cache
         if cache is None and self.settings.cache_size > 0:
@@ -363,7 +369,8 @@ class Judge:
 
         Defaults to the "Correctness" and "Completeness" criteria. The result
         lists ``missing_information`` and ``unsupported_claims``, and includes
-        deterministic ``reference_metrics`` (exact match and token F1).
+        ``reference_metrics``: exact match and token F1, plus semantic similarity
+        when an embedding backend is configured.
         """
         return self.evaluate_pointwise(
             task_description,
@@ -465,6 +472,7 @@ class Judge:
                 **inputs,
                 "criteria": [c.model_dump() for c in self.resolve_criteria(criteria)],
                 "judge": [provider_name(self.provider), self.provider.model],
+                "embedder": getattr(self.embedder, "model", None),
                 "prompt_version": PROMPT_VERSION,
                 "version": __version__,
                 "settings": [

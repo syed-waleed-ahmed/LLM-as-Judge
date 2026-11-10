@@ -393,9 +393,14 @@ def render_pointwise(result: PointwiseResult, key: str) -> None:
                 st.markdown(f"- {item}")
         if result.reference_metrics:
             m = result.reference_metrics
+            semantic = (
+                f", semantic similarity {m.semantic_similarity:.3f} ({m.embedding_model})"
+                if m.semantic_similarity is not None
+                else ""
+            )
             st.caption(
-                f"Deterministic overlap with the reference (no LLM): token F1 {m.token_f1:.3f}, "
-                f"exact match {'yes' if m.exact_match else 'no'}."
+                f"Similarity to the reference (no LLM): token F1 {m.token_f1:.3f}, "
+                f"exact match {'yes' if m.exact_match else 'no'}{semantic}."
             )
     render_warnings(result.warnings)
     for score in result.criteria:

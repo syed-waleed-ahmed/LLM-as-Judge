@@ -12,11 +12,23 @@ session-only storage); see DEPLOYMENT.md.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import streamlit as st
 
-from dashboard.common import render_sidebar, render_sidebar_status
+from dashboard.common import package_version_mismatch, render_sidebar, render_sidebar_status
 
 st.set_page_config(page_title="LLM-as-Judge", page_icon=":material/balance:", layout="wide")
+
+mismatch = package_version_mismatch(Path(__file__).resolve().parent)
+if mismatch:
+    installed, source = mismatch
+    st.error(
+        f"The installed llm_judge package ({installed}) doesn't match this app's code "
+        f'({source}), so some pages may fail. Reinstall it with `pip install -e ".[ui]"`, '
+        "or reboot the app on Streamlit Community Cloud.",
+        icon=":material/sync_problem:",
+    )
 
 VIEWS = "dashboard/views"
 navigation = st.navigation(

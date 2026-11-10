@@ -425,3 +425,17 @@ def test_log_handler_follows_a_replaced_stderr(monkeypatch):
     monkeypatch.setattr(sys, "stderr", second)
     logging.getLogger("llm_judge.test").warning("two")
     assert "two" in second.getvalue()
+
+
+def test_dashboard_detects_a_stale_package_install(tmp_path):
+    """A deployment that kept an old llm_judge install now explains itself."""
+    from dashboard.common import package_version_mismatch
+    from llm_judge import __version__
+
+    init = tmp_path / "src" / "llm_judge" / "__init__.py"
+    init.parent.mkdir(parents=True)
+    init.write_text(f'__version__ = "{__version__}"\n', encoding="utf-8")
+    assert package_version_mismatch(tmp_path) is None
+    init.write_text('__version__ = "99.0.0"\n', encoding="utf-8")
+    assert package_version_mismatch(tmp_path) == (__version__, "99.0.0")
+    assert package_version_mismatch(tmp_path / "missing") is None  # no checkout: no check

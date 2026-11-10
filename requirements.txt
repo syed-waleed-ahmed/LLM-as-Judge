@@ -1,6 +1,9 @@
 # Runtime + UI dependencies.
 #
-# pyproject.toml is the single source of truth for versions; this file simply
-# installs the project with its "ui" extra so `pip install -r requirements.txt`
-# keeps working for users who prefer it.
-.[ui]
+# pyproject.toml is the single source of truth for versions; this file installs
+# the project with its "ui" extra so `pip install -r requirements.txt` works.
+#
+# Editable on purpose: Streamlit Community Cloud only reinstalls requirements when
+# this file changes. A regular install would keep running the package version from
+# the first deploy while the dashboard code updates, so the two drift apart.
+-e .[ui]

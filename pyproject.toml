@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,13 +8,13 @@ dynamic = ["version"]
 description = "A production-grade LLM-as-Judge framework for evaluating and comparing model outputs, with position-bias mitigation, multi-criteria scoring, batch evaluation, a CLI, and a Streamlit UI."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Syed Waleed Ahmed", email = "syedwaleedahmed9@gmail.com" }]
 keywords = ["llm", "evaluation", "judge", "groq", "llm-as-judge", "benchmarking", "nlp"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -36,6 +36,8 @@ dependencies = [
 ui = ["streamlit>=1.50", "plotly>=5.20"]
 yaml = ["pyyaml>=6.0"]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
+# MkDocs 2.0 drops the plugin/theme system Material relies on, so stay on 1.x.
+docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5,<10"]
 all = ["llm-as-judge[ui,api,yaml]"]
 dev = [
     "pytest>=8.0.0",

@@ -1,0 +1,78 @@
+site_name: LLM-as-Judge
+site_description: Open-source, free-tier LLM evaluation platform - pairwise, pointwise, reference, ranking, RAG and agent evaluation with bias safeguards.
+site_url: https://syed-waleed-ahmed.github.io/LLM-as-Judge/
+repo_url: https://github.com/syed-waleed-ahmed/LLM-as-Judge
+repo_name: syed-waleed-ahmed/LLM-as-Judge
+copyright: MIT licensed
+
+theme:
+  name: material
+  icon:
+    logo: material/scale-balance
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+# Pages include repository files (README sections, ARCHITECTURE.md, ...) as the single
+# source of truth; their repo-relative links don't resolve inside the site, so link
+# problems are reported at info level instead of failing the strict build.
+validation:
+  links:
+    not_found: info
+    anchors: info
+    unrecognized_links: info
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Guides:
+      - Reliability safeguards: guide/safeguards.md
+      - RAG, agents and reliability: guide/rag-agents-reliability.md
+      - Datasets, benchmarks and experiments: guide/datasets-experiments.md
+      - Providers: guide/providers.md
+      - Configuration: guide/configuration.md
+  - Reference:
+      - API reference: project/api-reference.md
+      - Architecture: project/architecture.md
+  - Project:
+      - Deployment: project/deployment.md
+      - Security: project/security.md
+      - Benchmarks: project/benchmarks.md
+      - Roadmap: project/roadmap.md
+      - Changelog: project/changelog.md
+      - Contributing: project/contributing.md
+      - Phase 0 audit: design/phase-0-audit.md

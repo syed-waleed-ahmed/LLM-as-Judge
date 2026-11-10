@@ -25,6 +25,7 @@ tool**, and a **Streamlit web app** — all sharing the same evaluation core.
 - [Architecture](#architecture)
 - [Development](#development)
 - [Deployment](DEPLOYMENT.md)
+- [Architecture](ARCHITECTURE.md) · [API reference](API_REFERENCE.md)
 - [Benchmarks](BENCHMARKS.md)
 - [Security](#security)
 - [Contributing](#contributing)
@@ -33,6 +34,7 @@ tool**, and a **Streamlit web app** — all sharing the same evaluation core.
 
 ---
 
+<!-- --8<-- [start:intro] -->
 ## Why this exists
 
 "LLM-as-Judge" is a common pattern for scoring subjective qualities — creativity,
@@ -60,8 +62,10 @@ this project handles the parts that usually get skipped:
 - **Scale.** A concurrent batch runner grades thousands of rows from CSV/JSONL,
   isolating per-row failures so one bad row never aborts the run.
 
+<!-- --8<-- [end:intro] -->
 ---
 
+<!-- --8<-- [start:features] -->
 ## Features
 
 | Capability | Description |
@@ -79,8 +83,10 @@ this project handles the parts that usually get skipped:
 | **Pluggable providers** | Groq, Ollama (local), any OpenAI-compatible API, and an offline mock; add your own by implementing one method. |
 | **Typed & linted** | Pydantic models, `mypy`-clean, `ruff`-clean and `ruff format`-clean. |
 
+<!-- --8<-- [end:features] -->
 ---
 
+<!-- --8<-- [start:install] -->
 ## Installation
 
 ```bash
@@ -108,8 +114,10 @@ Get a free key at <https://console.groq.com/keys>. No key yet? Every
 command works offline with `--provider mock`, a deterministic heuristic judge
 (clearly labelled, not an LLM), or locally with `--provider ollama`.
 
+<!-- --8<-- [end:install] -->
 ---
 
+<!-- --8<-- [start:usage] -->
 ## Usage
 
 ### 1. Web app (Streamlit)
@@ -302,8 +310,10 @@ warns when exposed without API keys.
 No always-free host is assumed for the API. Run it locally or on your own
 infrastructure. The public demo (Streamlit) doesn't depend on it.
 
+<!-- --8<-- [end:usage] -->
 ---
 
+<!-- --8<-- [start:safeguards] -->
 ## Reliability safeguards
 
 | Safeguard | What it does |
@@ -330,8 +340,10 @@ Results also carry **warnings** (they never change scores):
 These signals are heuristics. A clean result doesn't prove the absence of bias
 or manipulation, and a warning doesn't prove its presence.
 
+<!-- --8<-- [end:safeguards] -->
 ---
 
+<!-- --8<-- [start:rag] -->
 ## RAG, agents and judge reliability
 
 ### RAG evaluation
@@ -384,8 +396,10 @@ CLI: `llm-judge agent --trace-file trace.json`.
 All intervals come from repeated samples. None of them is a model's
 self-reported confidence or a calibrated probability.
 
+<!-- --8<-- [end:rag] -->
 ---
 
+<!-- --8<-- [start:datasets] -->
 ## Datasets, batches and benchmarks
 
 `llm-judge batch` evaluates whole datasets in CSV, JSON, JSONL or YAML
@@ -484,8 +498,10 @@ criteria or bias setting.
 These are judge-scored differences: the judge's own noise and biases are part
 of what is measured.
 
+<!-- --8<-- [end:datasets] -->
 ---
 
+<!-- --8<-- [start:configuration] -->
 ## Configuration
 
 All settings are read from the environment (or `.env`). See
@@ -530,8 +546,10 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_BATCH_MAX_WORKERS` | `4` | Concurrency for batch mode (doubled when parallel bias runs are on). |
 | `LOG_LEVEL` | `INFO` | Logging verbosity. |
 
+<!-- --8<-- [end:configuration] -->
 ---
 
+<!-- --8<-- [start:providers] -->
 ## Providers
 
 The judge runs on any of these backends. Pick one with `JUDGE_PROVIDER` or the
@@ -567,6 +585,7 @@ Small local models are weaker judges than large hosted ones. Expect noisier
 scores and more repair retries, and prefer a judge from a different model
 family than the candidates (the `self_preference_risk` warning flags this).
 
+<!-- --8<-- [end:providers] -->
 ---
 
 ## Architecture
@@ -616,7 +635,7 @@ judging logic.
 ## Development
 
 ```bash
-pip install -e ".[ui,dev]"
+pip install -e ".[all,dev]"
 
 pytest --cov=llm_judge     # run tests with coverage
 ruff check .               # lint

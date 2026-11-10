@@ -116,7 +116,36 @@ Before exposing the API beyond localhost:
 This project doesn't claim a free public host for the API. Run it on
 infrastructure you control, and put it behind TLS.
 
-## 4. Local models with Ollama
+## 4. Documentation site (GitHub Pages)
+
+`mkdocs.yml` builds a documentation site from the README and project documents.
+CI builds it strictly on every push. To publish it:
+
+1. In the repository, go to **Settings → Pages → Build and deployment → Source**
+   and choose **GitHub Actions**. This is a one-time step.
+2. Merge to `main`. The `Docs` workflow then deploys the site to
+   `https://<user>.github.io/LLM-as-Judge/`.
+
+Preview it locally with `pip install -e ".[docs]"` and then `mkdocs serve`.
+
+## 5. Releasing to PyPI
+
+Releases are tag-driven and need no stored API token:
+
+1. **One-time setup on PyPI.** Under *Publishing*, add a **trusted publisher**
+   for this GitHub repository, with workflow `release.yml` and environment
+   `pypi`.
+2. **Bump the version.** Update `__version__` in `src/llm_judge/__init__.py`
+   and the changelog, then merge to `main`.
+3. **Tag and push:** `git tag v2.0.0 && git push origin v2.0.0`.
+   The `Release` workflow checks that the tag matches the version, builds and
+   checks the distribution, publishes it to PyPI and creates a GitHub Release.
+
+CI's `package` job already builds the wheel on every push and smoke-tests it
+in a clean environment, so a release only runs steps that are already checked
+on every push.
+
+## 6. Local models with Ollama
 
 ```bash
 ollama serve

@@ -103,3 +103,50 @@ jobs:
       - name: Show container logs on failure
         if: failure()
         run: docker logs api || true; docker logs ui || true
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install MkDocs
+        run: pip install "mkdocs>=1.6,<2" "mkdocs-material>=9.5,<10"
+
+      - name: Build the documentation site (strict)
+        run: mkdocs build --strict
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+
+      - name: Install the wheel in a clean environment and run it
+        run: |
+          python -m venv /tmp/wheel-env
+          /tmp/wheel-env/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/wheel-env/bin/llm-judge --version
+          JUDGE_PROVIDER=mock /tmp/wheel-env/bin/llm-judge benchmark safety
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

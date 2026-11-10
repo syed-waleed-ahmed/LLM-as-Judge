@@ -4,6 +4,44 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - Unreleased (release candidate)
+
+The first platform release. It bundles development versions 1.1.0 to 1.9.0
+(below), which were never published separately. LLM-as-Judge grows from a
+pairwise judging library into an evaluation platform:
+- pointwise, reference, ranking, RAG and agent evaluation;
+- reliability safeguards and analytics;
+- Groq, Ollama, OpenAI-compatible and offline mock providers;
+- datasets, resumable batches and benchmarks;
+- experiment tracking with regression detection;
+- a REST API and a multi-page dashboard with a public demo mode;
+- a security hardening pass, a documentation site and release automation.
+
+### Upgrade notes
+- The Python API is backwards compatible. `Judge.evaluate(...)`, the result
+  fields and the CLI flags from 1.0 still work, and new result fields are
+  additive (`schema_version`).
+- The default Groq model is `openai/gpt-oss-120b`, because Groq retired
+  `llama-3.3-70b-versatile`. Update `GROQ_MODEL` only if you pinned
+  the old model.
+- `llm-judge batch` now writes a checkpoint by default and accepts any dataset
+  kind. JSONL output rows gain a nested `result` object.
+- The overall winner is decided on weighted, scale-normalised scores. On the
+  default 1-10 scale the tie behaviour is unchanged.
+
+### Phase 11: documentation and release
+- A MkDocs Material site (`mkdocs.yml`, `docs/`) that composes the README and
+  the project documents (single source of truth), with a GitHub Pages
+  workflow.
+- `ARCHITECTURE.md`, `API_REFERENCE.md` and `CODE_OF_CONDUCT.md`. A test fails
+  if any CLI command or REST route is missing from the API reference.
+- CI jobs: a strict docs build, plus package build, `twine check` and a
+  clean-environment wheel smoke test.
+- A tag-triggered release workflow: PyPI Trusted Publishing and a GitHub
+  Release.
+- Packaging uses an SPDX license expression (`license = "MIT"`) and requires
+  setuptools 77 or later.
+
 ## [1.9.0] - Unreleased
 
 Phase 9 of the platform roadmap: security and performance hardening.

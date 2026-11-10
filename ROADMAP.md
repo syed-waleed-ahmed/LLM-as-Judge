@@ -27,7 +27,7 @@ Status key: **done** = implemented and tested, **next** = in progress,
 | 8 | RAG and agent evaluation, reliability analytics (repeat-sampling confidence intervals) | done |
 | 9 | Security and performance hardening (upload limits, dependency audit, concurrency tests) | done |
 | 10 | Free-tier public demo on Streamlit Community Cloud ([guide](DEPLOYMENT.md)); needs the owner's Streamlit account to publish | ready to deploy |
-| 11 | Documentation site (MkDocs Material), release preparation | next |
+| 11 | Documentation site (MkDocs Material), release preparation | done (publishing needs a one-time GitHub Pages / PyPI setup; see DEPLOYMENT.md) |
 
 ## Known free-tier limits
 

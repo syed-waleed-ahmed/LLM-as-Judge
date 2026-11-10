@@ -87,6 +87,38 @@ jobs:
           python -m pip install pip-audit
           PIPAPI_PYTHON_LOCATION=/tmp/project/bin/python pip-audit --skip-editable
 
+  # The experiment store against a real PostgreSQL server (what Supabase runs).
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the project with the PostgreSQL extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,postgres]"
+
+      - name: Run the store tests on SQLite and PostgreSQL
+        env:
+          JUDGE_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: |
+          pytest tests/test_store_backends.py -rs -p no:cacheprovider
+          # Fail if the PostgreSQL variants were skipped instead of run.
+          test "$(pytest tests/test_store_backends.py -q -p no:cacheprovider -rs | grep -c SKIPPED)" = 0
+
   security:
     runs-on: ubuntu-latest
     steps:

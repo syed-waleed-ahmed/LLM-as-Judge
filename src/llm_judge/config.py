@@ -111,7 +111,9 @@ class Settings(BaseSettings):
     demo_max_candidates: int = Field(default=5, ge=2, alias="JUDGE_DEMO_MAX_CANDIDATES")
 
     # Experiment tracking database (SQLite file).
-    db_path: str = Field(default=".llm_judge/experiments.db", alias="JUDGE_DB_PATH")
+    #: SQLite file, ``:memory:``, or a PostgreSQL URL such as a Supabase connection
+    #: string. Excluded from repr because a URL can contain a password.
+    db_path: str = Field(default=".llm_judge/experiments.db", alias="JUDGE_DB_PATH", repr=False)
 
     # Dataset limits: files are rejected before parsing if they exceed these.
     max_dataset_bytes: int = Field(default=50_000_000, gt=0, alias="JUDGE_MAX_DATASET_BYTES")

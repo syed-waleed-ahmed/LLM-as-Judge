@@ -37,18 +37,12 @@ tested, waiting for an account-specific step.
 These are open and welcome contributions. Open an issue to discuss an approach
 before starting.
 
-- **Supabase/Postgres experiment store.** An optional adapter behind the
-  existing store interface. It needs a way to test it in CI without a paid
-  service, such as a Postgres service container.
 - **Publishing to PyPI.** The release workflow is ready; it needs the PyPI
   trusted-publisher setup described in DEPLOYMENT.md.
 - **More providers.** Further free or local backends, through the provider
   registry or the `llm_judge.providers` entry-point group.
-- **More benchmark samples.** Small, synthetic, clearly licensed datasets for
-  the bundled benchmarks.
-- **Live checks for Ollama and embeddings.** The Ollama provider and the
-  embedding backends are tested against simulated responses only; a CI job
-  with a small local model would verify them end to end.
+- **More benchmark samples.** Nine ship today. More small, synthetic, clearly
+  licensed datasets are welcome, for example translation or multi-turn dialogue.
 - **Drop Python 3.10.** It is deprecated (end of life since October 2026) and
   can be removed in the next major or minor release.
 

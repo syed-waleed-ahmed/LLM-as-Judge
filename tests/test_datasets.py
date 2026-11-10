@@ -488,7 +488,7 @@ def test_every_sample_is_valid_and_runs_offline(name):
 
 
 def test_pairwise_samples_decouple_models_from_positions():
-    for name in ("code_generation", "summarization", "safety"):
+    for name in ("code_generation", "summarization", "safety", "customer_support"):
         slots_for_alpha = {r.model_a == "system-alpha" for r in load_sample(name)}
         assert slots_for_alpha == {True, False}, name
 

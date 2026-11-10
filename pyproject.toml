@@ -52,10 +52,12 @@ dependencies = [
 [project.optional-dependencies]
 ui = ["streamlit>=1.50", "plotly>=5.20", "pandas>=1.4"]
 yaml = ["pyyaml>=6.0"]
+# PostgreSQL / Supabase experiment store (JUDGE_DB_PATH=postgresql://...).
+postgres = ["psycopg[binary]>=3.1"]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
 # MkDocs 2.0 drops the plugin/theme system Material relies on, so stay on 1.x.
 docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5,<10"]
-all = ["llm-as-judge[ui,api,yaml]"]
+all = ["llm-as-judge[ui,api,yaml,postgres]"]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from dashboard.common import app_settings
+from dashboard.common import app_settings, experiment_store
 from llm_judge import __version__
 
 settings = app_settings()
@@ -39,8 +39,8 @@ if settings.demo_mode:
     )
 else:
     st.markdown(
-        f"Recorded runs are saved locally to `{settings.db_path}`. Raw inputs are stored only "
-        "as hashes, although judge explanations can quote them."
+        f"Recorded runs are saved to `{experiment_store().location}`. Raw inputs are stored "
+        "only as hashes, although judge explanations can quote them."
     )
 
 st.markdown("#### Run it yourself")

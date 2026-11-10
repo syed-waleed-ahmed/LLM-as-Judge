@@ -79,5 +79,8 @@ dashboard. Three checks are suppressed after review (see `[tool.bandit]` in
   `.streamlit/secrets.toml.example` contain no real values.
 - When exposing the REST API beyond localhost, set `JUDGE_API_KEYS` and serve
   it behind TLS.
+- A PostgreSQL `JUDGE_DB_PATH` (for example a Supabase connection string)
+  contains a password. It's excluded from the settings repr and redacted
+  wherever the store's location is shown. Keep it in `.env` or secrets.
 - If a key is ever exposed, **rotate it immediately** in the provider's
   console (for Groq: <https://console.groq.com/keys>).

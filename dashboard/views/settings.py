@@ -166,7 +166,7 @@ stats = store.statistics()
 location = (
     "this browser session only (cleared when it ends)"
     if settings.demo_mode
-    else f"`{settings.db_path}`"
+    else f"{'PostgreSQL' if store.backend == 'postgresql' else 'SQLite'} at `{store.location}`"
 )
 st.markdown(
     f"Recorded runs are kept in {location}: {stats['experiments']} experiment(s), "

@@ -6,6 +6,42 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-10
+
+The next phases from the roadmap:
+- a PostgreSQL experiment store, including Supabase, tested in CI against a
+  real server;
+- live CI checks for the Ollama provider and Ollama embeddings, both passing;
+- three more benchmark samples.
+
+The public API and the result schema are unchanged.
+
+### Added
+- PostgreSQL experiment store, including Supabase.
+  - Set `JUDGE_DB_PATH` to a `postgresql://` URL (`pip install -e ".[postgres]"`)
+    to keep recorded runs in PostgreSQL instead of SQLite, for example on a free
+    Supabase project.
+  - Both backends sit behind the same `ExperimentStore` API and store the same
+    data, so comparisons, reports, analytics, the CLI, the REST API and the
+    dashboard all work unchanged.
+  - Server-side prepared statements are disabled, so Supabase's transaction
+    pooler works.
+  - The password is redacted wherever the location is shown (`store.location`),
+    and the setting is excluded from the settings repr.
+  - A new CI job runs the store tests against a real PostgreSQL 16 service
+    container, and fails if they're skipped.
+- Three more bundled benchmark samples, all original and synthetic:
+  - `math_reasoning` (reference): word problems, some answered wrongly. In a
+    live Groq run, the judge scored both wrong answers near 0 and flagged them
+    as unsupported claims.
+  - `customer_support` (pairwise): helpful, on-brand replies against
+    dismissive or rambling ones.
+  - `data_extraction` (reference): JSON fields, some missing or invented.
+- A "Live Ollama" workflow checks the Ollama provider and Ollama embeddings
+  against a real server: the official `ollama/ollama` image, with
+  `qwen2.5:1.5b` and `nomic-embed-text`. It runs weekly, on demand, and on
+  pull requests that touch them (`scripts/live_ollama_check.py`).
+
 ## [2.1.0] - 2026-11-10
 
 Closes the gaps that a line-by-line review against the original platform plan
@@ -556,7 +592,8 @@ of scripts into an installable, tested, and documented framework.
 - Legacy flat modules (`config.py`, `judge.py`, `prompts.py`) superseded by the
   package.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/tag/v2.0.0

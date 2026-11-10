@@ -1,0 +1,57 @@
+name: Live Ollama
+
+# Verifies the Ollama provider and Ollama embeddings against a real server (the
+# official ollama/ollama image) with small models. Free on GitHub-hosted runners.
+# It runs weekly, on demand, and on pull requests that touch these backends.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 5 * * 2"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/llm_judge/providers/ollama_provider.py"
+      - "src/llm_judge/providers/embeddings.py"
+      - "src/llm_judge/judge.py"
+      - "src/llm_judge/pointwise.py"
+      - "scripts/live_ollama_check.py"
+      - ".github/workflows/live-ollama.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  live-ollama:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      ollama:
+        image: ollama/ollama:latest
+        ports: ["11434:11434"]
+    env:
+      JUDGE_MODEL: qwen2.5:1.5b
+      EMBED_MODEL: nomic-embed-text
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the project
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Pull the models
+        run: |
+          for i in $(seq 1 30); do curl -sf http://localhost:11434/api/tags >/dev/null && break; sleep 2; done
+          for model in "$JUDGE_MODEL" "$EMBED_MODEL"; do
+            curl -sf http://localhost:11434/api/pull -d "{\"model\": \"$model\", \"stream\": false}"
+            echo
+          done
+          curl -s http://localhost:11434/api/tags
+
+      - name: Run the live checks
+        run: python scripts/live_ollama_check.py http://localhost:11434 "$JUDGE_MODEL" "$EMBED_MODEL"

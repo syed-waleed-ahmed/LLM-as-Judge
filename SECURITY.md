@@ -3,18 +3,31 @@
 ## Reporting a vulnerability
 
 If you discover a security issue, please **don't open a public issue**.
-Instead, report it privately to the maintainer at **syedwaleedahmed9@gmail.com**
-with:
+Report it privately instead:
+
+- **Preferred:** use GitHub's
+  [private vulnerability reporting](https://github.com/syed-waleed-ahmed/LLM-as-Judge/security/advisories/new)
+  (Security tab, then "Report a vulnerability").
+- **Or** email the maintainer at **syedwaleedahmed9@gmail.com**.
+
+Please include:
 
 - a description of the issue and its impact, and
 - steps to reproduce (a minimal proof of concept if possible).
 
 You can expect an acknowledgement within a few days. Please allow a
-reasonable window for a fix before any public disclosure.
+reasonable window for a fix before any public disclosure. Fixed
+vulnerabilities are published as GitHub security advisories and noted in the
+changelog.
 
 ## Supported versions
 
-The latest release on `main` receives security fixes.
+| Version | Supported |
+|---|---|
+| 2.0.x | yes |
+| earlier than 2.0 | no |
+
+Security fixes go into the latest release.
 
 ## Threat model
 

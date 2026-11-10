@@ -21,6 +21,12 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+# Import pandas fully before Plotly can look for it. Plotly finds pandas through
+# sys.modules without taking the import lock, and newer Streamlit versions import
+# pandas lazily in another thread. If a chart is built during that import, Plotly
+# sees a half-initialised module and fails with "partially initialized module
+# 'pandas' has no attribute 'Series'". A regular import waits for it to finish.
+import pandas  # noqa: F401
 import plotly.graph_objects as go
 
 

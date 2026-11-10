@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use LLM-as-Judge in your work, please cite it as below."
+type: software
+title: "LLM-as-Judge: an open-source, free-tier LLM evaluation platform"
+abstract: >-
+  An evaluation platform that uses an LLM as a judge for pairwise, pointwise,
+  reference-based, ranking, RAG and agent evaluation, with position-bias
+  mitigation and reliability analytics. One engine powers a Python library,
+  a CLI, a REST API and a Streamlit dashboard, and it runs on free tiers or
+  entirely offline.
+authors:
+  - given-names: Syed Waleed
+    family-names: Ahmed
+version: 2.0.1
+date-released: "2026-11-10"
+license: MIT
+repository-code: "https://github.com/syed-waleed-ahmed/LLM-as-Judge"
+url: "https://syed-waleed-ahmed.github.io/LLM-as-Judge/"
+keywords:
+  - llm
+  - llm-as-a-judge
+  - evaluation
+  - rag-evaluation
+  - agent-evaluation
+  - benchmarking

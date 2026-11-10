@@ -24,10 +24,17 @@ env/
 .coverage
 htmlcov/
 coverage.xml
+.hypothesis/
 
-# Editors / IDEs
+# Documentation build output and MkDocs plugin caches
+site/
+.cache/
+
+# Editors / IDEs / assistants
 .idea/
 .vscode/
+.claude/settings.local.json
+.claude/worktrees/
 
 # OS-specific
 .DS_Store

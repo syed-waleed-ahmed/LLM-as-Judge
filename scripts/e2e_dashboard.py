@@ -59,7 +59,11 @@ def idle(page: Page, timeout: float = 90) -> None:
 
 
 def nav(page: Page, label: str) -> None:
-    page.get_by_role("link", name=label, exact=True).first.click()
+    # Match the end of the link text: older Streamlit versions include the icon's
+    # ligature text in it (for example "comparePlayground"). No page label is a
+    # suffix of another.
+    ends_with_label = re.compile(rf"{re.escape(label)}\s*$")
+    page.locator('[data-testid="stSidebarNav"] a').filter(has_text=ends_with_label).first.click()
     idle(page)
 
 

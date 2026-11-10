@@ -129,7 +129,9 @@ infrastructure you control, and put it behind TLS.
 ## 4. Documentation site (GitHub Pages)
 
 `mkdocs.yml` builds a documentation site from the README and project documents.
-CI builds it strictly on every push. To publish it:
+CI builds it strictly on every push, and the `Docs` workflow deploys it on every
+push to `main`. This repository's site is live at
+<https://syed-waleed-ahmed.github.io/LLM-as-Judge/>. To publish it from a fork:
 
 1. In the repository, go to **Settings → Pages → Build and deployment → Source**
    and choose **GitHub Actions**. This is a one-time step.
@@ -138,7 +140,7 @@ CI builds it strictly on every push. To publish it:
 
 Preview it locally with `pip install -e ".[docs]"` and then `mkdocs serve`.
 
-## 5. Releasing to PyPI
+## 5. Releases (GitHub and PyPI)
 
 Releases are tag-driven and need no stored API token:
 
@@ -147,11 +149,14 @@ Releases are tag-driven and need no stored API token:
    `pypi`. Then set the repository variable `PUBLISH_TO_PYPI` to `true`
    (Settings → Secrets and variables → Actions → Variables). Without it, tags
    still create GitHub Releases, but nothing is published to PyPI.
-2. **Bump the version.** Update `__version__` in `src/llm_judge/__init__.py`
-   and the changelog, then merge to `main`.
-3. **Tag and push:** `git tag v2.0.0 && git push origin v2.0.0`.
-   The `Release` workflow checks that the tag matches the version, builds and
-   checks the distribution, publishes it to PyPI and creates a GitHub Release.
+2. **Bump the version.** Update `__version__` in `src/llm_judge/__init__.py`,
+   and move the changelog's **Unreleased** entries under the new version's
+   heading. Then merge to `main`.
+3. **Tag and push:** `git tag -a v2.1.0 -m "LLM-as-Judge 2.1.0" && git push origin v2.1.0`.
+   The `Release` workflow checks that the tag matches the version and that the
+   changelog has a section for it. It then builds and checks the distribution
+   and creates a GitHub Release, using that changelog section as the release
+   notes. If PyPI publishing is enabled, it also publishes there.
 
 CI's `package` job already builds the wheel on every push and smoke-tests it
 in a clean environment, so a release only runs steps that are already checked

@@ -385,3 +385,25 @@ def test_dataset_criteria_follow_the_selected_sample(tmp_path, monkeypatch):
     at.button(key="ds:run").click().run()
     assert any("Choose at least one criterion" in e.value for e in at.error)
     assert not at.exception
+
+
+def test_dashboard_charts_import_pandas_before_plotly():
+    """Plotly must never see a half-imported pandas.
+
+    Newer Streamlit versions import pandas lazily in another thread. Plotly looks
+    pandas up in ``sys.modules`` without the import lock, so a chart built during
+    that import failed with "partially initialized module 'pandas'". The charts
+    module therefore imports pandas itself, which waits for any import in progress.
+    """
+    pytest.importorskip("plotly")
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    code = (
+        "import sys, dashboard.charts; "
+        "m = sys.modules.get('pandas'); "
+        "assert m is not None and hasattr(m, 'Series'), 'pandas not loaded by dashboard.charts'"
+    )
+    root = Path(__file__).resolve().parent.parent
+    subprocess.run([sys.executable, "-c", code], check=True, cwd=root)

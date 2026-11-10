@@ -4,11 +4,64 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - Unreleased (release candidate)
+## [Unreleased]
 
-The first platform release. It bundles development versions 1.1.0 to 1.9.0
-(below), which were never published separately. LLM-as-Judge grows from a
-pairwise judging library into an evaluation platform:
+## [2.0.1] - 2026-11-10
+
+A maintenance release: a dashboard fix, documentation-site fixes and
+improvements, and project files for contributors. The library's Python API,
+CLI and REST API are unchanged.
+
+### Added
+- Community files for the public repository: issue forms, a pull request
+  template, `CODEOWNERS`, `CITATION.cff` and a Dependabot configuration.
+- CodeQL code scanning for the Python code and the GitHub Actions workflows.
+- `make security` and `make docs`. `make check` now also runs Bandit, as CI
+  does.
+- Pre-commit hooks (`.pre-commit-config.yaml`, `make hooks`): ruff, whitespace
+  and line endings, YAML and TOML syntax, merge-conflict markers, large files
+  and private keys.
+- Documentation site:
+  - instant navigation with a progress bar, top-level tabs, previous and
+    next links, search suggestions and shareable searches;
+  - Open Graph and Twitter card tags for link previews;
+  - fonts served from the site itself (privacy plugin), so pages make no
+    third-party requests.
+
+### Fixed
+- Dashboard: with Streamlit 1.67, the first chart could fail with
+  "partially initialized module 'pandas' has no attribute 'Series'". Newer
+  Streamlit imports pandas lazily in another thread, and Plotly could see the
+  half-imported module. The charts module now imports pandas itself first,
+  which waits for that import to finish. `pandas` is now declared in the `ui`
+  extra.
+- `scripts/e2e_dashboard.py` finds sidebar links on older Streamlit versions
+  too, where the link text includes the icon name.
+- Links on the documentation site to repository files (`DEPLOYMENT.md`,
+  `.env.example`, `ROADMAP.md` and others) returned 404. A build hook
+  (`scripts/docs_links.py`) now points them to the matching page or to the
+  file on GitHub, and fails the strict build on links to missing files.
+- The committed knowledge graph (`graphify-out/`) described v1 and contained
+  absolute local paths. It is regenerated for v2, with repository-relative
+  paths.
+
+### Changed
+- GitHub Release notes come from this changelog (`scripts/release_notes.py`)
+  instead of being generated from pull request titles. The release build fails
+  if the version has no changelog section.
+- Install instructions no longer point at PyPI, where the package isn't
+  published yet. They cover installing from a clone, from a Git tag, or from
+  the wheel attached to a GitHub Release.
+- Workflows default to a read-only `GITHUB_TOKEN`.
+- Package metadata: description, keywords, classifiers, and links to the
+  documentation, changelog and releases.
+
+## [2.0.0] - 2026-11-10
+
+The first platform release. It bundles development versions 1.1.0 to 1.9.0,
+which were never published separately; `CHANGELOG.md` has their detailed
+entries. LLM-as-Judge grows from a pairwise judging library into an evaluation
+platform:
 - pointwise, reference, ranking, RAG and agent evaluation;
 - reliability safeguards and analytics;
 - Groq, Ollama, OpenAI-compatible and offline mock providers;
@@ -83,12 +136,12 @@ are fixed, with regression tests.
   if any CLI command or REST route is missing from the API reference.
 - CI jobs: a strict docs build, plus package build, `twine check` and a
   clean-environment wheel smoke test.
-- A tag-triggered release workflow: PyPI Trusted Publishing and a GitHub
-  Release.
+- A tag-triggered release workflow that creates a GitHub Release and, once
+  enabled, publishes to PyPI with Trusted Publishing.
 - Packaging uses an SPDX license expression (`license = "MIT"`) and requires
   setuptools 77 or later.
 
-## [1.9.0] - Unreleased
+## [1.9.0] - Included in 2.0.0
 
 Phase 9 of the platform roadmap: security and performance hardening.
 
@@ -112,7 +165,7 @@ Phase 9 of the platform roadmap: security and performance hardening.
   replies raised `RecursionError` (a crash, or a 500 from the API). It is now
   a clean validation or parsing error.
 
-## [1.8.0] - Unreleased
+## [1.8.0] - Included in 2.0.0
 
 Phase 8 of the platform roadmap: RAG, agents, and reliability analytics.
 
@@ -144,7 +197,7 @@ Phase 8 of the platform roadmap: RAG, agents, and reliability analytics.
 - RAG and agent prompts were run against Groq `openai/gpt-oss-120b` with
   schema-valid results.
 
-## [1.7.0] - Unreleased
+## [1.7.0] - Included in 2.0.0
 
 Phase 7 of the platform roadmap: the dashboard and public demo mode.
 
@@ -171,7 +224,7 @@ Phase 7 of the platform roadmap: the dashboard and public demo mode.
 - The `ui` extra adds Plotly and requires Streamlit 1.50 or later. mypy now
   also checks the dashboard.
 
-## [1.6.0] - Unreleased
+## [1.6.0] - Included in 2.0.0
 
 Phase 6 of the platform roadmap: REST API.
 
@@ -197,7 +250,7 @@ Phase 6 of the platform roadmap: REST API.
 ### Fixed
 - Queued jobs are marked cancelled on shutdown instead of staying "queued".
 
-## [1.5.0] - Unreleased
+## [1.5.0] - Included in 2.0.0
 
 Phase 5 of the platform roadmap: experiment tracking.
 
@@ -219,7 +272,7 @@ Phase 5 of the platform roadmap: experiment tracking.
   one can be added, but it can't be verified in this project's CI, so it isn't
   shipped untested.
 
-## [1.4.0] - Unreleased
+## [1.4.0] - Included in 2.0.0
 
 Phase 4 of the platform roadmap: datasets, resumable batches and benchmarks.
 
@@ -248,7 +301,7 @@ Phase 4 of the platform roadmap: datasets, resumable batches and benchmarks.
   model columns were added).
 - ruff is pinned to 0.17.x so local and CI formatting agree.
 
-## [1.3.0] - Unreleased
+## [1.3.0] - Included in 2.0.0
 
 Phase 3 of the platform roadmap: multi-provider architecture.
 
@@ -280,7 +333,7 @@ Phase 3 of the platform roadmap: multi-provider architecture.
 - The missing-key error suggests `--provider mock`.
 - `httpx` is now an explicit dependency. It was already installed via `groq`.
 
-## [1.2.0] - Unreleased
+## [1.2.0] - Included in 2.0.0
 
 Phase 2 of the platform roadmap: new evaluation modes. Result schema "1.2"
 adds new result types; existing pairwise results are unchanged.
@@ -301,7 +354,7 @@ adds new result types; existing pairwise results are unchanged.
   (`--candidates-file`, `--strategy`). `list-criteria` shows the reference presets.
 - Setting `JUDGE_MAX_CANDIDATES`.
 
-## [1.1.0] - Unreleased
+## [1.1.0] - Included in 2.0.0
 
 Phase 1 of the platform roadmap: core reliability hardening. All changes are
 backwards compatible. Existing calls, CLI commands and result fields keep
@@ -342,7 +395,7 @@ working, and new result fields are additive (`schema_version` "1.1").
   slicing. Non-finite scores are rejected.
 - The package version is defined once (`llm_judge.__version__`).
 
-## [1.0.0] — 2026-07-04
+## [1.0.0] - 2026-07-04
 
 First production-ready release. The project was rebuilt from a small collection
 of scripts into an installable, tested, and documented framework.
@@ -373,3 +426,7 @@ of scripts into an installable, tested, and documented framework.
 ### Removed
 - Legacy flat modules (`config.py`, `judge.py`, `prompts.py`) superseded by the
   package.
+
+[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.0...v2.0.1
+[2.0.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/tag/v2.0.0

@@ -1,7 +1,10 @@
-.PHONY: install test lint type check format format-check run serve cli clean
+.PHONY: install hooks test lint type security docs check format format-check run serve cli clean
 
-install:  ## Install the package with UI + dev extras (editable)
-	pip install -e ".[ui,dev]"
+install:  ## Install the package with every extra plus dev and docs tooling (editable)
+	pip install -e ".[all,dev,docs]"
+
+hooks:  ## Install the pre-commit hooks (ruff, whitespace, YAML/TOML, private keys)
+	pre-commit install
 
 test:  ## Run the test suite with coverage
 	pytest --cov=llm_judge --cov-report=term-missing
@@ -12,6 +15,12 @@ lint:  ## Lint with ruff
 type:  ## Type-check with mypy
 	mypy
 
+security:  ## Static security analysis with Bandit (as in CI)
+	bandit -q -c pyproject.toml -r src app.py dashboard
+
+docs:  ## Build the documentation site, failing on warnings (as in CI)
+	mkdocs build --strict
+
 format:  ## Auto-format and auto-fix with ruff
 	ruff format .
 	ruff check --fix .
@@ -19,7 +28,7 @@ format:  ## Auto-format and auto-fix with ruff
 format-check:  ## Verify formatting without changing files
 	ruff format --check .
 
-check: lint format-check type test  ## Run lint, format check, type-check, and tests
+check: lint format-check type security test  ## Run lint, format check, type-check, Bandit and tests
 
 run:  ## Launch the Streamlit app
 	streamlit run app.py
@@ -31,4 +40,4 @@ cli:  ## Show the CLI help
 	llm-judge --help
 
 clean:  ## Remove caches and build artefacts
-	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage build dist *.egg-info
+	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage build dist site *.egg-info

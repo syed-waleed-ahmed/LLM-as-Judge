@@ -5,22 +5,39 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "llm-as-judge"
 dynamic = ["version"]
-description = "A production-grade LLM-as-Judge framework for evaluating and comparing model outputs, with position-bias mitigation, multi-criteria scoring, batch evaluation, a CLI, and a Streamlit UI."
+description = "Open-source LLM-as-a-Judge evaluation platform: pairwise, pointwise, reference, ranking, RAG and agent evaluation with bias mitigation, as a Python library, CLI, REST API and Streamlit dashboard. Runs on free tiers or offline."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Syed Waleed Ahmed", email = "syedwaleedahmed9@gmail.com" }]
-keywords = ["llm", "evaluation", "judge", "groq", "llm-as-judge", "benchmarking", "nlp"]
+keywords = [
+    "llm",
+    "llm-as-judge",
+    "llm-evaluation",
+    "evaluation",
+    "rag-evaluation",
+    "agent-evaluation",
+    "benchmarking",
+    "groq",
+    "ollama",
+    "nlp",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Framework :: FastAPI",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
 ]
 
 dependencies = [
@@ -33,7 +50,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ui = ["streamlit>=1.50", "plotly>=5.20"]
+ui = ["streamlit>=1.50", "plotly>=5.20", "pandas>=1.4"]
 yaml = ["pyyaml>=6.0"]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
 # MkDocs 2.0 drops the plugin/theme system Material relies on, so stay on 1.x.
@@ -46,6 +63,7 @@ dev = [
     "pyyaml>=6.0",
     "types-PyYAML>=6.0",
     "bandit[toml]>=1.7",
+    "pre-commit>=3.5",
     "fastapi>=0.110",
     "uvicorn>=0.29",
     "ruff>=0.17,<0.18",  # pinned: formatter output differs between minor versions
@@ -57,8 +75,11 @@ llm-judge = "llm_judge.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/syed-waleed-ahmed/LLM-as-Judge"
+Documentation = "https://syed-waleed-ahmed.github.io/LLM-as-Judge/"
 Repository = "https://github.com/syed-waleed-ahmed/LLM-as-Judge"
 Issues = "https://github.com/syed-waleed-ahmed/LLM-as-Judge/issues"
+Changelog = "https://github.com/syed-waleed-ahmed/LLM-as-Judge/blob/main/CHANGELOG.md"
+Releases = "https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases"
 
 [tool.setuptools.packages.find]
 where = ["src"]

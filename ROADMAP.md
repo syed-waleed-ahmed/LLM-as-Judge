@@ -1,7 +1,8 @@
 # Roadmap
 
-The project is evolving from a pairwise judging library (v1.0.0) into an
-open-source LLM evaluation platform. The guiding constraints:
+Version 2.0.0 (released 2026-11-10) turned a pairwise judging library (v1.0.0)
+into an open-source LLM evaluation platform, in the phases below. The guiding
+constraints, which still apply to new work:
 
 - **$0 to run.** Use only open-source software and free tiers, with no
   mandatory paid service and no credit card. Every cloud integration is
@@ -11,8 +12,8 @@ open-source LLM evaluation platform. The guiding constraints:
 - **No fake functionality.** A feature counts as done when it is tested.
   Anything not externally verified is labelled as such.
 
-Status key: **done** = implemented and tested, **next** = in progress,
-**planned** = not started.
+Status key: **done** = implemented and tested; **ready** = implemented and
+tested, waiting for an account-specific step.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -26,8 +27,23 @@ Status key: **done** = implemented and tested, **next** = in progress,
 | 7 | Multi-page Streamlit dashboard with demo mode and quotas | done |
 | 8 | RAG and agent evaluation, reliability analytics (repeat-sampling confidence intervals) | done |
 | 9 | Security and performance hardening (upload limits, dependency audit, concurrency tests) | done |
-| 10 | Free-tier public demo on Streamlit Community Cloud ([guide](DEPLOYMENT.md)); needs the owner's Streamlit account to publish | ready to deploy |
-| 11 | Documentation site (MkDocs Material), release preparation | done (publishing needs a one-time GitHub Pages / PyPI setup; see DEPLOYMENT.md) |
+| 10 | Free-tier public demo on Streamlit Community Cloud ([guide](DEPLOYMENT.md)), tested in a browser in the same configuration | ready: publishing needs the maintainer's Streamlit account |
+| 11 | Documentation site (MkDocs Material, [published](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)) and release automation ([v2.0.0](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/tag/v2.0.0)) | done; PyPI publishing is opt-in (see DEPLOYMENT.md) |
+
+## What's next
+
+These are open and welcome contributions. Open an issue to discuss an approach
+before starting.
+
+- **Supabase/Postgres experiment store.** An optional adapter behind the
+  existing store interface. It needs a way to test it in CI without a paid
+  service, such as a Postgres service container.
+- **Publishing to PyPI.** The release workflow is ready; it needs the PyPI
+  trusted-publisher setup described in DEPLOYMENT.md.
+- **More providers.** Further free or local backends, through the provider
+  registry or the `llm_judge.providers` entry-point group.
+- **More benchmark samples.** Small, synthetic, clearly licensed datasets for
+  the bundled benchmarks.
 
 ## Known free-tier limits
 

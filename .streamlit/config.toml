@@ -1,0 +1,16 @@
+# Streamlit configuration for the dashboard (local and Streamlit Community Cloud).
+# Secrets belong in .streamlit/secrets.toml, which is git-ignored.
+
+[server]
+maxUploadSize = 5          # MB; dataset uploads are also capped by JUDGE_MAX_DATASET_BYTES
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+primaryColor = "#2a78d6"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"

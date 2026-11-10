@@ -23,6 +23,7 @@ tool**, and a **Streamlit web app** — all sharing the same evaluation core.
 - [Providers](#providers)
 - [Architecture](#architecture)
 - [Development](#development)
+- [Deployment](DEPLOYMENT.md)
 - [Security](#security)
 - [Contributing](#contributing)
 - [Roadmap](#roadmap)
@@ -114,9 +115,26 @@ command works offline with `--provider mock`, a deterministic heuristic judge
 streamlit run app.py
 ```
 
-Paste a task description and two outputs, then pick criteria (and optionally
-their weights) in the sidebar. You can also enable position-bias mitigation.
-Click **Evaluate**, and download the full JSON judgment with one click.
+A multi-page dashboard over the same engine:
+
+| Page | What it does |
+|---|---|
+| **Overview** | Which judge is active, session and stored-run statistics, recent runs |
+| **Playground** | Compare two outputs, grade one, check against a reference, or rank candidates, with charts, explanations and warnings |
+| **Datasets** | Upload CSV/JSON/JSONL/YAML (or pick a sample), validate, evaluate, chart and download results |
+| **Benchmarks** | Run a bundled sample and see per-system statistics |
+| **Experiments** | Compare two recorded runs: verdict, confidence interval, per-row changes |
+| **About** | Providers, limits in effect, privacy, how to run it yourself |
+
+The sidebar switches between the **live judge** (when a key is configured) and
+the **offline mock judge**. The mock judge works without any key, and its
+results are always labelled as not coming from an LLM. Charts use a
+colorblind-validated palette with separate light and dark versions.
+
+For a public deployment, set `JUDGE_DEMO_MODE=true`. That adds per-session
+and daily live-call budgets and input caps, and keeps each visitor's data
+session-only. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for free Streamlit
+Community Cloud hosting.
 
 ### 2. Command line
 
@@ -441,6 +459,9 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_API_MAX_BATCH_ROWS` / `JUDGE_API_MAX_JOB_ROWS` | `50` / `1000` | Row limits for sync batches and jobs. |
 | `JUDGE_API_MAX_QUEUED_JOBS` | `10` | Waiting jobs before 429. |
 | `JUDGE_API_CORS_ORIGINS` | — | Comma-separated allowed origins (CORS off if unset). |
+| `JUDGE_DEMO_MODE` | `false` | Public-demo safeguards in the dashboard (quotas, caps, session-only storage). |
+| `JUDGE_DEMO_SESSION_CALLS` / `JUDGE_DEMO_DAILY_CALLS` | `25` / `500` | Live judge calls per visitor session / per day. |
+| `JUDGE_DEMO_MAX_INPUT_CHARS` / `_MAX_ROWS` / `_MAX_CANDIDATES` | `4000` / `25` / `5` | Demo input caps. |
 | `JUDGE_DB_PATH` | `.llm_judge/experiments.db` | Experiment-tracking database (SQLite). |
 | `JUDGE_MAX_DATASET_BYTES` | `50000000` | Larger dataset files are rejected before parsing. |
 | `JUDGE_MAX_DATASET_ROWS` | `100000` | Maximum rows per dataset. |
@@ -516,7 +537,8 @@ src/llm_judge/           # Installable package (src layout)
    ├─ ollama_provider.py #   Local models via Ollama
    ├─ openai_compatible.py # Any /chat/completions endpoint
    └─ mock_provider.py   #   Offline heuristic judge (not an LLM)
-app.py                   # Streamlit UI (thin layer over the library)
+app.py                   # Streamlit entry point (navigation)
+dashboard/               # Dashboard pages, shared components, themed charts
 tests/                   # Offline unit + property tests (fake providers)
 ```
 

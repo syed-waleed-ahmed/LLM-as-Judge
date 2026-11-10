@@ -14,8 +14,8 @@ env/
 # Environment variables & secrets
 .env
 
-# Streamlit
-.streamlit/
+# Streamlit: keep config.toml, never commit secrets
+.streamlit/secrets.toml
 
 # Testing / coverage
 .pytest_cache/

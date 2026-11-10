@@ -33,7 +33,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ui = ["streamlit>=1.35.0"]
+ui = ["streamlit>=1.50", "plotly>=5.20"]
 yaml = ["pyyaml>=6.0"]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
 all = ["llm-as-judge[ui,api,yaml]"]
@@ -81,6 +81,6 @@ select = ["E", "F", "I", "B", "UP", "W"]
 [tool.mypy]
 python_version = "3.10"
 mypy_path = "src"
-files = ["src/llm_judge"]
+files = ["src/llm_judge", "app.py", "dashboard"]
 warn_unused_ignores = true
 ignore_missing_imports = true

@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - Unreleased
+
+Phase 7 of the platform roadmap: the dashboard and public demo mode.
+
+### Added
+- Multi-page Streamlit dashboard: Overview, Playground (all four evaluation
+  modes, with example loaders), Datasets (upload, validate, evaluate,
+  download), Benchmarks, Experiments (run comparison with verdict, confidence
+  interval and per-row changes), and About.
+- A sidebar to choose the live or offline mock judge, with every result
+  badged by provider. Mock results are always labelled as not coming from an
+  LLM.
+- Themed Plotly charts. The palette passes the colorblind and contrast checks
+  in both light and dark modes, and every chart has a table view.
+- Public demo mode (`JUDGE_DEMO_MODE`): per-session and daily live-call
+  budgets, input, row, candidate and upload caps, and session-only storage.
+- `QuotaProvider` and `CallBudget`: enforce call budgets on any provider,
+  counting retries and bias runs, and refusing with a non-retryable
+  `QuotaExceededError`.
+- `DEPLOYMENT.md` (free Streamlit Community Cloud steps, secrets, smoke
+  tests), `.streamlit/config.toml` and `.streamlit/secrets.toml.example`.
+
+### Changed
+- `app.py` is now a navigation shell; the pages live in `dashboard/`.
+- The `ui` extra adds Plotly and requires Streamlit 1.50 or later. mypy now
+  also checks the dashboard.
+
 ## [1.6.0] - Unreleased
 
 Phase 6 of the platform roadmap: REST API.

@@ -12,6 +12,7 @@ from .groq_provider import GroqProvider
 from .mock_provider import MockProvider
 from .ollama_provider import OllamaProvider
 from .openai_compatible import OpenAICompatibleProvider
+from .quota import CallBudget, QuotaExceededError, QuotaProvider
 from .registry import (
     ProviderInfo,
     build_provider,
@@ -30,6 +31,9 @@ __all__ = [
     "MockProvider",
     "OllamaProvider",
     "OpenAICompatibleProvider",
+    "CallBudget",
+    "QuotaExceededError",
+    "QuotaProvider",
     "ProviderInfo",
     "build_provider",
     "configuration_status",

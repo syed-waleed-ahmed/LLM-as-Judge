@@ -89,6 +89,15 @@ class Settings(BaseSettings):
     api_max_queued_jobs: int = Field(default=10, ge=1, alias="JUDGE_API_MAX_QUEUED_JOBS")
     api_cors_origins: str = Field(default="", alias="JUDGE_API_CORS_ORIGINS")
 
+    # Public demo safeguards for the Streamlit dashboard (JUDGE_DEMO_MODE=true on a
+    # public deployment): live-call budgets, input caps, and session-only storage.
+    demo_mode: bool = Field(default=False, alias="JUDGE_DEMO_MODE")
+    demo_session_calls: int = Field(default=25, ge=0, alias="JUDGE_DEMO_SESSION_CALLS")
+    demo_daily_calls: int = Field(default=500, ge=0, alias="JUDGE_DEMO_DAILY_CALLS")
+    demo_max_input_chars: int = Field(default=4_000, gt=0, alias="JUDGE_DEMO_MAX_INPUT_CHARS")
+    demo_max_rows: int = Field(default=25, ge=1, alias="JUDGE_DEMO_MAX_ROWS")
+    demo_max_candidates: int = Field(default=5, ge=2, alias="JUDGE_DEMO_MAX_CANDIDATES")
+
     # Experiment tracking database (SQLite file).
     db_path: str = Field(default=".llm_judge/experiments.db", alias="JUDGE_DB_PATH")
 

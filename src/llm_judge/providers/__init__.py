@@ -7,7 +7,33 @@ matter of implementing ``complete_json`` and does not touch the judging logic.
 
 from __future__ import annotations
 
-from .base import ChatMessage, LLMProvider
+from .base import ChatMessage, LLMProvider, ProviderHealth, UsageTracker
 from .groq_provider import GroqProvider
+from .mock_provider import MockProvider
+from .ollama_provider import OllamaProvider
+from .openai_compatible import OpenAICompatibleProvider
+from .registry import (
+    ProviderInfo,
+    build_provider,
+    configuration_status,
+    provider_info,
+    provider_names,
+    register_provider,
+)
 
-__all__ = ["ChatMessage", "LLMProvider", "GroqProvider"]
+__all__ = [
+    "ChatMessage",
+    "LLMProvider",
+    "ProviderHealth",
+    "UsageTracker",
+    "GroqProvider",
+    "MockProvider",
+    "OllamaProvider",
+    "OpenAICompatibleProvider",
+    "ProviderInfo",
+    "build_provider",
+    "configuration_status",
+    "provider_info",
+    "provider_names",
+    "register_provider",
+]

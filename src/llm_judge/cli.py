@@ -20,6 +20,7 @@ from pathlib import Path
 from pydantic import ValidationError as PydanticValidationError
 
 from . import __version__
+from .config import Settings
 from .criteria import (
     CRITERIA_PRESETS,
     DEFAULT_REFERENCE_CRITERIA,
@@ -95,6 +96,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--log-level",
         default=None,
         help="Logging level (DEBUG, INFO, WARNING, ERROR). Default from env/INFO.",
+    )
+    parser.add_argument(
+        "--provider",
+        default=None,
+        help="Judge backend: groq, ollama, openai_compatible or mock (offline, not an LLM). "
+        "Default from JUDGE_PROVIDER, else groq.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -186,7 +193,25 @@ def _build_parser() -> argparse.ArgumentParser:
     # list-criteria -------------------------------------------------------
     sub.add_parser("list-criteria", help="List built-in criteria presets.")
 
+    # providers / health / version -----------------------------------------
+    sub.add_parser("providers", help="List judge providers and whether each is configured.")
+    sub.add_parser("health", help="Check that the active provider is reachable (no inference).")
+    sub.add_parser("version", help="Print the version.")
+
     return parser
+
+
+def _settings(args: argparse.Namespace) -> Settings:
+    """Load settings and apply command-line overrides (--provider, --mitigate-bias)."""
+    from .config import get_settings
+
+    updates: dict[str, object] = {}
+    if getattr(args, "provider", None):
+        updates["provider"] = args.provider.strip().lower().replace("-", "_")
+    if getattr(args, "mitigate_bias", False):
+        updates["mitigate_position_bias"] = True
+    settings = get_settings()
+    return settings.model_copy(update=updates) if updates else settings
 
 
 def _cmd_list_criteria() -> int:
@@ -229,7 +254,6 @@ def _load_candidates(path: str) -> tuple[dict[str, str], dict[str, str | None]]:
 
 
 def _cmd_grade(args: argparse.Namespace) -> int:
-    from .config import get_settings
     from .judge import Judge
 
     task = _read_text_arg(args.task, args.task_file, "task")
@@ -238,7 +262,7 @@ def _cmd_grade(args: argparse.Namespace) -> int:
     default = ",".join(DEFAULT_REFERENCE_CRITERIA) if reference is not None else "Helpfulness"
     criteria = _build_criteria(args.criteria or default, args.weights)
 
-    judge = Judge(settings=get_settings())
+    judge = Judge(settings=_settings(args))
     result = judge.evaluate_pointwise(
         task, output, criteria, reference=reference, candidate_model=args.model
     )
@@ -250,17 +274,12 @@ def _cmd_grade(args: argparse.Namespace) -> int:
 
 
 def _cmd_rank(args: argparse.Namespace) -> int:
-    from .config import get_settings
     from .judge import Judge
 
     task = _read_text_arg(args.task, args.task_file, "task")
     texts, models = _load_candidates(args.candidates_file)
     criteria = _build_criteria(args.criteria, args.weights)
-    settings = get_settings()
-    if args.mitigate_bias:
-        settings = settings.model_copy(update={"mitigate_position_bias": True})
-
-    judge = Judge(settings=settings)
+    judge = Judge(settings=_settings(args))
     result = judge.rank(
         task,
         texts,
@@ -278,7 +297,6 @@ def _cmd_rank(args: argparse.Namespace) -> int:
 
 def _cmd_evaluate(args: argparse.Namespace) -> int:
     # Imported lazily so `list-criteria` works without an API key.
-    from .config import get_settings
     from .judge import Judge
 
     task = _read_text_arg(args.task, args.task_file, "task")
@@ -286,11 +304,7 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
     output_b = _read_text_arg(args.output_b, args.output_b_file, "output-b")
     criteria = _build_criteria(args.criteria, args.weights)
 
-    settings = get_settings()
-    if args.mitigate_bias:
-        settings = settings.model_copy(update={"mitigate_position_bias": True})
-
-    judge = Judge(settings=settings)
+    judge = Judge(settings=_settings(args))
     result = judge.evaluate(
         task,
         output_a,
@@ -309,16 +323,11 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
 
 def _cmd_batch(args: argparse.Namespace) -> int:
     from .batch import BatchEvaluator, read_records, write_results
-    from .config import get_settings
     from .judge import Judge
 
     records = read_records(args.input)
     criteria = _build_criteria(args.criteria, args.weights)
-    settings = get_settings()
-    if args.mitigate_bias:
-        settings = settings.model_copy(update={"mitigate_position_bias": True})
-
-    judge = Judge(settings=settings)
+    judge = Judge(settings=_settings(args))
     evaluator = BatchEvaluator(judge, max_workers=args.workers)
 
     print(f"Judging {len(records)} record(s) with {evaluator.max_workers} worker(s)...")
@@ -333,6 +342,40 @@ def _cmd_batch(args: argparse.Namespace) -> int:
     ok = sum(1 for r in results if r.ok)
     print(f"Wrote {len(results)} result(s) to {args.output} ({ok} ok, {len(results) - ok} failed).")
     return 0 if ok == len(results) else 1
+
+
+def _cmd_providers(args: argparse.Namespace) -> int:
+    from .providers.registry import configuration_status, provider_info, provider_names
+
+    settings = _settings(args)
+    print("Judge providers:\n")
+    for name in provider_names():
+        info = provider_info(name)
+        ready, detail = configuration_status(name, settings)
+        marker = "*" if name == settings.provider else " "
+        status = "configured" if ready else "not configured"
+        print(f"{marker} {name:<18} {status:<15} {info.cost}")
+        print(f"    {info.description}")
+        print(f"    {detail}\n")
+    print("* active provider (set with JUDGE_PROVIDER or --provider).")
+    print('  "configured" means the settings are present; run `llm-judge health` to test.')
+    return 0
+
+
+def _cmd_health(args: argparse.Namespace) -> int:
+    from .providers.registry import build_provider
+
+    settings = _settings(args)
+    provider = build_provider(settings)
+    check = getattr(provider, "health", None)
+    if check is None:
+        print(f"{settings.provider}: no health check available")
+        return 0
+    health = check()
+    print(
+        f"{health.provider} ({health.model}): {'OK' if health.ok else 'FAILED'} - {health.detail}"
+    )
+    return 0 if health.ok else 1
 
 
 def _print_warnings(warnings: list[EvaluationWarning]) -> None:
@@ -403,6 +446,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "list-criteria":
             return _cmd_list_criteria()
+        if args.command == "version":
+            print(f"llm-judge {__version__}")
+            return 0
+        if args.command == "providers":
+            return _cmd_providers(args)
+        if args.command == "health":
+            return _cmd_health(args)
         if args.command == "evaluate":
             return _cmd_evaluate(args)
         if args.command == "batch":

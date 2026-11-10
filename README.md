@@ -69,7 +69,7 @@ this project handles the parts that usually get skipped:
 | **Retries & repair** | Backoff for transient errors; repair retries for malformed replies. |
 | **Batch mode** | Concurrent CSV/JSONL evaluation for large datasets. |
 | **Fully tested** | Offline unit and property-based tests (Hypothesis), no network calls in CI. |
-| **Pluggable providers** | Add a backend by implementing one method. |
+| **Pluggable providers** | Groq, Ollama (local), any OpenAI-compatible API, and an offline mock; add your own by implementing one method. |
 | **Typed & linted** | Pydantic models, `mypy`-clean, `ruff`-clean and `ruff format`-clean. |
 
 ---
@@ -94,7 +94,9 @@ Then configure your key:
 cp .env.example .env      # then edit .env and set GROQ_API_KEY
 ```
 
-Get a free key at <https://console.groq.com/keys>.
+Get a free key at <https://console.groq.com/keys>. No key yet? Every
+command works offline with `--provider mock`, a deterministic heuristic judge
+(clearly labelled, not an LLM), or locally with `--provider ollama`.
 
 ---
 
@@ -282,8 +284,15 @@ All settings are read from the environment (or `.env`). See
 
 | Variable | Default | Description |
 |---|---|---|
-| `GROQ_API_KEY` | — | **Required** for live calls. |
+| `JUDGE_PROVIDER` | `groq` | `groq`, `ollama`, `openai_compatible` or `mock`. |
+| `GROQ_API_KEY` | — | Required for the `groq` provider. |
 | `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq-hosted model to use. |
+| `JUDGE_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server. |
+| `JUDGE_OLLAMA_MODEL` | `llama3.2` | Local model to judge with. |
+| `JUDGE_OPENAI_BASE_URL` | — | Base URL of an OpenAI-compatible API (e.g. `.../v1`). |
+| `JUDGE_OPENAI_MODEL` | — | Model name on that endpoint. |
+| `JUDGE_OPENAI_API_KEY` | — | Optional bearer token for that endpoint. |
+| `JUDGE_OPENAI_JSON_MODE` | `true` | Send `response_format: json_object` (disable for servers that reject it). |
 | `JUDGE_TEMPERATURE` | `0.0` | Sampling temperature (0 = deterministic). |
 | `JUDGE_REQUEST_TIMEOUT` | `60` | Per-request timeout in seconds. |
 | `JUDGE_MAX_RETRIES` | `3` | Retries for transient failures. |
@@ -297,6 +306,43 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_MAX_INPUT_CHARS` | `50000` | Longer inputs are truncated (with a warning). |
 | `JUDGE_BATCH_MAX_WORKERS` | `4` | Concurrency for batch mode (doubled when parallel bias runs are on). |
 | `LOG_LEVEL` | `INFO` | Logging verbosity. |
+
+---
+
+## Providers
+
+The judge runs on any of these backends. Pick one with `JUDGE_PROVIDER` or the
+`--provider` flag. Nothing here requires a paid service.
+
+| Provider | API key | Runs | Notes |
+|---|---|---|---|
+| `groq` (default) | yes ([free](https://console.groq.com/keys)) | cloud | Free plan, rate-limited per model. Default judge `llama-3.3-70b-versatile`. |
+| `ollama` | no | your machine | Free local models via [Ollama](https://ollama.com): `ollama pull llama3.2`. |
+| `openai_compatible` | optional | either | Any `/chat/completions` server: LM Studio, vLLM, llama.cpp, or hosted free models. |
+| `mock` | no | offline | Deterministic heuristic, **not an LLM**. For demos, tests and trying the tool without a key. |
+
+```bash
+llm-judge providers                      # what's available and configured
+llm-judge --provider ollama health       # reachability check, no inference
+llm-judge --provider mock evaluate --task "..." --output-a "..." --output-b "..."
+```
+
+```python
+from llm_judge import Judge
+from llm_judge.providers import OllamaProvider, OpenAICompatibleProvider
+
+judge = Judge(provider=OllamaProvider("qwen2.5:7b"))
+judge = Judge(provider=OpenAICompatibleProvider("http://localhost:1234/v1", "local-model"))
+```
+
+Every result records which provider and model produced it (`metadata.judge`),
+and the library never switches provider or model silently. Mock results say so
+in every explanation. Third-party packages can add providers through the
+`llm_judge.providers` entry-point group (see `llm_judge/providers/registry.py`).
+
+Small local models are weaker judges than large hosted ones. Expect noisier
+scores and more repair retries, and prefer a judge from a different model
+family than the candidates (the `self_preference_risk` warning flags this).
 
 ---
 
@@ -320,15 +366,19 @@ src/llm_judge/           # Installable package (src layout)
 ├─ logging_config.py     # Opt-in logging setup
 ├─ py.typed              # PEP 561 marker: ships type information
 └─ providers/            # Pluggable LLM backends
-   ├─ base.py            #   LLMProvider protocol
-   └─ groq_provider.py   #   Groq implementation (JSON mode + error mapping)
+   ├─ base.py            #   LLMProvider protocol, health, usage counters
+   ├─ registry.py        #   Name -> provider factory, plugin discovery
+   ├─ groq_provider.py   #   Groq (default cloud judge)
+   ├─ ollama_provider.py #   Local models via Ollama
+   ├─ openai_compatible.py # Any /chat/completions endpoint
+   └─ mock_provider.py   #   Offline heuristic judge (not an LLM)
 app.py                   # Streamlit UI (thin layer over the library)
 tests/                   # Offline unit + property tests (fake providers)
 ```
 
 The judge depends only on the `LLMProvider` protocol, so supporting a new backend
-(OpenAI, Anthropic, a local model, …) means implementing a single `complete_json`
-method — no changes to the judging logic.
+means implementing a single `complete_json` method, with no changes to the
+judging logic.
 
 ---
 

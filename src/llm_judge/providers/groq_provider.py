@@ -5,12 +5,9 @@ from __future__ import annotations
 import logging
 
 from ..exceptions import ConfigurationError, ProviderError
-from .base import ChatMessage
+from .base import RETRYABLE_STATUS, ChatMessage, ProviderHealth, UsageTracker
 
 logger = logging.getLogger(__name__)
-
-# HTTP status codes that indicate a transient, retryable server-side condition.
-_RETRYABLE_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
 
 
 class GroqProvider:
@@ -43,6 +40,7 @@ class GroqProvider:
 
         self._client = Groq(api_key=api_key, timeout=timeout)
         self.model = model
+        self.usage = UsageTracker()
         self._temperature = temperature
 
     def complete_json(self, messages: list[ChatMessage]) -> str:
@@ -68,7 +66,24 @@ class GroqProvider:
 
         if not content or not content.strip():
             raise ProviderError("Groq returned an empty response.", retryable=True)
+        usage = getattr(response, "usage", None)
+        self.usage.record(
+            getattr(usage, "prompt_tokens", None), getattr(usage, "completion_tokens", None)
+        )
         return content.strip()
+
+    def health(self) -> ProviderHealth:
+        """Check the API key and model by listing models (no inference, no token cost)."""
+        try:
+            listing = self._client.models.list()
+            ids = [m.id for m in getattr(listing, "data", [])]
+        except Exception as exc:  # any SDK failure means "not healthy"
+            return ProviderHealth(False, self.name, self.model, f"API check failed: {exc}")
+        if ids and self.model not in ids:
+            return ProviderHealth(
+                False, self.name, self.model, f"model '{self.model}' is not available on Groq"
+            )
+        return ProviderHealth(True, self.name, self.model, "API key valid; model available")
 
     @staticmethod
     def _to_provider_error(exc: Exception) -> ProviderError:
@@ -82,7 +97,7 @@ class GroqProvider:
             "RateLimitError",
             "InternalServerError",
         }
-        retryable = (status in _RETRYABLE_STATUS) or name in retryable_names
+        retryable = (status in RETRYABLE_STATUS) or name in retryable_names
         logger.warning(
             "Groq API error (%s, status=%s, retryable=%s): %s", name, status, retryable, exc
         )

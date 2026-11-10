@@ -230,3 +230,13 @@ def make_pointwise_payload(
     if unsupported is not None:
         payload["unsupported_claims"] = unsupported
     return payload
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_environment(monkeypatch):
+    """Ignore the developer's shell configuration (API keys, JUDGE_* overrides)."""
+    import os
+
+    for name in list(os.environ):
+        if name.startswith(("JUDGE_", "GROQ_")):
+            monkeypatch.delenv(name, raising=False)

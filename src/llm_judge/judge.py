@@ -50,7 +50,6 @@ from .prompts import (
     new_boundary,
 )
 from .providers.base import ChatMessage, LLMProvider
-from .providers.groq_provider import GroqProvider
 from .scoring import criterion_key, decide_winner, match_criteria, weighted_mean
 
 logger = logging.getLogger(__name__)
@@ -86,12 +85,9 @@ class Judge:
 
     @staticmethod
     def _build_default_provider(settings: Settings) -> LLMProvider:
-        return GroqProvider(
-            api_key=settings.require_api_key(),
-            model=settings.groq_model,
-            temperature=settings.temperature,
-            timeout=settings.request_timeout,
-        )
+        from .providers.registry import build_provider
+
+        return build_provider(settings)
 
     # -- public API ---------------------------------------------------------
 

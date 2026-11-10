@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - Unreleased
+
+Phase 3 of the platform roadmap: multi-provider architecture.
+
+### Added
+- `MockProvider`: an offline, deterministic heuristic judge (not an LLM) for
+  demos, tests and keyless use. Every explanation is labelled as mock output.
+- `OllamaProvider`: free local inference through Ollama's native API, with
+  actionable errors for a stopped server or a model that isn't pulled.
+- `OpenAICompatibleProvider`: any `/chat/completions` endpoint, configured via
+  prefixed `JUDGE_OPENAI_*` settings so an unrelated paid key is never used.
+- Provider registry (`build_provider`, `register_provider`, `provider_names`)
+  with plugin discovery through the `llm_judge.providers` entry-point group.
+- Provider health checks that run no inference, and thread-safe per-provider
+  usage counters (requests and tokens, where the backend reports them).
+- CLI: global `--provider` flag, plus `providers`, `health` and `version` commands.
+- Settings: `JUDGE_PROVIDER`, `JUDGE_OLLAMA_*`, `JUDGE_OPENAI_*`.
+
+### Changed
+- `Judge()` builds its provider from `JUDGE_PROVIDER` (default `groq`, as before).
+- API keys are excluded from the `Settings` repr.
+- The missing-key error suggests `--provider mock`.
+- `httpx` is now an explicit dependency. It was already installed via `groq`.
+
 ## [1.2.0] - Unreleased
 
 Phase 2 of the platform roadmap: new evaluation modes. Result schema "1.2"

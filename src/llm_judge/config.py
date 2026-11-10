@@ -33,8 +33,23 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
+    # Which judge backend to use: groq | ollama | openai_compatible | mock | <plugin>.
+    provider: str = Field(default="groq", alias="JUDGE_PROVIDER")
+
+    # Secrets use repr=False so they never appear in logs or tracebacks of Settings.
+    groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY", repr=False)
     groq_model: str = Field(default="llama-3.3-70b-versatile", alias="GROQ_MODEL")
+
+    # Local inference with Ollama (https://ollama.com).
+    ollama_base_url: str = Field(default="http://localhost:11434", alias="JUDGE_OLLAMA_BASE_URL")
+    ollama_model: str = Field(default="llama3.2", alias="JUDGE_OLLAMA_MODEL")
+
+    # Any OpenAI-compatible endpoint. Deliberately prefixed, so a paid
+    # OPENAI_API_KEY in the environment is never picked up by accident.
+    openai_base_url: str | None = Field(default=None, alias="JUDGE_OPENAI_BASE_URL")
+    openai_api_key: str | None = Field(default=None, alias="JUDGE_OPENAI_API_KEY", repr=False)
+    openai_model: str | None = Field(default=None, alias="JUDGE_OPENAI_MODEL")
+    openai_json_mode: bool = Field(default=True, alias="JUDGE_OPENAI_JSON_MODE")
 
     # Generation / request behaviour.
     temperature: float = Field(default=0.0, ge=0.0, le=2.0, alias="JUDGE_TEMPERATURE")
@@ -73,6 +88,11 @@ class Settings(BaseSettings):
     def _normalise_log_level(cls, value: str) -> str:
         return value.upper()
 
+    @field_validator("provider")
+    @classmethod
+    def _normalise_provider(cls, value: str) -> str:
+        return value.strip().lower().replace("-", "_")
+
     def require_api_key(self) -> str:
         """Return the Groq API key or raise :class:`ConfigurationError`.
 
@@ -81,8 +101,9 @@ class Settings(BaseSettings):
         """
         if not self.groq_api_key:
             raise ConfigurationError(
-                "GROQ_API_KEY is not set. Create a .env file (see .env.example) "
-                "or export GROQ_API_KEY in your environment."
+                "GROQ_API_KEY is not set. Create a .env file (see .env.example) or "
+                "export GROQ_API_KEY. To try the tool without a key, use the offline mock "
+                "judge: --provider mock (or JUDGE_PROVIDER=mock)."
             )
         return self.groq_api_key
 

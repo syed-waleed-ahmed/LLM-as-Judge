@@ -281,3 +281,80 @@ def test_rank_command_rejects_bad_candidate_files(real_judge_with, tmp_path, con
     path.write_text(content, encoding="utf-8")
     with pytest.raises(SystemExit):
         main(["rank", "--task", "t", "--candidates-file", str(path)])
+
+
+# --- providers, health, version, --provider ---------------------------------------
+
+
+@pytest.fixture
+def keyless_settings(monkeypatch):
+    monkeypatch.setattr(config_module, "get_settings", lambda: Settings(_env_file=None))
+
+
+def test_mock_provider_runs_end_to_end_without_a_key(keyless_settings, capsys):
+    code = main(
+        [
+            "--provider",
+            "mock",
+            "evaluate",
+            "--task",
+            "Explain what an API is",
+            "--output-a",
+            "An API lets two programs talk to each other through a defined contract.",
+            "--output-b",
+            "Interface.",
+        ]
+    )
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "Overall winner: A" in out
+    assert "not an LLM" in out
+
+
+def test_missing_key_error_suggests_the_mock_provider(keyless_settings, capsys):
+    code = main(["evaluate", "--task", "t", "--output-a", "a", "--output-b", "b"])
+    assert code == 2
+    assert "--provider mock" in capsys.readouterr().err
+
+
+def test_providers_command_lists_status(keyless_settings, capsys):
+    assert main(["providers"]) == 0
+    out = capsys.readouterr().out
+    assert "* groq" in out and "not configured" in out
+    assert "mock" in out and "NOT an LLM" in out
+
+
+def test_health_command(keyless_settings, capsys, monkeypatch):
+    assert main(["--provider", "mock", "health"]) == 0
+    assert "OK" in capsys.readouterr().out
+
+    from llm_judge.providers.base import ProviderHealth
+
+    class Unhealthy:
+        model = "m"
+
+        def health(self):
+            return ProviderHealth(False, "x", "m", "down")
+
+    class NoHealth:
+        model = "m"
+
+    import llm_judge.providers.registry as registry
+
+    monkeypatch.setattr(registry, "build_provider", lambda s: Unhealthy())
+    assert main(["health"]) == 1
+    monkeypatch.setattr(registry, "build_provider", lambda s: NoHealth())
+    assert main(["health"]) == 0
+    assert "no health check" in capsys.readouterr().out
+
+
+def test_unknown_provider_exits_with_an_error(keyless_settings, capsys):
+    assert main(["--provider", "nope", "health"]) == 2
+    assert "Unknown provider" in capsys.readouterr().err
+
+
+def test_version_command(capsys):
+    from llm_judge import __version__
+
+    assert main(["version"]) == 0
+    assert __version__ in capsys.readouterr().out

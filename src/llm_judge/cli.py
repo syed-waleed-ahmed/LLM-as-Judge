@@ -641,7 +641,7 @@ def _maybe_record(args: argparse.Namespace, report: RunReport, judge: Judge, sou
             name=args.run_name,
             dataset_source=source,
         )
-    _info(args, f"Recorded run {info.id} in experiment '{args.experiment}' ({store.path}).")
+    _info(args, f"Recorded run {info.id} in experiment '{args.experiment}' ({store.location}).")
 
 
 def _print_summary_stats(summary: DatasetSummary) -> None:
@@ -774,7 +774,7 @@ def _cmd_experiments(args: argparse.Namespace) -> int:
         if command == "list":
             experiments = store.list_experiments()
             if not experiments:
-                print(f"No experiments in {store.path} yet.")
+                print(f"No experiments in {store.location} yet.")
             for e in experiments:
                 print(f"  {e.name:<30} {e.runs:>4} run(s)   created {e.created_at}")
             return 0

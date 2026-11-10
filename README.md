@@ -97,7 +97,7 @@ this project handles the parts that usually get skipped:
 | **Bias mitigation** | Optional A/B order swapping to reduce position bias. |
 | **Reliability warnings** | Flags prompt injection, verbosity bias, self-preference and order sensitivity. |
 | **Retries & repair** | Backoff for transient errors; repair retries for malformed replies. |
-| **Experiment tracking** | SQLite run history, run comparison with confidence intervals, and a regression gate for CI. |
+| **Experiment tracking** | Run history in SQLite (default) or PostgreSQL/Supabase, run comparison with confidence intervals, Markdown reports, and a regression gate for CI. |
 | **Datasets & batches** | CSV/JSON/JSONL/YAML validation, checkpointed and resumable batch runs, per-model summaries, bundled benchmark samples. |
 | **Fully tested** | Offline unit and property-based tests (Hypothesis), no network calls in CI. |
 | **Pluggable providers** | Groq, Ollama (local), any OpenAI-compatible API, and an offline mock; add your own by implementing one method. |
@@ -557,8 +557,17 @@ evidence about real models.
 ### Experiment tracking and regression detection
 
 Add `--experiment NAME` to `batch` or `benchmark` to record the run in a local
-SQLite database (`JUDGE_DB_PATH`, default `.llm_judge/experiments.db`). There's
-no server and no account. Each run stores its per-row results with
+SQLite database (`JUDGE_DB_PATH`, default `.llm_judge/experiments.db`). That
+needs no server and no account.
+
+To share runs across machines, point `JUDGE_DB_PATH` at a PostgreSQL URL
+instead. A free [Supabase](https://supabase.com) project works: install the
+extra (`pip install -e ".[postgres]"`), then set
+`JUDGE_DB_PATH=postgresql://postgres.<ref>:<password>@<host>:6543/postgres`,
+the "Transaction pooler" connection string from the project's Connect dialog.
+Tables are created on first use, and both backends store the same data.
+
+Each run stores its per-row results with
 reproducibility metadata: dataset fingerprint, judge provider and model,
 prompt version, criteria, relevant settings, and the library and Python
 versions. Raw task text, outputs and references are not stored, only their
@@ -641,7 +650,7 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_DEMO_MODE` | `false` | Public-demo safeguards in the dashboard (quotas, caps, session-only storage). |
 | `JUDGE_DEMO_SESSION_CALLS` / `JUDGE_DEMO_DAILY_CALLS` | `25` / `500` | Live judge calls per visitor session / per day. |
 | `JUDGE_DEMO_MAX_INPUT_CHARS` / `_MAX_ROWS` / `_MAX_CANDIDATES` | `4000` / `25` / `5` | Demo input caps. |
-| `JUDGE_DB_PATH` | `.llm_judge/experiments.db` | Experiment-tracking database (SQLite). |
+| `JUDGE_DB_PATH` | `.llm_judge/experiments.db` | Experiment-tracking database: a SQLite file, or a `postgresql://` URL such as Supabase (needs the `postgres` extra). Passwords are redacted wherever it's shown. |
 | `JUDGE_MAX_DATASET_BYTES` | `50000000` | Larger dataset files are rejected before parsing. |
 | `JUDGE_MAX_DATASET_ROWS` | `100000` | Maximum rows per dataset. |
 | `JUDGE_BATCH_MAX_WORKERS` | `4` | Concurrency for batch mode (doubled when parallel bias runs are on). |
@@ -713,7 +722,7 @@ flowchart LR
     end
     CORE[Evaluation core<br/>pairwise · pointwise · reference<br/>ranking · RAG · agents]
     SAFE[Safeguards<br/>fenced prompts · strict parsing<br/>bias and injection checks]
-    DATA[Datasets and experiments<br/>resumable batches · SQLite runs<br/>comparisons · reports]
+    DATA[Datasets and experiments<br/>resumable batches · SQLite or Postgres runs<br/>comparisons · reports]
     PROV[Providers<br/>Groq · Ollama · OpenAI-compatible · mock<br/>opt-in fallback · cache · quotas]
     LIB & CLI & API & UI --> CORE
     CLI & API & UI --> DATA
@@ -744,7 +753,7 @@ src/llm_judge/           # Installable package (src layout)
 ├─ batch.py              # v1 batch API (kept for compatibility)
 ├─ datasets/             # Readers, validation, checkpointed runner, summaries,
 │                        #   bundled synthetic samples
-├─ experiments/          # SQLite run store, run comparison, regression detection
+├─ experiments/          # Run store (SQLite or PostgreSQL), comparison, reports
 ├─ api/                  # FastAPI app: routes, security, job queue (`[api]` extra)
 ├─ cli.py                # `llm-judge` command-line interface
 ├─ logging_config.py     # Opt-in logging setup
@@ -778,7 +787,7 @@ judging logic.
 | Resilience | tenacity retries that follow provider rate-limit hints; opt-in fallback and result cache |
 | REST API | FastAPI and Uvicorn |
 | Dashboard | Streamlit and Plotly |
-| Storage and data | SQLite (standard library); CSV, JSON, JSONL and YAML (PyYAML) |
+| Storage and data | SQLite (standard library) or PostgreSQL/Supabase (psycopg); CSV, JSON, JSONL and YAML (PyYAML) |
 | Quality | pytest, Hypothesis, ruff, mypy, Bandit, pip-audit, CodeQL, pre-commit |
 | Delivery | GitHub Actions, Docker, MkDocs Material on GitHub Pages, Streamlit Community Cloud |
 
@@ -848,9 +857,9 @@ benchmark samples.
   which are lexical. Embedding-based semantic similarity needs an embedding
   backend (`JUDGE_EMBEDDINGS_PROVIDER`). It has been tested against simulated
   responses only, because Groq offers no embeddings API.
-- **Single-node storage and jobs.** Runs live in SQLite, and API jobs run in an
-  in-process queue that doesn't survive a restart. There's no Supabase/Postgres
-  adapter and no horizontal scaling.
+- **Single-node jobs.** REST API jobs run in an in-process queue that doesn't
+  survive a restart, and nothing scales horizontally. Recorded runs can live in
+  PostgreSQL or Supabase, so they can outlive a single machine.
 - **Python 3.10 is deprecated.** It's past end of life. The fixed versions of
   Pillow, which Streamlit needs, require Python 3.11+, so run the dashboard on
   3.11 or later. The library, CLI and API still run on 3.10, and CI audits their

@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- PostgreSQL experiment store, including Supabase.
+  - Set `JUDGE_DB_PATH` to a `postgresql://` URL (`pip install -e ".[postgres]"`)
+    to keep recorded runs in PostgreSQL instead of SQLite, for example on a free
+    Supabase project.
+  - Both backends sit behind the same `ExperimentStore` API and store the same
+    data, so comparisons, reports, analytics, the CLI, the REST API and the
+    dashboard all work unchanged.
+  - Server-side prepared statements are disabled, so Supabase's transaction
+    pooler works.
+  - The password is redacted wherever the location is shown (`store.location`),
+    and the setting is excluded from the settings repr.
+  - A new CI job runs the store tests against a real PostgreSQL 16 service
+    container, and fails if they're skipped.
+
 ## [2.1.0] - 2026-11-10
 
 Closes the gaps that a line-by-line review against the original platform plan

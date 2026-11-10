@@ -80,9 +80,10 @@ protection, not billing-grade accounting.
 - **Sleeping.** Community Cloud puts idle apps to sleep. The first visitor
   after a quiet period wakes it, which takes a little while, and session data
   starts empty.
-- **Ephemeral storage.** In demo mode nothing is written to disk. Without demo
-  mode, the SQLite database would live on the container's disk and be lost on
-  restart.
+- **Ephemeral storage.** In demo mode nothing is written to disk. That's
+  deliberate: visitors' runs stay in their session. Without demo mode, the SQLite
+  database would live on the container's disk and be lost on restart. To keep
+  runs, set `JUDGE_DB_PATH` to a PostgreSQL or Supabase URL (see below).
 - **Model retirement.** Groq retires models over time. If live judging
   starts failing with a "model not found" error, set `GROQ_MODEL` to a current
   model. Run `llm-judge health` locally to check one.
@@ -120,6 +121,24 @@ streamlit run app.py
 
 Without `JUDGE_DEMO_MODE`, there are no quotas or input caps, and recorded
 runs persist to `JUDGE_DB_PATH` (default `.llm_judge/experiments.db`).
+
+### Persistent runs on Supabase (optional, free)
+
+To share recorded runs between the CLI, the REST API and a self-hosted dashboard,
+or across machines, store them in PostgreSQL. Supabase's free plan provides one:
+
+1. Create a project at <https://supabase.com>. Open **Connect** and copy the
+   **Transaction pooler** connection string (port 6543).
+2. Install the extra: `pip install -e ".[postgres]"`, or `.[all]`.
+3. Set `JUDGE_DB_PATH` to the connection string, with your database password
+   filled in, in `.env`, Streamlit secrets or the environment.
+   It's a secret, so treat it like an API key.
+
+The tables are created on first use. The store disables server-side prepared
+statements, which transaction poolers don't support. The location is shown with
+the password redacted everywhere. CI runs the store's tests against a real
+PostgreSQL 16 server. Free Supabase projects pause after a week of inactivity,
+so resume yours in the Supabase dashboard if connections start failing.
 
 ## 3. REST API (local or self-hosted)
 

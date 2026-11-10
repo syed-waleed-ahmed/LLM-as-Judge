@@ -37,9 +37,6 @@ tested, waiting for an account-specific step.
 These are open and welcome contributions. Open an issue to discuss an approach
 before starting.
 
-- **Supabase/Postgres experiment store.** An optional adapter behind the
-  existing store interface. It needs a way to test it in CI without a paid
-  service, such as a Postgres service container.
 - **Publishing to PyPI.** The release workflow is ready; it needs the PyPI
   trusted-publisher setup described in DEPLOYMENT.md.
 - **More providers.** Further free or local backends, through the provider

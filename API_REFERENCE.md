@@ -57,7 +57,7 @@ instructions.
 | Module | Key entry points |
 |---|---|
 | `llm_judge.datasets` | `load_dataset`, `validate_dataset`, `DatasetRunner`, `write_outcomes`, `summarize`, `load_sample`, `sample_records`, `split_records` |
-| `llm_judge.experiments` | `ExperimentStore`, `record_dataset_run`, `compare_runs`, `run_report`, `confidence_interval` |
+| `llm_judge.experiments` | `ExperimentStore(location)` (a SQLite path, `:memory:` or a `postgresql://` URL; `.backend`, and `.location` with the password redacted), `record_dataset_run`, `compare_runs`, `run_report`, `confidence_interval` |
 | `llm_judge.reliability` | `measure_consistency`, `judge_agreement`, `cohen_kappa`, `spearman` |
 | `llm_judge.providers` | `GroqProvider`, `OllamaProvider`, `OpenAICompatibleProvider`, `MockProvider`, `QuotaProvider`, `CallBudget`, `build_provider`, `register_provider`, `provider_names` |
 | `llm_judge.agents` | `AgentTrace`, `AgentStep`, `ToolSpec`, `check_trace`, `render_trace` |

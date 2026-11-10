@@ -15,7 +15,7 @@ flowchart TB
     end
     subgraph Application
         DS[datasets<br/>readers · validation · runner]
-        EXP[experiments<br/>SQLite store · comparison · reports]
+        EXP[experiments<br/>SQLite or Postgres store · comparison · reports]
         REL[reliability<br/>consistency · agreement]
         JOBS[api.jobs<br/>bounded job queue]
     end

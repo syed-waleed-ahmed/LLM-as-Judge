@@ -58,10 +58,8 @@ __version__ = "2.1.0"
 
 if sys.version_info < (3, 11):  # pragma: no cover - depends on the interpreter
     warnings.warn(
-        "Python 3.10 reached end of life in October 2026. LLM-as-Judge still supports it "
-        "for the library, CLI and REST API, but support is deprecated and will be removed "
-        "in a future release. Use Python 3.11 or later (the dashboard needs it for "
-        "Pillow security fixes).",
+        "Python 3.10 reached end of life in October 2026, and LLM-as-Judge's support for "
+        "it is deprecated. Please upgrade to Python 3.11 or later.",
         DeprecationWarning,
         stacklevel=2,
     )

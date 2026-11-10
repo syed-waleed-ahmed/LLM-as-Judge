@@ -17,7 +17,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any, TypeVar
 
 import streamlit as st
@@ -69,6 +71,24 @@ def _secrets_to_env() -> None:
     for key, value in secrets.items():
         if key.startswith(("JUDGE_", "GROQ_")) and isinstance(value, (str, int, float, bool)):
             os.environ.setdefault(key, str(value))
+
+
+def package_version_mismatch(root: Path) -> tuple[str, str] | None:
+    """(installed, source) versions when the imported package isn't this checkout's code.
+
+    A deployment that reuses an old install while the repository updates would
+    otherwise fail with an unexplained ImportError on the newest pages.
+    """
+    from llm_judge import __version__ as installed
+
+    init = root / "src" / "llm_judge" / "__init__.py"
+    try:
+        match = re.search(r'^__version__ = "([^"]+)"', init.read_text(encoding="utf-8"), re.M)
+    except OSError:
+        return None
+    if match and match.group(1) != installed:
+        return installed, match.group(1)
+    return None
 
 
 def app_settings() -> Settings:

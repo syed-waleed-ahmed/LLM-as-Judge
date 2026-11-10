@@ -39,6 +39,14 @@ Cloud account (sign in with GitHub at <https://share.streamlit.io>).
 4. Click **Deploy**. Community Cloud installs `requirements.txt`, which
    installs this package with its `[ui]` extra (Streamlit and Plotly).
 
+Updates deploy automatically when you push to `main`. `requirements.txt`
+installs the package *editable* (`-e .[ui]`) on purpose. Community Cloud
+reinstalls requirements only when that file changes, so a regular install
+would keep running the package version from the first deploy while the
+dashboard code moves on. If the app ever reports that the installed
+`llm_judge` package doesn't match its code, choose **Reboot app** in the
+app's menu on <https://share.streamlit.io>.
+
 The dashboard copies `JUDGE_*` and `GROQ_*` secrets into the environment at
 start-up, so every setting in [`.env.example`](.env.example) can also be set
 as a secret.

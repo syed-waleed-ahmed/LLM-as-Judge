@@ -116,6 +116,12 @@ schema only gains optional fields (`reference_metrics.semantic_similarity` and
   RAG evaluation. Previously it was only tested against simulated responses.
 
 ### Fixed
+- The public demo kept running the package version installed at its first
+  deploy. `requirements.txt` installed the package non-editably, and Streamlit
+  Community Cloud only reinstalls when that file changes, so the new Settings
+  page failed with an `ImportError`. The demo now installs it editable
+  (`-e .[ui]`). The dashboard also shows a clear error, rather than failing
+  on some pages, whenever the installed package doesn't match its code.
 - Rate limits on free tiers. Batch runs on Groq's free plan (8,000 tokens per
   minute) lost rows: retries waited 0.5 to 2 s when Groq asked for 5 to 12 s,
   and concurrent workers retried in lockstep. Retries now follow the provider's

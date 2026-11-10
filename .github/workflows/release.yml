@@ -8,6 +8,9 @@ on:
   push:
     tags: ["v*"]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,6 +25,9 @@ jobs:
         run: |
           VERSION=$(python -c "import re, pathlib; print(re.search(r'__version__ = \"(.+?)\"', pathlib.Path('src/llm_judge/__init__.py').read_text()).group(1))")
           test "v$VERSION" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME != version v$VERSION"; exit 1; }
+
+      - name: Check that CHANGELOG.md has notes for this version
+        run: python scripts/release_notes.py "$GITHUB_REF_NAME" > /dev/null
 
       - name: Build and check
         run: |
@@ -62,7 +68,15 @@ jobs:
           name: dist
           path: dist/
 
+      # The release notes are this version's section of CHANGELOG.md.
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          {
+            python3 scripts/release_notes.py "$GITHUB_REF_NAME"
+            echo
+            echo "Full changelog: https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/CHANGELOG.md"
+          } > release-notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "LLM-as-Judge ${GITHUB_REF_NAME#v}" --notes-file release-notes.md

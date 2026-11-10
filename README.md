@@ -1,13 +1,25 @@
 # LLM-as-Judge
 
-A **production-grade LLM-as-Judge framework** for evaluating and comparing model
-outputs. It uses a [Groq](https://groq.com)-hosted LLM (`openai/gpt-oss-120b` by default) as an
-impartial judge, and ships as a reusable **Python library**, a **command-line
-tool**, and a **Streamlit web app** — all sharing the same evaluation core.
+An open-source platform for **evaluating LLM outputs with an LLM judge**:
+pairwise comparison, pointwise and reference-based grading, multi-candidate
+ranking, and RAG and agent evaluation, with position-bias mitigation and
+reliability analytics. One engine powers a **Python library**, a **CLI**, a
+**REST API** and a **Streamlit dashboard**. It runs on free tiers
+([Groq](https://groq.com), with `openai/gpt-oss-120b` by default), on local
+models with [Ollama](https://ollama.com), or entirely offline with a clearly
+labelled mock judge.
 
 [![CI](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![License: MIT](https://img.shields.io/badge/license-MIT-green)
+[![CodeQL](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/codeql.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/codeql.yml)
+[![Docs](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/docs.yml/badge.svg)](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)
+[![Release](https://img.shields.io/github/v/release/syed-waleed-ahmed/LLM-as-Judge)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases)
+![Python 3.10 to 3.13](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+**[Documentation](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)** ·
+[Getting started](https://syed-waleed-ahmed.github.io/LLM-as-Judge/getting-started/) ·
+[Changelog](CHANGELOG.md) ·
+[Contributing](CONTRIBUTING.md)
 
 ---
 
@@ -24,13 +36,15 @@ tool**, and a **Streamlit web app** — all sharing the same evaluation core.
 - [Providers](#providers)
 - [Architecture](#architecture)
 - [Development](#development)
-- [Deployment](DEPLOYMENT.md)
-- [Architecture](ARCHITECTURE.md) · [API reference](API_REFERENCE.md)
-- [Benchmarks](BENCHMARKS.md)
 - [Security](#security)
 - [Contributing](#contributing)
 - [Roadmap](#roadmap)
+- [Citing](#citing)
 - [License](#license)
+
+More documents: [Deployment](DEPLOYMENT.md) ·
+[Architecture](ARCHITECTURE.md) · [API reference](API_REFERENCE.md) ·
+[Benchmarks](BENCHMARKS.md) · [Security policy](SECURITY.md)
 
 ---
 
@@ -103,6 +117,21 @@ pip install -e ".[ui,dev]"
 # Or everything (UI, REST API, YAML support)
 pip install -e ".[all]"
 ```
+
+**Without cloning.** The package isn't on PyPI yet, so install it from a
+release tag or from the wheel attached to a
+[GitHub Release](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases):
+
+```bash
+# From the v2.0.0 tag (extras: ui, api, yaml, all)
+pip install "llm-as-judge[all] @ git+https://github.com/syed-waleed-ahmed/LLM-as-Judge@v2.0.0"
+
+# Or from the release wheel
+pip install "llm-as-judge[all] @ https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/download/v2.0.0/llm_as_judge-2.0.0-py3-none-any.whl"
+```
+
+Either way you get the `llm-judge` command. To run the dashboard, clone the
+repository (it lives in `app.py` and `dashboard/`).
 
 Then configure your key:
 
@@ -273,7 +302,7 @@ Every pairwise evaluation returns a validated, versioned result:
 ### 4. REST API
 
 ```bash
-pip install "llm-as-judge[api]"
+pip install -e ".[api]"              # from a clone; included in ".[all]"
 llm-judge serve                      # http://127.0.0.1:8000, docs at /docs
 ```
 
@@ -403,7 +432,7 @@ self-reported confidence or a calibrated probability.
 ## Datasets, batches and benchmarks
 
 `llm-judge batch` evaluates whole datasets in CSV, JSON, JSONL or YAML
-(`pip install "llm-as-judge[yaml]"` for YAML). The dataset kind is inferred
+(YAML needs the `yaml` extra, which `all` includes). The dataset kind is inferred
 from the columns:
 
 | Kind | Required columns | Optional |
@@ -635,16 +664,17 @@ judging logic.
 ## Development
 
 ```bash
-pip install -e ".[all,dev]"
+pip install -e ".[all,dev,docs]"   # or: make install
 
-pytest --cov=llm_judge     # run tests with coverage
-ruff check .               # lint
-ruff format --check .      # formatting
-mypy                       # type-check (config in pyproject.toml)
+make check                 # lint, format check, type-check, Bandit and tests
+make docs                  # build the documentation site (strict)
 ```
 
+Without `make`, run the commands listed in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 Every test uses an in-memory fake provider, so the suite runs fully offline and
-deterministically — no API key or network required.
+deterministically, with no API key or network access.
+[`scripts/e2e_dashboard.py`](scripts/e2e_dashboard.py) additionally drives the
+dashboard in a real browser (see its docstring).
 
 ---
 
@@ -652,29 +682,44 @@ deterministically — no API key or network required.
 
 - See [`SECURITY.md`](SECURITY.md) for the threat model: prompt injection, hostile
   datasets, CSV injection, secret leakage, quota abuse and API abuse, each with a
-  tested mitigation. CI runs Bandit and `pip-audit`.
+  tested mitigation. CI runs Bandit, `pip-audit` and CodeQL.
 - `.env` is git-ignored; **never commit real keys**.
 - If a key is exposed, rotate it immediately in the [Groq console](https://console.groq.com/keys).
 - The library never logs secret values.
 
-See [`SECURITY.md`](SECURITY.md) for the vulnerability-reporting policy.
+Found a vulnerability? Please report it
+[privately](https://github.com/syed-waleed-ahmed/LLM-as-Judge/security/advisories/new),
+not in a public issue. [`SECURITY.md`](SECURITY.md) has the full policy.
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
-development setup and the quality gate (`ruff check`, `ruff format`, `mypy`, `pytest`) your change
-should pass, then open an issue or pull request.
+Contributions are welcome: bug reports, features, documentation, tests and new
+benchmark samples.
+
+- Open a [bug report or feature request](https://github.com/syed-waleed-ahmed/LLM-as-Judge/issues/new/choose).
+- Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the setup, the quality gate and
+  the pull request process.
+- Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
 ## Roadmap
 
-The project is evolving into a free-tier, open-source evaluation platform:
-pointwise and reference-based grading, multi-candidate ranking, local (Ollama)
-and OpenAI-compatible providers, experiment tracking and a public demo. See
-[`ROADMAP.md`](ROADMAP.md) for the phased plan and current status.
+Version 2.0.0 completed the planned phases: evaluation modes, providers,
+datasets, experiment tracking, the REST API, the dashboard, RAG and agent
+evaluation, security hardening, and documentation. Open items include a
+Supabase/Postgres experiment store and publishing to PyPI. See
+[`ROADMAP.md`](ROADMAP.md) for the status of each phase and what's next.
+
+---
+
+## Citing
+
+If you use LLM-as-Judge in research, please cite it. GitHub's "Cite this
+repository" button (from [`CITATION.cff`](CITATION.cff)) gives APA and BibTeX
+formats.
 
 ---
 

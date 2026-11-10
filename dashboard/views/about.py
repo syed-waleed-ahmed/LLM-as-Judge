@@ -14,7 +14,9 @@ st.markdown(
     f"**LLM-as-Judge {__version__}**: an open-source evaluation platform that runs on free "
     "tiers and local models. The same engine powers this dashboard, a Python library, a "
     "command-line tool and a REST API. "
-    "[Source on GitHub](https://github.com/syed-waleed-ahmed/LLM-as-Judge)."
+    "[Documentation](https://syed-waleed-ahmed.github.io/LLM-as-Judge/) · "
+    "[Source on GitHub](https://github.com/syed-waleed-ahmed/LLM-as-Judge) · "
+    "[Report an issue](https://github.com/syed-waleed-ahmed/LLM-as-Judge/issues/new/choose)"
 )
 
 st.markdown("#### Judges")

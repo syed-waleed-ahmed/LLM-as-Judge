@@ -1,0 +1,74 @@
+name: Bug report
+description: Something doesn't work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please **never paste API keys**
+        (for example `gsk_...`) into an issue. Security vulnerabilities belong in a
+        [private report](https://github.com/syed-waleed-ahmed/LLM-as-Judge/security/advisories/new),
+        not here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        A minimal command, code snippet or dataset row that shows the problem.
+        If you can, reproduce it with `--provider mock` so it needs no API key.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Error output
+      description: The full error message or traceback, if any.
+      render: text
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Where does it happen?
+      multiple: true
+      options:
+        - Python library
+        - CLI (llm-judge)
+        - REST API
+        - Streamlit dashboard
+        - Documentation
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Judge provider
+      options:
+        - groq
+        - ollama
+        - openai-compatible
+        - mock
+        - not applicable
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: LLM-as-Judge version
+      description: Output of `llm-judge --version`.
+      placeholder: "2.0.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Python version and operating system
+      placeholder: "Python 3.12, Ubuntu 24.04"
+    validations:
+      required: true

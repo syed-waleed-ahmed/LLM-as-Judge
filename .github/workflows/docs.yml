@@ -31,6 +31,14 @@ jobs:
           pip install "mkdocs>=1.6,<2" "mkdocs-material>=9.5,<10"
           mkdocs build --strict
 
+      # The README's coverage badge reads this file through shields.io, so it
+      # always shows the real coverage of the latest main.
+      - name: Measure test coverage for the README badge
+        run: |
+          pip install -e ".[ui,dev]"
+          pytest -q -p no:cacheprovider --cov=llm_judge --cov-report=json:coverage.json
+          python scripts/coverage_badge.py coverage.json site/badges/coverage.json
+
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site

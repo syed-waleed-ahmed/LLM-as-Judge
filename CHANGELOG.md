@@ -47,6 +47,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   metadata. Mock runs are labelled. The dashboard's Experiments page offers
   run and comparison reports as downloads.
 - `GET /api/v1/experiments/{name}`: one experiment and a page of its runs.
+- README and docs site:
+  - screenshots of the Playground, RAG evaluation, Experiments and Analytics
+    pages, with live Groq judgments;
+  - an architecture diagram, a technology-stack section and a limitations
+    section;
+  - a coverage badge. The docs workflow measures coverage on every deploy
+    from `main` and publishes it for shields.io (`scripts/coverage_badge.py`),
+    so no third-party coverage service is needed.
 - Dashboard **Analytics** page, computed only from recorded runs:
   - score trends across runs, and the score or margin distribution of a run;
   - per-criterion comparison;

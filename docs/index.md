@@ -12,3 +12,19 @@ dashboard**, and everything runs on free tiers or entirely offline.
 --8<-- "README.md:intro"
 
 --8<-- "README.md:features"
+
+## Screenshots
+
+The dashboard with the live Groq judge. Try it in the [live demo](https://llm-as-judge.streamlit.app/).
+
+![Playground: a pairwise verdict](assets/screenshots/playground.png)
+
+![RAG evaluation results](assets/screenshots/rag.png)
+
+![Experiments: comparing two runs](assets/screenshots/experiments.png)
+
+![Analytics: trends across runs](assets/screenshots/analytics.png)
+
+--8<-- "README.md:stack"
+
+--8<-- "README.md:limitations"

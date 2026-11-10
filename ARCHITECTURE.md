@@ -15,7 +15,7 @@ flowchart TB
     end
     subgraph Application
         DS[datasets<br/>readers · validation · runner]
-        EXP[experiments<br/>SQLite store · comparison]
+        EXP[experiments<br/>SQLite store · comparison · reports]
         REL[reliability<br/>consistency · agreement]
         JOBS[api.jobs<br/>bounded job queue]
     end
@@ -23,6 +23,7 @@ flowchart TB
         J[judge.py<br/>pairwise engine]
         PW[pointwise.py · ranking.py<br/>rag.py · agents.py]
         SAFE[prompts · parsing · scoring<br/>diagnostics · metrics]
+        CACHE[cache<br/>opt-in result cache]
     end
     subgraph Providers
         REG[registry]
@@ -31,6 +32,7 @@ flowchart TB
         OAI[OpenAI-compatible]
         M[Mock]
         Q[QuotaProvider]
+        F[FallbackProvider<br/>opt-in]
     end
     LIB --> J
     CLI --> J & DS & EXP & REL
@@ -46,6 +48,8 @@ flowchart TB
     J --> REG
     REG --> G & O & OAI & M
     Q -.wraps.-> G
+    F -.tries in order.-> G & O & OAI
+    J --> CACHE
 ```
 
 ## Module map

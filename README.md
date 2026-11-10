@@ -11,6 +11,7 @@ labelled mock judge.
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://llm-as-judge.streamlit.app/)
 [![CI](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fsyed-waleed-ahmed.github.io%2FLLM-as-Judge%2Fbadges%2Fcoverage.json)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/docs.yml)
 [![CodeQL](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/codeql.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/codeql.yml)
 [![Docs](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/docs.yml/badge.svg)](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)
 [![Release](https://img.shields.io/github/v/release/syed-waleed-ahmed/LLM-as-Judge)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases)
@@ -29,6 +30,7 @@ labelled mock judge.
 
 - [Why this exists](#why-this-exists)
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Reliability safeguards](#reliability-safeguards)
@@ -37,9 +39,11 @@ labelled mock judge.
 - [Configuration](#configuration)
 - [Providers](#providers)
 - [Architecture](#architecture)
+- [Technology stack](#technology-stack)
 - [Development](#development)
 - [Security](#security)
 - [Contributing](#contributing)
+- [Limitations](#limitations)
 - [Roadmap](#roadmap)
 - [Citing](#citing)
 - [License](#license)
@@ -100,6 +104,20 @@ this project handles the parts that usually get skipped:
 | **Typed & linted** | Pydantic models, `mypy`-clean, `ruff`-clean and `ruff format`-clean. |
 
 <!-- --8<-- [end:features] -->
+---
+
+## Screenshots
+
+The dashboard with the live Groq judge (`openai/gpt-oss-120b`). Try it in the
+[live demo](https://llm-as-judge.streamlit.app/).
+
+| | |
+|---|---|
+| ![Playground: a pairwise verdict](docs/assets/screenshots/playground.png) | ![RAG evaluation results](docs/assets/screenshots/rag.png) |
+| **Playground.** A pairwise verdict with per-criterion scores, explanations and a verbosity-bias warning. | **RAG evaluation.** Faithfulness, relevance and context metrics, with a verdict for every claim. |
+| ![Experiments: comparing two runs](docs/assets/screenshots/experiments.png) | ![Analytics: trends across runs](docs/assets/screenshots/analytics.png) |
+| **Experiments.** A regression check between two recorded runs, with a confidence interval and a caveat that their judge instructions differ. | **Analytics.** Score trends across recorded runs, computed only from stored results. |
+
 ---
 
 <!-- --8<-- [start:install] -->
@@ -678,6 +696,28 @@ family than the candidates (the `self_preference_risk` warning flags this).
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    subgraph Interfaces
+        LIB[Python library]
+        CLI[CLI]
+        API[REST API]
+        UI[Streamlit dashboard]
+    end
+    CORE[Evaluation core<br/>pairwise · pointwise · reference<br/>ranking · RAG · agents]
+    SAFE[Safeguards<br/>fenced prompts · strict parsing<br/>bias and injection checks]
+    DATA[Datasets and experiments<br/>resumable batches · SQLite runs<br/>comparisons · reports]
+    PROV[Providers<br/>Groq · Ollama · OpenAI-compatible · mock<br/>opt-in fallback · cache · quotas]
+    LIB & CLI & API & UI --> CORE
+    CLI & API & UI --> DATA
+    DATA --> CORE
+    CORE --> SAFE
+    CORE --> PROV
+```
+
+[`ARCHITECTURE.md`](ARCHITECTURE.md) has the detailed diagram, the request flow
+and the design principles.
+
 ```text
 src/llm_judge/           # Installable package (src layout)
 ├─ config.py             # Typed settings (pydantic-settings); no import-time crash
@@ -718,6 +758,26 @@ tests/                   # Offline unit + property tests (fake providers)
 The judge depends only on the `LLMProvider` protocol, so supporting a new backend
 means implementing a single `complete_json` method, with no changes to the
 judging logic.
+
+---
+
+<!-- --8<-- [start:stack] -->
+## Technology stack
+
+| Area | Tools |
+|---|---|
+| Language and models | Python 3.10 to 3.13, fully typed (mypy); Pydantic v2 and pydantic-settings |
+| LLM providers | Groq SDK; httpx for Ollama and OpenAI-compatible servers; an offline mock judge |
+| Resilience | tenacity retries that follow provider rate-limit hints; opt-in fallback and result cache |
+| REST API | FastAPI and Uvicorn |
+| Dashboard | Streamlit and Plotly |
+| Storage and data | SQLite (standard library); CSV, JSON, JSONL and YAML (PyYAML) |
+| Quality | pytest, Hypothesis, ruff, mypy, Bandit, pip-audit, CodeQL, pre-commit |
+| Delivery | GitHub Actions, Docker, MkDocs Material on GitHub Pages, Streamlit Community Cloud |
+
+Every runtime dependency is open source, and every hosted service has a free tier.
+
+<!-- --8<-- [end:stack] -->
 
 ---
 
@@ -762,6 +822,31 @@ benchmark samples.
 - Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the setup, the quality gate and
   the pull request process.
 - Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+---
+
+<!-- --8<-- [start:limitations] -->
+## Limitations
+
+- **LLM judges are imperfect.** Position, verbosity and self-preference bias are
+  mitigated and flagged, not eliminated. Scores are judgments, not ground truth.
+  The bias warnings are heuristics.
+- **Free tiers have limits.** Groq's free plan caps tokens per minute and per day.
+  Batches slow down when they hit the cap (retries follow Groq's own wait hints).
+  The public demo caps live calls, and its app sleeps when idle.
+- **The mock judge isn't an LLM.** It's a text heuristic for demos and tests,
+  and it ignores judge instructions. Its results are always labelled.
+- **Reference similarity is lexical.** Reference grading combines the judge's
+  correctness and completeness scores with exact match and token F1. It doesn't
+  use embedding-based semantic similarity.
+- **Single-node storage and jobs.** Runs live in SQLite, and API jobs run in an
+  in-process queue that doesn't survive a restart. There's no Supabase/Postgres
+  adapter and no horizontal scaling.
+- **Not externally verified everywhere.** The Ollama provider is tested against
+  simulated responses only. The REST API isn't hosted publicly; run it locally
+  or on your own server. The package isn't on PyPI yet.
+
+<!-- --8<-- [end:limitations] -->
 
 ---
 

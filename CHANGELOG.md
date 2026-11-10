@@ -29,6 +29,52 @@ pairwise judging library into an evaluation platform:
 - The overall winner is decided on weighted, scale-normalised scores. On the
   default 1-10 scale the tie behaviour is unchanged.
 
+### Fixed (independent code review and end-to-end testing)
+
+Two independent code reviews and a real-browser end-to-end run of the
+dashboard, deployed as on Streamlit Community Cloud, found these defects. All
+are fixed, with regression tests.
+
+- Checkpoints: a torn last line (crash mid-write) broke every later resume.
+  Resuming with a different judge, criteria or bias setting silently mixed
+  results; it is now refused.
+- YAML datasets: aliases allowed a ~600-byte "billion laughs" file to exhaust
+  memory. Aliases are now rejected, and so are nested field values.
+- Dataset columns:
+  - padded header names crashed loading;
+  - two aliases for the same field overwrote each other;
+  - encoding and oversized-field CSV errors escaped as raw exceptions;
+  - duplicate-id issues reported the wrong row.
+- The Groq SDK's hidden retries multiplied requests (up to 12 per call) and
+  made the demo quotas undercount. Groq JSON-mode rejections skipped the
+  repair retry.
+- Run comparisons ignored failed and missing rows, so a mostly failed
+  candidate could pass the regression gate. They now warn, and return
+  `insufficient_data` when too few rows succeeded.
+- REST API:
+  - random `X-API-Key` values bypassed the rate limit on open servers;
+  - authentication ran after body parsing;
+  - jobs ignored the concurrency cap;
+  - over-long criterion names returned 500;
+  - `%` and `_` were wildcards in run lookups.
+- CLI:
+  - usage errors exited 1 instead of 2;
+  - an unsupported `--output` failed only after the paid run;
+  - `--json` output mixed progress text into stdout;
+  - `consistency` exited 0 when nothing could be measured;
+  - `LOG_LEVEL` was ignored.
+- Dashboard:
+  - uploaded agent traces were ignored;
+  - switching dataset samples dropped their criteria;
+  - downloads cleared the results;
+  - an exhausted quota during a batch was not explained;
+  - the quota caption lagged one action behind;
+  - numeric-looking ids broke chart order.
+- Long agent traces lost their final answer to truncation.
+- "Output A and B" was relabelled incorrectly in bias-mitigated merges.
+- Criterion presets matched case-sensitively, and invalid criterion names
+  raised the wrong exception type.
+
 ### Phase 11: documentation and release
 - A MkDocs Material site (`mkdocs.yml`, `docs/`) that composes the README and
   the project documents (single source of truth), with a GitHub Pages

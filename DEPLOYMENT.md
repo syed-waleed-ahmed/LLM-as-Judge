@@ -76,6 +76,16 @@ protection, not billing-grade accounting.
   starts failing with a "model not found" error, set `GROQ_MODEL` to a current
   model. Run `llm-judge health` locally to check one.
 
+### Automated browser check
+
+`scripts/e2e_dashboard.py` drives every page in a real browser (Playwright with
+the installed Microsoft Edge). It runs with both the live and the mock judge,
+exercises the demo quota until it is exhausted, and fails on any Streamlit
+exception or browser console error. See the script's docstring for setup. It
+was run against a fresh clone installed only from `requirements.txt`, with
+configuration from `.streamlit/secrets.toml` exactly as on Community Cloud,
+and all 48 checks passed.
+
 ### Smoke test after deploying
 
 1. **Overview** loads. The sidebar shows *Live LLM (groq)* when a key is
@@ -134,7 +144,9 @@ Releases are tag-driven and need no stored API token:
 
 1. **One-time setup on PyPI.** Under *Publishing*, add a **trusted publisher**
    for this GitHub repository, with workflow `release.yml` and environment
-   `pypi`.
+   `pypi`. Then set the repository variable `PUBLISH_TO_PYPI` to `true`
+   (Settings → Secrets and variables → Actions → Variables). Without it, tags
+   still create GitHub Releases, but nothing is published to PyPI.
 2. **Bump the version.** Update `__version__` in `src/llm_judge/__init__.py`
    and the changelog, then merge to `main`.
 3. **Tag and push:** `git tag v2.0.0 && git push origin v2.0.0`.

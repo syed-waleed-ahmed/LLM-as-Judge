@@ -1,8 +1,9 @@
 name: Release
 
-# Push a tag like v2.0.0 to build, publish to PyPI and create a GitHub Release.
-# One-time setup on PyPI: add a "trusted publisher" for this repository, workflow
-# "release.yml" and environment "pypi" (no API token is stored anywhere).
+# Push a tag like v2.0.0 to build and create a GitHub Release (with the wheel and
+# sdist attached). Publishing to PyPI is opt-in: add a "trusted publisher" for this
+# repository on PyPI (workflow "release.yml", environment "pypi"; no API token is
+# stored anywhere), then set the repository variable PUBLISH_TO_PYPI to "true".
 on:
   push:
     tags: ["v*"]
@@ -35,6 +36,7 @@ jobs:
 
   publish-pypi:
     needs: build
+    if: vars.PUBLISH_TO_PYPI == 'true'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

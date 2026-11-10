@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - Unreleased
+
+Phase 9 of the platform roadmap: security and performance hardening.
+
+### Added
+- A threat model in `SECURITY.md`, with a tested mitigation for each risk.
+- CSV-injection protection (`llm_judge.csv_safety`) in every CSV writer:
+  batch results, dataset results and experiment exports.
+- A Bandit job in CI, with reviewed and documented suppressions.
+- A `Dockerfile` (non-root; dashboard by default, REST API on demand) and a
+  CI job that builds the image and smoke-tests both services in containers.
+- Hardening tests:
+  - hostile datasets (deep nesting, YAML object tags, oversized files);
+  - secret hygiene in errors, logs and API responses;
+  - exact quotas and rate limits under 32-64 concurrent threads;
+  - a 400-row, 16-worker runner stress test with checkpoint integrity.
+- `scripts/perf_baseline.py` and `BENCHMARKS.md`: measured library overhead,
+  concurrency scaling and the parallel bias-mitigation speed-up.
+
+### Fixed
+- Deeply nested JSON in datasets, checkpoints, candidate files or judge
+  replies raised `RecursionError` (a crash, or a 500 from the API). It is now
+  a clean validation or parsing error.
+
 ## [1.8.0] - Unreleased
 
 Phase 8 of the platform roadmap: RAG, agents, and reliability analytics.

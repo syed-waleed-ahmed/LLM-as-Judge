@@ -25,9 +25,9 @@ Status key: **done** = implemented and tested, **next** = in progress,
 | 6 | REST API (FastAPI, local or self-hosted) and expanded CLI | done |
 | 7 | Multi-page Streamlit dashboard with demo mode and quotas | done |
 | 8 | RAG and agent evaluation, reliability analytics (repeat-sampling confidence intervals) | done |
-| 9 | Security and performance hardening (upload limits, dependency audit, concurrency tests) | next |
+| 9 | Security and performance hardening (upload limits, dependency audit, concurrency tests) | done |
 | 10 | Free-tier public demo on Streamlit Community Cloud ([guide](DEPLOYMENT.md)); needs the owner's Streamlit account to publish | ready to deploy |
-| 11 | Documentation site (MkDocs Material), release preparation | planned |
+| 11 | Documentation site (MkDocs Material), release preparation | next |
 
 ## Known free-tier limits
 

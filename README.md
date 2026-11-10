@@ -25,6 +25,7 @@ tool**, and a **Streamlit web app** — all sharing the same evaluation core.
 - [Architecture](#architecture)
 - [Development](#development)
 - [Deployment](DEPLOYMENT.md)
+- [Benchmarks](BENCHMARKS.md)
 - [Security](#security)
 - [Contributing](#contributing)
 - [Roadmap](#roadmap)
@@ -630,6 +631,9 @@ deterministically — no API key or network required.
 
 ## Security
 
+- See [`SECURITY.md`](SECURITY.md) for the threat model: prompt injection, hostile
+  datasets, CSV injection, secret leakage, quota abuse and API abuse, each with a
+  tested mitigation. CI runs Bandit and `pip-audit`.
 - `.env` is git-ignored; **never commit real keys**.
 - If a key is exposed, rotate it immediately in the [Groq console](https://console.groq.com/keys).
 - The library never logs secret values.

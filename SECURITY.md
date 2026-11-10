@@ -2,26 +2,61 @@
 
 ## Reporting a vulnerability
 
-If you discover a security issue, please **do not open a public issue**. Instead,
-report it privately to the maintainer at **syedwaleedahmed9@gmail.com** with:
+If you discover a security issue, please **don't open a public issue**.
+Instead, report it privately to the maintainer at **syedwaleedahmed9@gmail.com**
+with:
 
 - a description of the issue and its impact, and
 - steps to reproduce (a minimal proof of concept if possible).
 
-You can expect an acknowledgement within a few days. Please give us a reasonable
-window to release a fix before any public disclosure.
-
-## Handling secrets
-
-This project talks to a third-party LLM API and therefore uses an API key:
-
-- The key is read from the environment or a local `.env` file, which is
-  **git-ignored** and must never be committed.
-- Use `.env.example` as a template; it contains no real values.
-- The library never logs secret values.
-- If a key is ever exposed, **rotate it immediately** in the
-  [Groq console](https://console.groq.com/keys).
+You can expect an acknowledgement within a few days. Please allow a
+reasonable window for a fix before any public disclosure.
 
 ## Supported versions
 
 The latest release on `main` receives security fixes.
+
+## Threat model
+
+The judge processes **untrusted text**: candidate outputs, retrieved RAG
+passages, uploaded datasets and agent traces. It runs on **finite free-tier
+quotas**, and can be exposed as a **public demo** or a **REST API**. These are
+the risks considered and how each is mitigated. Every mitigation listed here
+has tests.
+
+| Risk | Mitigation | Where |
+|---|---|---|
+| Prompt injection in candidate outputs or retrieved passages | Inputs are fenced between boundary markers carrying a random per-request token, and the judge is told they're data. Suspicious text raises `possible_prompt_injection` warnings. | `prompts.py`, `diagnostics.py`, `rag.py` |
+| Judge reply manipulation or malformed output | Strict schema validation, exact criteria and context matching, bounded repair retries, and winners recomputed from the scores | `parsing.py`, `scoring.py`, `judge.py` |
+| Hostile dataset files (huge, deeply nested, YAML object tags) | Byte and row limits checked before parsing, `yaml.safe_load` only, deep nesting rejected as a validation error. Uploaded content is never executed. | `datasets/io.py` |
+| CSV / formula injection in exported results | Text cells starting with `=`, `+`, `-`, `@`, tab or CR are prefixed with `'` (OWASP guidance) | `csv_safety.py` |
+| Secret leakage | Keys are excluded from the `Settings` repr, error messages, logs, API responses and experiment metadata. `.env` and `.streamlit/secrets.toml` are git-ignored, and the OpenAI-compatible provider only reads prefixed `JUDGE_OPENAI_*` variables. | `config.py`, `api/`, `experiments/store.py` |
+| Quota exhaustion and abuse (public demo) | Per-session and daily call budgets enforced at the provider layer (retries included), plus input, row, candidate and upload caps | `providers/quota.py`, `dashboard/common.py` |
+| Abuse of the REST API | Optional API keys (constant-time comparison); admin routes disabled unless `JUDGE_API_ADMIN_KEY` is set; per-client rate limiting; a request-size limit that also covers chunked bodies; a concurrency cap that sheds load with 503; a bounded job queue | `api/security.py`, `api/app.py`, `api/jobs.py` |
+| Information disclosure in API errors | One JSON error envelope with request ids; stack traces and internals are never returned | `api/app.py` |
+| Privacy of evaluated content | The experiment store keeps hashes of raw inputs, not the inputs. Public-demo sessions keep nothing after the session ends. | `experiments/store.py`, `dashboard/common.py` |
+| Vulnerable dependencies | `pip-audit` runs in CI | `.github/workflows/ci.yml` |
+
+## Static analysis
+
+CI runs [Bandit](https://bandit.readthedocs.io) on the library, CLI, API and
+dashboard. Three checks are suppressed after review (see `[tool.bandit]` in
+`pyproject.toml`):
+
+- **B101 (`assert`)**: used for internal invariants and type narrowing, never
+  for security decisions.
+- **B311 (`random`)**: seeded pseudo-randomness for reproducible sampling and
+  bootstrap resampling, which has no security purpose. Boundary tokens use
+  `secrets`.
+- **B615 (Hugging Face download)**: a false positive. This project's own
+  `load_dataset()` reads local files only.
+
+## Handling secrets
+
+- Keys come from the environment, a local `.env` file or Streamlit secrets.
+  They're never committed: `.env.example` and
+  `.streamlit/secrets.toml.example` contain no real values.
+- When exposing the REST API beyond localhost, set `JUDGE_API_KEYS` and serve
+  it behind TLS.
+- If a key is ever exposed, **rotate it immediately** in the provider's
+  console (for Groq: <https://console.groq.com/keys>).

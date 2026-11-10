@@ -77,7 +77,7 @@ def _rows(path: Path, suffix: str) -> Iterator[dict[str, Any]]:
                     continue
                 try:
                     obj = json.loads(line)
-                except json.JSONDecodeError as exc:
+                except (json.JSONDecodeError, RecursionError) as exc:
                     raise DatasetError(
                         f"{path.name} line {line_no}: invalid JSON ({exc})."
                     ) from None
@@ -94,7 +94,7 @@ def _document_rows(path: Path, suffix: str) -> Iterator[dict[str, Any]]:
     if suffix == ".json":
         try:
             data = json.loads(text)
-        except json.JSONDecodeError as exc:
+        except (json.JSONDecodeError, RecursionError) as exc:
             raise DatasetError(f"{path.name}: invalid JSON ({exc}).") from None
     else:
         try:
@@ -104,8 +104,8 @@ def _document_rows(path: Path, suffix: str) -> Iterator[dict[str, Any]]:
                 "Reading YAML datasets needs PyYAML: pip install 'llm-as-judge[yaml]'."
             ) from None
         try:
-            data = yaml.safe_load(text)
-        except yaml.YAMLError as exc:
+            data = yaml.safe_load(text)  # safe_load never constructs arbitrary objects
+        except (yaml.YAMLError, RecursionError) as exc:
             raise DatasetError(f"{path.name}: invalid YAML ({exc}).") from None
 
     if isinstance(data, dict) and isinstance(data.get("records"), list):

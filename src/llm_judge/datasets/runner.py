@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
 
 from ..criteria import DEFAULT_REFERENCE_CRITERIA
+from ..csv_safety import safe_rows
 from ..models import Criterion, JudgeResult, PointwiseResult
 from .io import DatasetError
 from .records import (
@@ -141,7 +142,7 @@ def read_checkpoint(path: Path, kind: DatasetKind) -> dict[str, _Checkpointed]:
             continue
         try:
             data = json.loads(line)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):
             if number == len(lines):  # a write cut short by a crash; that row reruns
                 logger.warning("Ignoring incomplete last line of checkpoint %s", path)
                 continue
@@ -407,7 +408,7 @@ def write_outcomes(outcomes: Sequence[RowOutcome], path: str | Path) -> None:
         with path.open("w", encoding="utf-8", newline="") as fh:
             writer = csv.DictWriter(fh, fieldnames=fieldnames)
             writer.writeheader()
-            writer.writerows(rows)
+            writer.writerows(safe_rows(rows))
     elif suffix in (".jsonl", ".ndjson"):
         with path.open("w", encoding="utf-8") as fh:
             for outcome in outcomes:

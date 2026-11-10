@@ -28,6 +28,7 @@ from .criteria import (
     REFERENCE_CRITERIA_PRESETS,
     resolve_criterion,
 )
+from .csv_safety import safe_rows
 from .exceptions import LLMJudgeError
 from .logging_config import configure_logging
 from .models import Criterion, EvaluationWarning, JudgeResult, PointwiseResult, RankingResult
@@ -404,7 +405,7 @@ def _load_candidates(path: str) -> tuple[dict[str, str], dict[str, str | None]]:
     """Read candidates (and optional models) from a JSON file."""
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, RecursionError) as exc:
         raise SystemExit(f"error: {path} is not valid JSON: {exc}") from None
     if isinstance(data, dict) and all(isinstance(v, str) for v in data.values()):
         return {str(k): v for k, v in data.items()}, {}
@@ -777,7 +778,7 @@ def _cmd_experiments(args: argparse.Namespace) -> int:
                 with out.open("w", encoding="utf-8", newline="") as fh:
                     writer = csv.DictWriter(fh, fieldnames=fieldnames)
                     writer.writeheader()
-                    writer.writerows(row.flat for row in rows)
+                    writer.writerows(safe_rows(row.flat for row in rows))
             else:
                 with out.open("w", encoding="utf-8") as fh:
                     for row in rows:

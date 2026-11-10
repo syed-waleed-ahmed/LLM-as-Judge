@@ -58,3 +58,48 @@ jobs:
 
       - name: Audit dependencies for known vulnerabilities
         run: pip-audit --skip-editable
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Bandit
+        run: pip install "bandit[toml]>=1.7"
+
+      - name: Static security analysis (Bandit)
+        run: bandit -c pyproject.toml -r src app.py dashboard
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t llm-judge:ci .
+
+      - name: Smoke-test the REST API container
+        run: |
+          docker run -d --name api -p 8000:8000 -e JUDGE_PROVIDER=mock llm-judge:ci \
+            llm-judge serve --host 0.0.0.0 --port 8000
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/health && break; sleep 1; done
+          curl -fsS -X POST http://127.0.0.1:8000/api/v1/evaluate/pairwise \
+            -H "Content-Type: application/json" \
+            -d '{"task_description": "Explain DNS", "output_a": "DNS maps domain names to IP addresses.", "output_b": "It is DNS."}' \
+            | grep -q overall_winner
+
+      - name: Smoke-test the dashboard container
+        run: |
+          docker run -d --name ui -p 8501:8501 -e JUDGE_PROVIDER=mock llm-judge:ci
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8501/_stcore/health && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8501/_stcore/health | grep -q ok
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs api || true; docker logs ui || true

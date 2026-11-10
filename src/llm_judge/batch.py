@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from .csv_safety import safe_rows
 from .judge import Judge
 from .models import Criterion
 
@@ -215,7 +216,7 @@ def write_results(results: Iterable[BatchRowResult], path: str | Path) -> None:
         with path.open("w", encoding="utf-8", newline="") as fh:
             writer = csv.DictWriter(fh, fieldnames=fieldnames)
             writer.writeheader()
-            writer.writerows(rows)
+            writer.writerows(safe_rows(rows))
     elif suffix in (".jsonl", ".ndjson"):
         with path.open("w", encoding="utf-8") as fh:
             for r in results:

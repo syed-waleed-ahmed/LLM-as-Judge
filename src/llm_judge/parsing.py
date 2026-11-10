@@ -41,7 +41,7 @@ def _first_json_object(text: str) -> dict[str, Any] | None:
         attempts += 1
         try:
             obj, _ = decoder.raw_decode(text, start)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):
             pass
         else:
             if isinstance(obj, dict):
@@ -60,7 +60,7 @@ def extract_json_object(raw: str) -> dict[str, Any]:
     candidate = _strip_code_fences(raw)
     try:
         data: Any = json.loads(candidate)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, RecursionError):
         data = _first_json_object(candidate)
         if data is None:
             raise ResponseParsingError(

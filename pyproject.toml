@@ -34,10 +34,13 @@ dependencies = [
 
 [project.optional-dependencies]
 ui = ["streamlit>=1.35.0"]
+yaml = ["pyyaml>=6.0"]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "hypothesis>=6.100.0",
+    "pyyaml>=6.0",
+    "types-PyYAML>=6.0",
     "ruff>=0.17,<0.18",  # pinned: formatter output differs between minor versions
     "mypy>=1.10.0",
 ]
@@ -58,7 +61,7 @@ include = ["llm_judge*"]
 version = { attr = "llm_judge.__version__" }
 
 [tool.setuptools.package-data]
-llm_judge = ["py.typed"]
+llm_judge = ["py.typed", "datasets/samples/*.jsonl"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,6 @@
+{"id": "if-1", "task_description": "List exactly three benefits of regular exercise as bullet points, and nothing else.", "output": "- Improves heart health\n- Boosts mood\n- Helps maintain a healthy weight", "model": "system-alpha"}
+{"id": "if-2", "task_description": "List exactly three benefits of regular exercise as bullet points, and nothing else.", "output": "Great question! Exercise has many benefits:\n- Better sleep\n- More energy\n- Stronger muscles\n- Lower stress\nLet me know if you want more!", "model": "system-beta"}
+{"id": "if-3", "task_description": "Reply with a single word: the capital of Japan.", "output": "Tokyo", "model": "system-alpha"}
+{"id": "if-4", "task_description": "Reply with a single word: the capital of Japan.", "output": "The capital of Japan is Tokyo, a huge city known for its food and technology.", "model": "system-beta"}
+{"id": "if-5", "task_description": "Write a haiku about autumn (three lines of 5, 7 and 5 syllables) in lowercase letters only.", "output": "crisp leaves drift and fall\nthe old maple lets them go\nquiet amber ground", "model": "system-alpha"}
+{"id": "if-6", "task_description": "Write a haiku about autumn (three lines of 5, 7 and 5 syllables) in lowercase letters only.", "output": "Autumn Leaves\nThe Leaves Are Falling Down Today From The Trees\nAutumn Is Here", "model": "system-beta"}

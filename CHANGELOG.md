@@ -4,6 +4,35 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - Unreleased
+
+Phase 4 of the platform roadmap: datasets, resumable batches and benchmarks.
+
+### Added
+- `llm_judge.datasets`: CSV, JSON, JSONL and YAML (`[yaml]` extra) readers
+  with byte and row limits; typed pairwise, pointwise and reference records
+  with column aliases; validation reports (missing values, duplicate ids and
+  content, unknown columns, oversized fields, preview); content fingerprints
+  for dataset versioning; reproducible sampling and splitting.
+- `DatasetRunner`: bounded-concurrency evaluation with an append-only JSONL
+  checkpoint, graceful Ctrl+C, and safe resume (it refuses changed records and
+  retries failed rows).
+- `summarize()`: winners and per-model win rates (pairwise), and mean scores
+  per model, mean token F1 and the unsupported-claims rate (graded).
+- Six original synthetic sample datasets: general QA, code generation,
+  summarization, RAG, instruction following, safety.
+- Criteria presets: Instruction Following, Safety.
+- CLI: `datasets validate|samples|export` and `benchmark`.
+- Settings: `JUDGE_MAX_DATASET_BYTES`, `JUDGE_MAX_DATASET_ROWS`.
+
+### Changed
+- `llm-judge batch` accepts all three dataset kinds and every format. It
+  checkpoints by default, resumes with `--resume`, supports `--sample`,
+  `--limit` and `--skip-invalid`, prints a summary, and exits with 130 when
+  interrupted. Existing flags and the pairwise CSV columns are unchanged (two
+  model columns were added).
+- ruff is pinned to 0.17.x so local and CI formatting agree.
+
 ## [1.3.0] - Unreleased
 
 Phase 3 of the platform roadmap: multi-provider architecture.

@@ -17,8 +17,10 @@ tool**, and a **Streamlit web app** — all sharing the same evaluation core.
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Batch input format](#batch-input-format)
+- [Reliability safeguards](#reliability-safeguards)
+- [Datasets, batches and benchmarks](#datasets-batches-and-benchmarks)
 - [Configuration](#configuration)
+- [Providers](#providers)
 - [Architecture](#architecture)
 - [Development](#development)
 - [Security](#security)
@@ -67,7 +69,7 @@ this project handles the parts that usually get skipped:
 | **Bias mitigation** | Optional A/B order swapping to reduce position bias. |
 | **Reliability warnings** | Flags prompt injection, verbosity bias, self-preference and order sensitivity. |
 | **Retries & repair** | Backoff for transient errors; repair retries for malformed replies. |
-| **Batch mode** | Concurrent CSV/JSONL evaluation for large datasets. |
+| **Datasets & batches** | CSV/JSON/JSONL/YAML validation, checkpointed and resumable batch runs, per-model summaries, bundled benchmark samples. |
 | **Fully tested** | Offline unit and property-based tests (Hypothesis), no network calls in CI. |
 | **Pluggable providers** | Groq, Ollama (local), any OpenAI-compatible API, and an offline mock; add your own by implementing one method. |
 | **Typed & linted** | Pydantic models, `mypy`-clean, `ruff`-clean and `ruff format`-clean. |
@@ -136,9 +138,12 @@ llm-judge evaluate --task-file task.txt \
 llm-judge evaluate --task-file task.txt \
   --output-a-file a.txt --output-b-file b.txt --json
 
-# Grade a whole dataset concurrently
+# Grade a whole dataset concurrently (checkpointed; resumable with --resume)
 llm-judge batch --input examples/sample_batch.csv \
   --output results.csv --criteria Helpfulness --workers 8
+
+# Run a bundled benchmark sample and print per-model statistics
+llm-judge benchmark summarization
 
 # Grade one output on its own, or against an expected answer
 llm-judge grade --task "Explain DNS" --output-file answer.txt
@@ -259,21 +264,68 @@ or manipulation, and a warning doesn't prove its presence.
 
 ---
 
-## Batch input format
+## Datasets, batches and benchmarks
 
-CSV (or JSONL with the same keys). An `id` column is optional; the row index is
-used if it's missing.
+`llm-judge batch` evaluates whole datasets in CSV, JSON, JSONL or YAML
+(`pip install "llm-as-judge[yaml]"` for YAML). The dataset kind is inferred
+from the columns:
+
+| Kind | Required columns | Optional |
+|---|---|---|
+| `pairwise` | `task_description`, `output_a`, `output_b` | `id`, `model_a`, `model_b` |
+| `pointwise` | `task_description`, `output` | `id`, `model` |
+| `reference` | `task_description`, `output`, `reference` | `id`, `model` |
+
+Common column names such as `prompt`, `question`, `response` and
+`ground_truth` are mapped automatically. An `id` column is optional; the row
+index is used if it's missing.
 
 ```csv
-id,task_description,output_a,output_b
-1,Write a tagline,"Fast. Simple. Yours.","Our product is good."
+id,task_description,output_a,output_b,model_a,model_b
+1,Write a tagline,"Fast. Simple. Yours.","Our product is good.",system-alpha,system-beta
 ```
 
-Optional `model_a` and `model_b` columns name the models behind each output.
+```bash
+llm-judge datasets validate data.csv     # kinds, duplicates, missing values, fingerprint
+llm-judge batch --input data.csv --output results.csv --workers 8
+llm-judge batch --input data.csv --output results.csv --resume   # after a crash or Ctrl+C
+llm-judge batch --input big.jsonl --output sample.csv --sample 200 --seed 1
+```
 
-The output file mirrors the input `id`. For each row it adds the winner, an
-overall comment, the weighted overall scores, per-criterion scores and warning
-codes, plus an `error` column for any row that failed.
+Batch runs are built for large, flaky workloads:
+
+- **Checkpointing.** Every finished row is appended to
+  `<output>.checkpoint.jsonl` straight away. The checkpoint is deleted after a
+  fully successful run and kept otherwise.
+- **Resume.** `--resume` skips rows that already succeeded and retries the
+  failed ones. It refuses to continue if a row changed since it was
+  checkpointed, so results from two dataset versions are never mixed.
+- **Bounded resources.** At most `2 x workers` requests are in flight, and
+  files over `JUDGE_MAX_DATASET_BYTES` or `JUDGE_MAX_DATASET_ROWS` are rejected
+  before parsing.
+- **Failure isolation.** A failing row is recorded with its error and never
+  aborts the run.
+
+Each run ends with a summary: winners and **per-model win rates** for
+pairwise data, and mean scores per model, mean token F1 and rows with
+unsupported claims for graded data.
+
+### Benchmarks
+
+Six small, original, synthetic datasets ship with the package for demos and
+smoke tests: `general_qa`, `code_generation`, `summarization`, `rag`,
+`instruction_following` and `safety`. Their candidate "systems" are neutral
+labels, not real models.
+
+```bash
+llm-judge datasets samples                       # list them
+llm-judge benchmark safety                       # run one with the configured judge
+llm-judge --provider mock benchmark general_qa   # fully offline and reproducible
+llm-judge benchmark my_dataset.jsonl --output rows.csv
+```
+
+These samples are tiny, so treat their numbers as a demonstration, not as
+evidence about real models.
 
 ---
 
@@ -304,6 +356,8 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_MAX_CRITERIA` | `20` | Maximum criteria per evaluation. |
 | `JUDGE_MAX_CANDIDATES` | `8` | Maximum candidates per ranking (round robin makes n(n-1)/2 comparisons). |
 | `JUDGE_MAX_INPUT_CHARS` | `50000` | Longer inputs are truncated (with a warning). |
+| `JUDGE_MAX_DATASET_BYTES` | `50000000` | Larger dataset files are rejected before parsing. |
+| `JUDGE_MAX_DATASET_ROWS` | `100000` | Maximum rows per dataset. |
 | `JUDGE_BATCH_MAX_WORKERS` | `4` | Concurrency for batch mode (doubled when parallel bias runs are on). |
 | `LOG_LEVEL` | `INFO` | Logging verbosity. |
 
@@ -361,7 +415,9 @@ src/llm_judge/           # Installable package (src layout)
 ├─ pointwise.py          # Single-output and reference-based grading
 ├─ ranking.py            # Multi-candidate round-robin / pointwise leaderboards
 ├─ metrics.py            # Deterministic reference metrics (exact match, token F1)
-├─ batch.py              # Concurrent CSV/JSONL batch evaluation
+├─ batch.py              # v1 batch API (kept for compatibility)
+├─ datasets/             # Readers, validation, checkpointed runner, summaries,
+│                        #   bundled synthetic samples
 ├─ cli.py                # `llm-judge` command-line interface
 ├─ logging_config.py     # Opt-in logging setup
 ├─ py.typed              # PEP 561 marker: ships type information

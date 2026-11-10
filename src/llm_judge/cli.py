@@ -16,7 +16,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import TextIO
+from typing import TYPE_CHECKING, TextIO
 
 from pydantic import ValidationError as PydanticValidationError
 
@@ -31,6 +31,9 @@ from .criteria import (
 from .exceptions import LLMJudgeError
 from .logging_config import configure_logging
 from .models import Criterion, EvaluationWarning, JudgeResult, PointwiseResult, RankingResult
+
+if TYPE_CHECKING:
+    from .datasets import DatasetReport, DatasetSummary, Record, RunReport
 
 
 def _read_text_arg(value: str | None, file_value: str | None, name: str) -> str:
@@ -87,6 +90,39 @@ def _build_criteria(raw_criteria: str, raw_weights: str | None) -> list[Criterio
     return criteria
 
 
+def _add_dataset_run_options(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--kind",
+        choices=["pairwise", "pointwise", "reference"],
+        default=None,
+        help="Dataset kind (default: inferred from the columns).",
+    )
+    p.add_argument(
+        "--criteria",
+        default=None,
+        help="Comma-separated criteria. Default: Helpfulness, or Correctness,Completeness "
+        "for reference datasets (benchmark samples use their own defaults).",
+    )
+    p.add_argument("--weights", default=None, help='Relative weights, e.g. "Helpfulness=2".')
+    p.add_argument("--workers", type=int, default=None, help="Max concurrent requests.")
+    p.add_argument(
+        "--mitigate-bias",
+        action="store_true",
+        help="Run each pair in both orders and average to reduce position bias.",
+    )
+    p.add_argument("--limit", type=int, default=None, help="Only evaluate the first N rows.")
+    p.add_argument(
+        "--sample", type=int, default=None, help="Evaluate a reproducible random sample of N rows."
+    )
+    p.add_argument("--seed", type=int, default=0, help="Seed for --sample (default 0).")
+    p.add_argument(
+        "--skip-invalid",
+        action="store_true",
+        help="Evaluate the valid rows even if some rows fail validation.",
+    )
+    p.add_argument("--json", action="store_true", help="Print the run summary as JSON.")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="llm-judge",
@@ -134,17 +170,47 @@ def _build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--json", action="store_true", help="Print raw JSON instead of a summary.")
 
     # batch ---------------------------------------------------------------
-    ba = sub.add_parser("batch", help="Judge many pairs from a CSV/JSONL file.")
-    ba.add_argument("--input", required=True, help="Input .csv or .jsonl file.")
-    ba.add_argument("--output", required=True, help="Output .csv or .jsonl file.")
-    ba.add_argument("--criteria", default="Helpfulness", help="Comma-separated criteria names.")
-    ba.add_argument("--weights", default=None, help='Relative weights, e.g. "Helpfulness=2".')
-    ba.add_argument("--workers", type=int, default=None, help="Max concurrent requests.")
-    ba.add_argument(
-        "--mitigate-bias",
-        action="store_true",
-        help="Run each pair in both orders and average to reduce position bias.",
+    ba = sub.add_parser(
+        "batch",
+        help="Evaluate a dataset file (pairwise, pointwise or reference) with checkpoints.",
     )
+    ba.add_argument("--input", required=True, help="Dataset: .csv, .jsonl, .json or .yaml.")
+    ba.add_argument("--output", required=True, help="Results: .csv, .jsonl or .json.")
+    _add_dataset_run_options(ba)
+    ba.add_argument(
+        "--checkpoint",
+        default=None,
+        help="Checkpoint file (default: <output>.checkpoint.jsonl). Removed after a "
+        "fully successful run.",
+    )
+    ba.add_argument("--no-checkpoint", action="store_true", help="Don't write a checkpoint.")
+    ba.add_argument("--resume", action="store_true", help="Continue from an existing checkpoint.")
+    ba.add_argument(
+        "--no-retry-failed",
+        action="store_true",
+        help="On --resume, keep previously failed rows instead of retrying them.",
+    )
+
+    # datasets ------------------------------------------------------------
+    ds = sub.add_parser("datasets", help="Validate datasets and work with bundled samples.")
+    ds_sub = ds.add_subparsers(dest="datasets_command", required=True)
+    dv = ds_sub.add_parser("validate", help="Check a dataset file and report problems.")
+    dv.add_argument("path", help="Dataset file.")
+    dv.add_argument("--kind", choices=["pairwise", "pointwise", "reference"], default=None)
+    dv.add_argument("--json", action="store_true", help="Print the full report as JSON.")
+    ds_sub.add_parser("samples", help="List the bundled sample datasets.")
+    dx = ds_sub.add_parser("export", help="Write a bundled sample dataset to a file.")
+    dx.add_argument("name", help="Sample name (see `llm-judge datasets samples`).")
+    dx.add_argument("--output", required=True, help="Destination .jsonl file.")
+
+    # benchmark -----------------------------------------------------------
+    bm = sub.add_parser(
+        "benchmark",
+        help="Run a bundled sample (or a dataset file) and print per-model statistics.",
+    )
+    bm.add_argument("dataset", help="Sample name (e.g. general_qa) or a dataset file path.")
+    bm.add_argument("--output", default=None, help="Optionally save per-row results.")
+    _add_dataset_run_options(bm)
 
     # grade ---------------------------------------------------------------
     gr = sub.add_parser(
@@ -322,27 +388,191 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_batch(args: argparse.Namespace) -> int:
-    from .batch import BatchEvaluator, read_records, write_results
+def _print_report(report: DatasetReport) -> None:
+    kind = report.kind or "unknown"
+    print(f"{report.source}: {report.format}, kind {kind}, {report.rows} row(s)")
+    print(f"  valid rows: {report.valid_rows}/{report.rows}")
+    if report.fingerprint:
+        print(f"  fingerprint (dataset version): {report.fingerprint}")
+    if report.aliases:
+        aliases = ", ".join(f"{k} -> {v}" for k, v in report.aliases.items())
+        print(f"  column aliases: {aliases}")
+    if report.unknown_columns:
+        print(f"  ignored columns: {', '.join(report.unknown_columns)}")
+    for issue in report.issues:
+        where = f"row {issue.row}" if issue.row else "dataset"
+        print(f"  {issue.severity}: {where}: {issue.message}")
+    if report.issues_truncated:
+        print(f"  ... and {report.issues_truncated} more issue(s)")
+
+
+def _load_for_run(args: argparse.Namespace, source: str | Path, kind: str | None) -> list[Record]:
+    from .datasets import load_dataset, sample_records
+
+    records, report = load_dataset(source, kind=kind, settings=_settings(args))  # type: ignore[arg-type]
+    if not report.ok:
+        _print_report(report)
+        if not (args.skip_invalid and records):
+            raise SystemExit(
+                "error: the dataset has problems (see above); fix them or pass --skip-invalid"
+            )
+        print(f"Continuing with {len(records)} valid row(s) (--skip-invalid).")
+    if args.sample is not None:
+        records = sample_records(records, args.sample, seed=args.seed)
+    if args.limit is not None:
+        records = records[: max(0, args.limit)]
+    if not records:
+        raise SystemExit("error: no rows to evaluate")
+    return records
+
+
+def _run_dataset(
+    args: argparse.Namespace,
+    records: list[Record],
+    criteria: list[Criterion] | None,
+    checkpoint: Path | None,
+) -> RunReport:
+    from .datasets import DatasetRunner
     from .judge import Judge
 
-    records = read_records(args.input)
-    criteria = _build_criteria(args.criteria, args.weights)
     judge = Judge(settings=_settings(args))
-    evaluator = BatchEvaluator(judge, max_workers=args.workers)
-
-    print(f"Judging {len(records)} record(s) with {evaluator.max_workers} worker(s)...")
-
-    def _progress(done: int, total: int) -> None:
-        print(f"\r  {done}/{total} done", end="", flush=True)
-
-    results = evaluator.run(records, criteria, progress=_progress)
+    runner = DatasetRunner(
+        judge,
+        criteria,
+        max_workers=args.workers,
+        checkpoint=checkpoint,
+        resume=getattr(args, "resume", False),
+        retry_failed=not getattr(args, "no_retry_failed", False),
+        progress=lambda done, total: print(f"\r  {done}/{total} done", end="", flush=True),
+    )
+    print(f"Evaluating {len(records)} row(s) with {runner.max_workers} worker(s)...")
+    report = runner.run(records)
     print()
-    write_results(results, args.output)
+    return report
 
-    ok = sum(1 for r in results if r.ok)
-    print(f"Wrote {len(results)} result(s) to {args.output} ({ok} ok, {len(results) - ok} failed).")
-    return 0 if ok == len(results) else 1
+
+def _print_summary_stats(summary: DatasetSummary) -> None:
+    print(
+        f"\n{summary.kind} run: {summary.succeeded}/{summary.total} succeeded, "
+        f"{summary.failed} failed" + (f", {summary.resumed} resumed" if summary.resumed else "")
+    )
+    if summary.kind == "pairwise":
+        print(f"  overall winners: A={summary.wins_a} B={summary.wins_b} tie={summary.ties}")
+        for m in summary.models:
+            print(
+                f"  {m.model:<24} win rate {m.win_rate:.3f}  "
+                f"(W-L-T {m.wins}-{m.losses}-{m.ties} over {m.rows})"
+            )
+    else:
+        if summary.mean_overall_score is not None:
+            print(f"  mean overall score: {summary.mean_overall_score:.3f}")
+        if summary.mean_token_f1 is not None:
+            print(f"  mean token F1 vs reference: {summary.mean_token_f1:.3f}")
+        if summary.rows_with_unsupported_claims is not None:
+            print(f"  rows with unsupported claims: {summary.rows_with_unsupported_claims}")
+        for m in summary.models:
+            print(f"  {m.model:<24} mean score {m.mean_overall_score:.3f} over {m.rows} row(s)")
+    for name, means in summary.criteria_means.items():
+        values = ", ".join(f"{k}={v:g}" for k, v in means.items())
+        print(f"  [{name}] mean {values}")
+    if summary.warning_counts:
+        counts = ", ".join(f"{k}={v}" for k, v in summary.warning_counts.items())
+        print(f"  warnings: {counts}")
+
+
+def _cmd_batch(args: argparse.Namespace) -> int:
+    from .datasets import summarize, write_outcomes
+
+    records = _load_for_run(args, args.input, args.kind)
+    criteria = _build_criteria(args.criteria, args.weights) if args.criteria else None
+    checkpoint: Path | None = None
+    if not args.no_checkpoint:
+        checkpoint = Path(args.checkpoint or f"{args.output}.checkpoint.jsonl")
+
+    report = _run_dataset(args, records, criteria, checkpoint)
+    write_outcomes(report.outcomes, args.output)
+    summary = summarize(report)
+    if args.json:
+        print(_json_text(summary.model_dump(mode="json")))
+    else:
+        _print_summary_stats(summary)
+    print(
+        f"\nWrote {len(report.outcomes)} result(s) to {args.output} "
+        f"({report.succeeded} ok, {report.failed} failed)."
+    )
+
+    if report.interrupted:
+        print(f"Interrupted. Resume with: --resume (checkpoint: {checkpoint})", file=sys.stderr)
+        return 130
+    if report.failed:
+        if checkpoint:
+            print(f"Retry failed rows with --resume (checkpoint: {checkpoint}).", file=sys.stderr)
+        return 1
+    if checkpoint and checkpoint.exists():
+        checkpoint.unlink()
+    return 0
+
+
+def _cmd_datasets(args: argparse.Namespace) -> int:
+    from .datasets import SAMPLE_DATASETS, sample_text, validate_dataset
+
+    if args.datasets_command == "validate":
+        report = validate_dataset(args.path, kind=args.kind, settings=_settings(args))
+        if args.json:
+            print(_json_text(report.model_dump(mode="json")))
+        else:
+            _print_report(report)
+            print("OK" if report.ok else "INVALID")
+        return 0 if report.ok else 1
+    if args.datasets_command == "samples":
+        print("Bundled sample datasets (synthetic; for demos and smoke tests):\n")
+        for sample in SAMPLE_DATASETS.values():
+            print(f"  {sample.name:<22} {sample.kind:<9} {sample.description}")
+            print(f"  {'':<22} default criteria: {', '.join(sample.criteria)}")
+        return 0
+    if args.datasets_command == "export":
+        out = Path(args.output)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(sample_text(args.name), encoding="utf-8")
+        print(f"Wrote sample '{args.name}' to {out}")
+        return 0
+    return 2  # pragma: no cover - argparse enforces the choices
+
+
+def _cmd_benchmark(args: argparse.Namespace) -> int:
+    from .datasets import SAMPLE_DATASETS, load_sample, summarize, write_outcomes
+
+    if args.dataset in SAMPLE_DATASETS:
+        sample = SAMPLE_DATASETS[args.dataset]
+        records = load_sample(args.dataset, settings=_settings(args))
+        if args.sample is not None:
+            from .datasets import sample_records
+
+            records = sample_records(records, args.sample, seed=args.seed)
+        if args.limit is not None:
+            records = records[: max(0, args.limit)]
+        criteria: list[Criterion] | None = _build_criteria(
+            args.criteria or ",".join(sample.criteria), args.weights
+        )
+    else:
+        records = _load_for_run(args, args.dataset, args.kind)
+        criteria = _build_criteria(args.criteria, args.weights) if args.criteria else None
+
+    report = _run_dataset(args, records, criteria, checkpoint=None)
+    summary = summarize(report)
+    if args.output:
+        write_outcomes(report.outcomes, args.output)
+    if args.json:
+        print(_json_text(summary.model_dump(mode="json")))
+    else:
+        settings = _settings(args)
+        print(f"Benchmark '{args.dataset}' with provider {settings.provider}")
+        _print_summary_stats(summary)
+        if args.output:
+            print(f"\nPer-row results written to {args.output}")
+    if report.interrupted:
+        return 130
+    return 0 if not report.failed else 1
 
 
 def _cmd_providers(args: argparse.Namespace) -> int:
@@ -485,6 +715,10 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_evaluate(args)
         if args.command == "batch":
             return _cmd_batch(args)
+        if args.command == "datasets":
+            return _cmd_datasets(args)
+        if args.command == "benchmark":
+            return _cmd_benchmark(args)
         if args.command == "grade":
             return _cmd_grade(args)
         if args.command == "rank":

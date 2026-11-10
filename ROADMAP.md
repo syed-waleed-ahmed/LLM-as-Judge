@@ -20,8 +20,8 @@ Status key: **done** = implemented and tested, **next** = in progress,
 | 1 | Core hardening: neutral prompt, injection-resistant prompting, exact criteria validation, scale normalisation and weights, consistent bias merges, parallel swap runs, JSON repair retries, brace-aware parsing, verbosity and self-preference signals, judge/candidate metadata | done |
 | 2 | Evaluation modes: pointwise, reference-based, multi-candidate ranking | done |
 | 3 | Providers: mock (no key), Ollama (local), generic OpenAI-compatible, provider registry | done |
-| 4 | Datasets: validation, streaming reads, checkpointed and resumable batches, bundled synthetic sample sets | next |
-| 5 | Experiment tracking: SQLite store (optional Supabase), run comparison, regression detection | planned |
+| 4 | Datasets: validation, streaming reads, checkpointed and resumable batches, bundled synthetic sample sets | done |
+| 5 | Experiment tracking: SQLite store (optional Supabase), run comparison, regression detection | next |
 | 6 | REST API (FastAPI, local or self-hosted) and expanded CLI | planned |
 | 7 | Multi-page Streamlit dashboard with demo mode and quotas | planned |
 | 8 | RAG and agent evaluation, reliability analytics (repeat-sampling confidence intervals) | planned |

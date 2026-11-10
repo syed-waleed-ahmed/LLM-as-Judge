@@ -69,6 +69,7 @@ this project handles the parts that usually get skipped:
 | **Bias mitigation** | Optional A/B order swapping to reduce position bias. |
 | **Reliability warnings** | Flags prompt injection, verbosity bias, self-preference and order sensitivity. |
 | **Retries & repair** | Backoff for transient errors; repair retries for malformed replies. |
+| **Experiment tracking** | SQLite run history, run comparison with confidence intervals, and a regression gate for CI. |
 | **Datasets & batches** | CSV/JSON/JSONL/YAML validation, checkpointed and resumable batch runs, per-model summaries, bundled benchmark samples. |
 | **Fully tested** | Offline unit and property-based tests (Hypothesis), no network calls in CI. |
 | **Pluggable providers** | Groq, Ollama (local), any OpenAI-compatible API, and an offline mock; add your own by implementing one method. |
@@ -327,6 +328,41 @@ llm-judge benchmark my_dataset.jsonl --output rows.csv
 These samples are tiny, so treat their numbers as a demonstration, not as
 evidence about real models.
 
+### Experiment tracking and regression detection
+
+Add `--experiment NAME` to `batch` or `benchmark` to record the run in a local
+SQLite database (`JUDGE_DB_PATH`, default `.llm_judge/experiments.db`). There's
+no server and no account. Each run stores its per-row results with
+reproducibility metadata: dataset fingerprint, judge provider and model,
+prompt version, criteria, relevant settings, and the library and Python
+versions. Raw task text, outputs and references are not stored, only their
+hashes. Judge explanations may still quote them.
+
+```bash
+llm-judge batch --input qa_v1.jsonl --output v1.csv --experiment qa --run-name v1
+llm-judge batch --input qa_v2.jsonl --output v2.csv --experiment qa --run-name v2
+llm-judge experiments runs --experiment qa
+llm-judge experiments compare <v1-run-id> <v2-run-id> --fail-on-regression
+```
+
+```text
+  mean: 0.574 -> 0.259 (change -0.315, 95% CI [-0.556, -0.093], bootstrap)
+  verdict: REGRESSION
+  rows regressed: 3; rows improved: 0
+    worse  qa-1: 0.667 -> 0.000
+```
+
+Rows are paired by id. The comparison reports the mean paired difference
+with a seeded bootstrap 95% confidence interval (a normal approximation above
+5,000 pairs), and gives a verdict of regression, improvement, no significant
+change or insufficient data. It also lists the rows that moved most.
+`--fail-on-regression` makes it usable as a CI gate. The runs are flagged as
+not directly comparable when they used a different judge, prompt version,
+criteria or bias setting.
+
+These are judge-scored differences: the judge's own noise and biases are part
+of what is measured.
+
 ---
 
 ## Configuration
@@ -356,6 +392,7 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_MAX_CRITERIA` | `20` | Maximum criteria per evaluation. |
 | `JUDGE_MAX_CANDIDATES` | `8` | Maximum candidates per ranking (round robin makes n(n-1)/2 comparisons). |
 | `JUDGE_MAX_INPUT_CHARS` | `50000` | Longer inputs are truncated (with a warning). |
+| `JUDGE_DB_PATH` | `.llm_judge/experiments.db` | Experiment-tracking database (SQLite). |
 | `JUDGE_MAX_DATASET_BYTES` | `50000000` | Larger dataset files are rejected before parsing. |
 | `JUDGE_MAX_DATASET_ROWS` | `100000` | Maximum rows per dataset. |
 | `JUDGE_BATCH_MAX_WORKERS` | `4` | Concurrency for batch mode (doubled when parallel bias runs are on). |
@@ -418,6 +455,7 @@ src/llm_judge/           # Installable package (src layout)
 ├─ batch.py              # v1 batch API (kept for compatibility)
 ├─ datasets/             # Readers, validation, checkpointed runner, summaries,
 │                        #   bundled synthetic samples
+├─ experiments/          # SQLite run store, run comparison, regression detection
 ├─ cli.py                # `llm-judge` command-line interface
 ├─ logging_config.py     # Opt-in logging setup
 ├─ py.typed              # PEP 561 marker: ships type information

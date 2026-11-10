@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - Unreleased
+
+Phase 5 of the platform roadmap: experiment tracking.
+
+### Added
+- `llm_judge.experiments.ExperimentStore`: a SQLite store (standard library,
+  no server) for experiments, runs and per-row results, with reproducibility
+  metadata. Raw inputs are stored only as hashes.
+- `compare_runs()`: rows paired by id, a mean paired difference with a seeded
+  bootstrap (or normal-approximation) 95% CI, a regression/improvement
+  verdict with a minimum effect size, the most-changed rows, winner flips for
+  pairwise runs, per-criterion deltas, and comparability warnings.
+- CLI: `--experiment`, `--run-name` and `--db` on `batch` and `benchmark`;
+  `experiments list|runs|show|compare|export|delete`;
+  `compare --fail-on-regression` for CI gates.
+- Setting `JUDGE_DB_PATH`.
+
+### Deferred
+- A Supabase/PostgreSQL storage adapter. The store has a narrow interface so
+  one can be added, but it can't be verified in this project's CI, so it isn't
+  shipped untested.
+
 ## [1.4.0] - Unreleased
 
 Phase 4 of the platform roadmap: datasets, resumable batches and benchmarks.

@@ -34,6 +34,8 @@ from .models import Criterion, EvaluationWarning, JudgeResult, PointwiseResult, 
 
 if TYPE_CHECKING:
     from .datasets import DatasetReport, DatasetSummary, Record, RunReport
+    from .experiments import ExperimentStore, RunComparison
+    from .judge import Judge
 
 
 def _read_text_arg(value: str | None, file_value: str | None, name: str) -> str:
@@ -121,6 +123,13 @@ def _add_dataset_run_options(p: argparse.ArgumentParser) -> None:
         help="Evaluate the valid rows even if some rows fail validation.",
     )
     p.add_argument("--json", action="store_true", help="Print the run summary as JSON.")
+    p.add_argument(
+        "--experiment",
+        default=None,
+        help="Record this run under the named experiment (see `llm-judge experiments`).",
+    )
+    p.add_argument("--run-name", default=None, help="Label for the recorded run.")
+    p.add_argument("--db", default=None, help="Experiment database (default: JUDGE_DB_PATH).")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -202,6 +211,42 @@ def _build_parser() -> argparse.ArgumentParser:
     dx = ds_sub.add_parser("export", help="Write a bundled sample dataset to a file.")
     dx.add_argument("name", help="Sample name (see `llm-judge datasets samples`).")
     dx.add_argument("--output", required=True, help="Destination .jsonl file.")
+
+    # experiments ---------------------------------------------------------
+    ex = sub.add_parser(
+        "experiments",
+        aliases=["experiment"],
+        help="Browse recorded runs, compare them and detect regressions.",
+    )
+    ex.add_argument("--db", default=None, help="Experiment database (default: JUDGE_DB_PATH).")
+    ex_sub = ex.add_subparsers(dest="experiments_command", required=True)
+    ex_sub.add_parser("list", help="List experiments.")
+    er = ex_sub.add_parser("runs", help="List recorded runs (newest first).")
+    er.add_argument("--experiment", default=None, help="Only runs of this experiment.")
+    er.add_argument("--limit", type=int, default=20)
+    es = ex_sub.add_parser("show", help="Show one run's metadata and summary.")
+    es.add_argument("run_id", help="Run id (a unique prefix is enough).")
+    es.add_argument("--json", action="store_true")
+    ec = ex_sub.add_parser("compare", help="Compare a candidate run against a baseline run.")
+    ec.add_argument("baseline", help="Baseline run id.")
+    ec.add_argument("candidate", help="Candidate run id.")
+    ec.add_argument(
+        "--min-effect",
+        type=float,
+        default=0.02,
+        help="Smallest mean change (normalised) counted as a regression/improvement.",
+    )
+    ec.add_argument(
+        "--fail-on-regression",
+        action="store_true",
+        help="Exit with status 1 when the verdict is a regression (for CI gates).",
+    )
+    ec.add_argument("--json", action="store_true")
+    ee = ex_sub.add_parser("export", help="Write a stored run's rows to a file.")
+    ee.add_argument("run_id")
+    ee.add_argument("--output", required=True, help=".csv or .jsonl")
+    ed = ex_sub.add_parser("delete", help="Delete a stored run.")
+    ed.add_argument("run_id")
 
     # benchmark -----------------------------------------------------------
     bm = sub.add_parser(
@@ -431,7 +476,7 @@ def _run_dataset(
     records: list[Record],
     criteria: list[Criterion] | None,
     checkpoint: Path | None,
-) -> RunReport:
+) -> tuple[RunReport, Judge]:
     from .datasets import DatasetRunner
     from .judge import Judge
 
@@ -448,7 +493,30 @@ def _run_dataset(
     print(f"Evaluating {len(records)} row(s) with {runner.max_workers} worker(s)...")
     report = runner.run(records)
     print()
-    return report
+    return report, judge
+
+
+def _store(args: argparse.Namespace) -> ExperimentStore:
+    from .experiments import ExperimentStore
+
+    return ExperimentStore(getattr(args, "db", None) or _settings(args).db_path)
+
+
+def _maybe_record(args: argparse.Namespace, report: RunReport, judge: Judge, source: str) -> None:
+    if not getattr(args, "experiment", None):
+        return
+    from .experiments import record_dataset_run
+
+    with _store(args) as store:
+        info = record_dataset_run(
+            store,
+            report,
+            judge,
+            experiment=args.experiment,
+            name=args.run_name,
+            dataset_source=source,
+        )
+    print(f"Recorded run {info.id} in experiment '{args.experiment}' ({store.path}).")
 
 
 def _print_summary_stats(summary: DatasetSummary) -> None:
@@ -489,7 +557,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
     if not args.no_checkpoint:
         checkpoint = Path(args.checkpoint or f"{args.output}.checkpoint.jsonl")
 
-    report = _run_dataset(args, records, criteria, checkpoint)
+    report, judge = _run_dataset(args, records, criteria, checkpoint)
     write_outcomes(report.outcomes, args.output)
     summary = summarize(report)
     if args.json:
@@ -500,6 +568,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
         f"\nWrote {len(report.outcomes)} result(s) to {args.output} "
         f"({report.succeeded} ok, {report.failed} failed)."
     )
+    _maybe_record(args, report, judge, str(args.input))
 
     if report.interrupted:
         print(f"Interrupted. Resume with: --resume (checkpoint: {checkpoint})", file=sys.stderr)
@@ -539,6 +608,113 @@ def _cmd_datasets(args: argparse.Namespace) -> int:
     return 2  # pragma: no cover - argparse enforces the choices
 
 
+def _print_comparison(c: RunComparison) -> None:
+    print(f"Comparing {c.candidate_id} (candidate) against {c.baseline_id} (baseline)")
+    print(f"  metric: {c.metric}; matched rows: {c.matched_rows}", end="")
+    extra = []
+    if c.baseline_only:
+        extra.append(f"{c.baseline_only} only in baseline")
+    if c.candidate_only:
+        extra.append(f"{c.candidate_only} only in candidate")
+    print(f" ({', '.join(extra)})" if extra else "")
+    if c.mean_delta is not None:
+        print(
+            f"  mean: {c.baseline_mean:.3f} -> {c.candidate_mean:.3f} "
+            f"(change {c.mean_delta:+.3f}, 95% CI [{c.ci_low:+.3f}, {c.ci_high:+.3f}], "
+            f"{c.ci_method})"
+        )
+    print(f"  verdict: {c.verdict.replace('_', ' ').upper()}")
+    if c.winner_flips is not None:
+        print(f"  winner flips: {c.winner_flips}")
+    if c.regressed_rows or c.improved_rows:
+        print(f"  rows regressed: {c.regressed_rows}; rows improved: {c.improved_rows}")
+    for d in c.regressions[:5]:
+        print(f"    worse  {d.row_id}: {d.baseline:.3f} -> {d.candidate:.3f}")
+    for name, delta in c.criteria_deltas.items():
+        print(f"  [{name}] mean change {delta:+.3f}")
+    for warning in c.warnings:
+        print(f"  warning: {warning}")
+
+
+def _cmd_experiments(args: argparse.Namespace) -> int:
+    from .datasets import DatasetSummary
+    from .experiments import compare_runs
+
+    command = args.experiments_command
+    with _store(args) as store:
+        if command == "list":
+            experiments = store.list_experiments()
+            if not experiments:
+                print(f"No experiments in {store.path} yet.")
+            for e in experiments:
+                print(f"  {e.name:<30} {e.runs:>4} run(s)   created {e.created_at}")
+            return 0
+        if command == "runs":
+            runs = store.list_runs(experiment=args.experiment, limit=args.limit)
+            if not runs:
+                print("No runs recorded yet.")
+            for r in runs:
+                label = f"{r.name} " if r.name != r.id else ""
+                print(
+                    f"  {r.id}  {label}[{r.experiment or '-'}] {r.kind:<9} {r.status:<22} "
+                    f"{r.succeeded}/{r.total} ok  judge {r.judge_provider}/{r.judge_model}"
+                )
+            return 0
+        if command == "show":
+            run = store.require_run(args.run_id)
+            if args.json:
+                print(_json_text(run.model_dump(mode="json")))
+                return 0
+            print(f"Run {run.id} ({run.name}) in experiment '{run.experiment or '-'}'")
+            print(f"  created {run.created_at}; status {run.status}; {run.duration_seconds}s")
+            print(f"  dataset {run.dataset_source} (fingerprint {run.dataset_fingerprint})")
+            print(
+                f"  judge {run.judge_provider}/{run.judge_model}; prompt v{run.prompt_version}; "
+                f"llm-judge {run.config.get('llm_judge_version')}"
+            )
+            _print_summary_stats(DatasetSummary.model_validate(run.summary))
+            return 0
+        if command == "compare":
+            comparison = compare_runs(
+                store, args.baseline, args.candidate, min_effect=args.min_effect
+            )
+            if args.json:
+                print(_json_text(comparison.model_dump(mode="json")))
+            else:
+                _print_comparison(comparison)
+            regression = comparison.verdict == "regression"
+            return 1 if regression and args.fail_on_regression else 0
+        if command == "export":
+            rows = store.get_rows(args.run_id)
+            out = Path(args.output)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            if out.suffix.lower() == ".csv":
+                import csv
+
+                fieldnames: list[str] = []
+                for row in rows:
+                    fieldnames.extend(k for k in row.flat if k not in fieldnames)
+                with out.open("w", encoding="utf-8", newline="") as fh:
+                    writer = csv.DictWriter(fh, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(row.flat for row in rows)
+            else:
+                with out.open("w", encoding="utf-8") as fh:
+                    for row in rows:
+                        fh.write(
+                            json.dumps({**row.flat, "result": row.result}, ensure_ascii=False)
+                            + "\n"
+                        )
+            print(f"Wrote {len(rows)} row(s) to {out}")
+            return 0
+        if command == "delete":
+            run = store.require_run(args.run_id)
+            store.delete_run(run.id)
+            print(f"Deleted run {run.id}")
+            return 0
+    return 2  # pragma: no cover - argparse enforces the choices
+
+
 def _cmd_benchmark(args: argparse.Namespace) -> int:
     from .datasets import SAMPLE_DATASETS, load_sample, summarize, write_outcomes
 
@@ -558,7 +734,7 @@ def _cmd_benchmark(args: argparse.Namespace) -> int:
         records = _load_for_run(args, args.dataset, args.kind)
         criteria = _build_criteria(args.criteria, args.weights) if args.criteria else None
 
-    report = _run_dataset(args, records, criteria, checkpoint=None)
+    report, judge = _run_dataset(args, records, criteria, checkpoint=None)
     summary = summarize(report)
     if args.output:
         write_outcomes(report.outcomes, args.output)
@@ -570,6 +746,8 @@ def _cmd_benchmark(args: argparse.Namespace) -> int:
         _print_summary_stats(summary)
         if args.output:
             print(f"\nPer-row results written to {args.output}")
+    source = f"sample:{args.dataset}" if args.dataset in SAMPLE_DATASETS else str(args.dataset)
+    _maybe_record(args, report, judge, source)
     if report.interrupted:
         return 130
     return 0 if not report.failed else 1
@@ -719,6 +897,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_datasets(args)
         if args.command == "benchmark":
             return _cmd_benchmark(args)
+        if args.command in ("experiments", "experiment"):
+            return _cmd_experiments(args)
         if args.command == "grade":
             return _cmd_grade(args)
         if args.command == "rank":

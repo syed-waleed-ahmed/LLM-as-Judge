@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     # Batch behaviour.
     batch_max_workers: int = Field(default=4, ge=1, le=64, alias="JUDGE_BATCH_MAX_WORKERS")
 
+    # Experiment tracking database (SQLite file).
+    db_path: str = Field(default=".llm_judge/experiments.db", alias="JUDGE_DB_PATH")
+
     # Dataset limits: files are rejected before parsing if they exceed these.
     max_dataset_bytes: int = Field(default=50_000_000, gt=0, alias="JUDGE_MAX_DATASET_BYTES")
     max_dataset_rows: int = Field(default=100_000, gt=0, alias="JUDGE_MAX_DATASET_ROWS")

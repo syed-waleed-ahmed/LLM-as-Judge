@@ -50,7 +50,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ui = ["streamlit>=1.50", "plotly>=5.20"]
+ui = ["streamlit>=1.50", "plotly>=5.20", "pandas>=1.4"]
 yaml = ["pyyaml>=6.0"]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
 # MkDocs 2.0 drops the plugin/theme system Material relies on, so stay on 1.x.

@@ -23,6 +23,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     third-party requests.
 
 ### Fixed
+- Dashboard: with Streamlit 1.67, the first chart could fail with
+  "partially initialized module 'pandas' has no attribute 'Series'". Newer
+  Streamlit imports pandas lazily in another thread, and Plotly could see the
+  half-imported module. The charts module now imports pandas itself first,
+  which waits for that import to finish. `pandas` is now declared in the `ui`
+  extra.
+- `scripts/e2e_dashboard.py` finds sidebar links on older Streamlit versions
+  too, where the link text includes the icon name.
 - Links on the documentation site to repository files (`DEPLOYMENT.md`,
   `.env.example`, `ROADMAP.md` and others) returned 404. A build hook
   (`scripts/docs_links.py`) now points them to the matching page or to the

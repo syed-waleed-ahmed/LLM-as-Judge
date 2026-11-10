@@ -22,6 +22,14 @@ Phase 3 of the platform roadmap: multi-provider architecture.
 - CLI: global `--provider` flag, plus `providers`, `health` and `version` commands.
 - Settings: `JUDGE_PROVIDER`, `JUDGE_OLLAMA_*`, `JUDGE_OPENAI_*`.
 
+### Fixed (found by live testing against Groq)
+- The default Groq model `llama-3.3-70b-versatile` has been retired by Groq;
+  the default is now `openai/gpt-oss-120b`. A retired or unknown model now
+  produces an actionable error pointing at `GROQ_MODEL` and `llm-judge health`.
+- The CLI no longer crashes when a judge's reply contains characters the
+  console can't encode (e.g. U+202F on Windows cp1252). `--json` output stays
+  lossless by escaping non-ASCII on non-UTF-8 streams.
+
 ### Changed
 - `Judge()` builds its provider from `JUDGE_PROVIDER` (default `groq`, as before).
 - API keys are excluded from the `Settings` repr.

@@ -1,7 +1,7 @@
 # LLM-as-Judge
 
 A **production-grade LLM-as-Judge framework** for evaluating and comparing model
-outputs. It uses a [Groq](https://groq.com)-hosted LLM (Llama 3 by default) as an
+outputs. It uses a [Groq](https://groq.com)-hosted LLM (`openai/gpt-oss-120b` by default) as an
 impartial judge, and ships as a reusable **Python library**, a **command-line
 tool**, and a **Streamlit web app** — all sharing the same evaluation core.
 
@@ -219,8 +219,8 @@ Every pairwise evaluation returns a validated, versioned result:
   "overall_score_b": 0.2222,
   "warnings": [],
   "metadata": {
-    "model": "llama-3.3-70b-versatile",
-    "judge": { "provider": "groq", "model": "llama-3.3-70b-versatile" },
+    "model": "openai/gpt-oss-120b",
+    "judge": { "provider": "groq", "model": "openai/gpt-oss-120b" },
     "candidates": { "A": { "model": "gpt-4o" }, "B": { "model": null } },
     "prompt_version": "2.0",
     "position_bias_mitigated": false,
@@ -286,7 +286,7 @@ All settings are read from the environment (or `.env`). See
 |---|---|---|
 | `JUDGE_PROVIDER` | `groq` | `groq`, `ollama`, `openai_compatible` or `mock`. |
 | `GROQ_API_KEY` | — | Required for the `groq` provider. |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq-hosted model to use. |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Groq-hosted model to use. |
 | `JUDGE_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server. |
 | `JUDGE_OLLAMA_MODEL` | `llama3.2` | Local model to judge with. |
 | `JUDGE_OPENAI_BASE_URL` | — | Base URL of an OpenAI-compatible API (e.g. `.../v1`). |
@@ -316,7 +316,7 @@ The judge runs on any of these backends. Pick one with `JUDGE_PROVIDER` or the
 
 | Provider | API key | Runs | Notes |
 |---|---|---|---|
-| `groq` (default) | yes ([free](https://console.groq.com/keys)) | cloud | Free plan, rate-limited per model. Default judge `llama-3.3-70b-versatile`. |
+| `groq` (default) | yes ([free](https://console.groq.com/keys)) | cloud | Free plan, rate-limited per model. Default judge `openai/gpt-oss-120b`. |
 | `ollama` | no | your machine | Free local models via [Ollama](https://ollama.com): `ollama pull llama3.2`. |
 | `openai_compatible` | optional | either | Any `/chat/completions` server: LM Studio, vLLM, llama.cpp, or hosted free models. |
 | `mock` | no | offline | Deterministic heuristic, **not an LLM**. For demos, tests and trying the tool without a key. |

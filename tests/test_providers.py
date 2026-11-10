@@ -80,3 +80,11 @@ def test_complete_json_wraps_client_errors():
     with pytest.raises(ProviderError) as exc:
         provider.complete_json([{"role": "user", "content": "hi"}])
     assert exc.value.retryable is True
+
+
+def test_retired_model_error_is_actionable():
+    exc = Exception("Error code: 404 - The model `old-model` does not exist")
+    exc.status_code = 404  # type: ignore[attr-defined]
+    result = GroqProvider._to_provider_error(exc)
+    assert result.retryable is False
+    assert "GROQ_MODEL" in str(result) and "llm-judge health" in str(result)

@@ -16,6 +16,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import TextIO
 
 from pydantic import ValidationError as PydanticValidationError
 
@@ -267,7 +268,7 @@ def _cmd_grade(args: argparse.Namespace) -> int:
         task, output, criteria, reference=reference, candidate_model=args.model
     )
     if args.json:
-        print(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        print(_json_text(result.model_dump(mode="json")))
     else:
         _print_grade(result)
     return 0
@@ -289,7 +290,7 @@ def _cmd_rank(args: argparse.Namespace) -> int:
         max_workers=args.workers,
     )
     if args.json:
-        print(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        print(_json_text(result.model_dump(mode="json")))
     else:
         _print_ranking(result)
     return 0
@@ -315,7 +316,7 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
     )
 
     if args.json:
-        print(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        print(_json_text(result.model_dump(mode="json")))
     else:
         _print_summary(result)
     return 0
@@ -437,8 +438,35 @@ def _print_summary(result: JudgeResult) -> None:
         print(f"\n(model: {model}, latency: {result.metadata.get('latency_seconds')}s)")
 
 
+def _make_console_safe(stream: TextIO) -> None:
+    """Never crash on characters the console can't encode.
+
+    LLM output often contains characters such as U+202F (narrow no-break space)
+    that legacy consoles (e.g. cp1252 on Windows) can't represent. Replacing them
+    is better than a traceback after a successful, paid-for evaluation.
+    """
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is not None:
+        try:
+            reconfigure(errors="replace")
+        except (ValueError, OSError):  # pragma: no cover - exotic streams
+            pass
+
+
+def _json_text(payload: object) -> str:
+    """Serialise JSON losslessly for the current stdout.
+
+    Non-ASCII is written as-is on UTF-8 streams and as ``\\uXXXX`` escapes
+    otherwise, so redirected JSON never loses characters.
+    """
+    encoding = (getattr(sys.stdout, "encoding", None) or "").lower().replace("-", "")
+    return json.dumps(payload, indent=2, ensure_ascii=encoding != "utf8")
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns a process exit code."""
+    _make_console_safe(sys.stdout)
+    _make_console_safe(sys.stderr)
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level or "INFO")

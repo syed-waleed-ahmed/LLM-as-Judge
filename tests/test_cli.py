@@ -358,3 +358,34 @@ def test_version_command(capsys):
 
     assert main(["version"]) == 0
     assert __version__ in capsys.readouterr().out
+
+
+# --- console encoding (found by a live run on a cp1252 Windows console) -----------
+
+
+def _cp1252_stream():
+    import io
+
+    return io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+
+
+def test_console_safe_stream_survives_unencodable_characters():
+    from llm_judge.cli import _make_console_safe
+
+    stream = _cp1252_stream()
+    _make_console_safe(stream)
+    print("narrow\u202fno-break space", file=stream)  # would raise UnicodeEncodeError
+    stream.flush()
+    assert stream.buffer.getvalue().rstrip() == b"narrow?no-break space"
+
+
+def test_json_output_is_lossless_on_non_utf8_consoles(monkeypatch):
+    import io
+
+    from llm_judge.cli import _json_text
+
+    monkeypatch.setattr("sys.stdout", _cp1252_stream())
+    escaped = _json_text({"t": "a\u202fb"})
+    assert r"a\u202fb" in escaped and "\u202f" not in escaped
+    monkeypatch.setattr("sys.stdout", io.TextIOWrapper(io.BytesIO(), encoding="utf-8"))
+    assert "a\u202fb" in _json_text({"t": "a\u202fb"})

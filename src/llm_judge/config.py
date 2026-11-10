@@ -38,7 +38,8 @@ class Settings(BaseSettings):
 
     # Secrets use repr=False so they never appear in logs or tracebacks of Settings.
     groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY", repr=False)
-    groq_model: str = Field(default="llama-3.3-70b-versatile", alias="GROQ_MODEL")
+    # Groq retires models over time; `llm-judge health` checks the configured one.
+    groq_model: str = Field(default="openai/gpt-oss-120b", alias="GROQ_MODEL")
 
     # Local inference with Ollama (https://ollama.com).
     ollama_base_url: str = Field(default="http://localhost:11434", alias="JUDGE_OLLAMA_BASE_URL")

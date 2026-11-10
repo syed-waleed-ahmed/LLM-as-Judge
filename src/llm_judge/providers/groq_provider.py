@@ -101,4 +101,11 @@ class GroqProvider:
         logger.warning(
             "Groq API error (%s, status=%s, retryable=%s): %s", name, status, retryable, exc
         )
+        if status == 404 and "model" in str(exc).lower():
+            return ProviderError(
+                f"Groq API error: {exc}. The model may have been retired: set GROQ_MODEL to a "
+                "current model (run `llm-judge health`, or see "
+                "https://console.groq.com/docs/models).",
+                retryable=False,
+            )
         return ProviderError(f"Groq API error: {exc}", retryable=retryable)

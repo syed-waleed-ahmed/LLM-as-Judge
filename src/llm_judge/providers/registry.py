@@ -100,7 +100,7 @@ _REGISTRY: dict[str, tuple[ProviderInfo, ProviderFactory]] = {
     "groq": (
         ProviderInfo(
             "groq",
-            "Groq-hosted open models (default judge: llama-3.3-70b-versatile).",
+            "Groq-hosted open models (default judge: openai/gpt-oss-120b).",
             requires_api_key=True,
             local=False,
             cost="free plan, rate-limited",

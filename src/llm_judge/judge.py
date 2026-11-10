@@ -324,20 +324,25 @@ class Judge:
         conversation: list[ChatMessage] = list(messages)
         attempts = self.settings.max_parse_retries + 1
         for attempt in range(1, attempts + 1):
-            raw = self._call_with_retries(conversation)
+            raw: str | None = None
             try:
+                # A provider may itself reject invalid JSON (e.g. Groq's JSON mode);
+                # that is handled exactly like a reply that fails our own parsing.
+                raw = self._call_with_retries(conversation)
                 return parse(raw)
             except ResponseParsingError as exc:
+                rejected = raw if raw is not None else exc.raw_response
                 if exc.raw_response is None:
-                    exc.raw_response = raw
+                    exc.raw_response = rejected
                 if attempt == attempts:
                     raise
                 logger.warning("Judge reply rejected (attempt %d/%d): %s", attempt, attempts, exc)
-                conversation = [
-                    *messages,
-                    {"role": "assistant", "content": raw[:_MAX_ECHO_CHARS]},
-                    {"role": "user", "content": build_repair_prompt(str(exc))},
-                ]
+                conversation = list(messages)
+                if rejected:
+                    conversation.append(
+                        {"role": "assistant", "content": rejected[:_MAX_ECHO_CHARS]}
+                    )
+                conversation.append({"role": "user", "content": build_repair_prompt(str(exc))})
         raise AssertionError("unreachable")  # pragma: no cover
 
     # -- internals ----------------------------------------------------------

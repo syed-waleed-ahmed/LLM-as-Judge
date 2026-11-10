@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pydantic import ValidationError as PydanticValidationError
+
+from .exceptions import ValidationError
 from .models import Criterion
 
 # Curated, reusable criteria. Keys are the human-facing names shown in the UI/CLI.
@@ -104,13 +107,16 @@ def resolve_criterion(name: str, description: str | None = None) -> Criterion:
     criterion is built using ``description`` (or a generic fallback), which lets
     callers introduce ad-hoc criteria without registering them first.
     """
-    if name in CRITERIA_PRESETS:
-        return CRITERIA_PRESETS[name]
-    if name in REFERENCE_CRITERIA_PRESETS:
-        return REFERENCE_CRITERIA_PRESETS[name]
-    if name in AGENT_CRITERIA_PRESETS:
-        return AGENT_CRITERIA_PRESETS[name]
-    return Criterion(
-        name=name,
-        description=description or f"User-defined criterion: evaluate outputs on '{name}'.",
-    )
+    key = " ".join(str(name).split()).casefold()
+    for presets in (CRITERIA_PRESETS, REFERENCE_CRITERIA_PRESETS, AGENT_CRITERIA_PRESETS):
+        for preset_name, preset in presets.items():
+            if preset_name.casefold() == key:
+                return preset
+    try:
+        return Criterion(
+            name=name,
+            description=description or f"User-defined criterion: evaluate outputs on '{name}'.",
+        )
+    except PydanticValidationError as exc:
+        problem = exc.errors()[0].get("msg", "invalid") if exc.errors() else "invalid"
+        raise ValidationError(f"Invalid criterion {name!r}: {problem}.") from None

@@ -46,7 +46,10 @@ st.caption(
 
 upload = st.file_uploader("Trace file (JSON)", type=["json"], key="ag:upload")
 default = upload.getvalue().decode("utf-8") if upload else json.dumps(EXAMPLE, indent=2)
-text = st.text_area("Trace", value=default, height=360, key="ag:trace")
+# Keyed by the upload, so a new file replaces the text instead of being ignored
+# (a keyed widget keeps its old value when only ``value=`` changes).
+source_key = upload.file_id if upload else "example"
+text = st.text_area("Trace", value=default, height=360, key=f"ag:trace:{source_key}")
 
 if st.button("Evaluate", type="primary", key="ag:run"):
     try:

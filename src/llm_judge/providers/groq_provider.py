@@ -4,10 +4,20 @@ from __future__ import annotations
 
 import logging
 
-from ..exceptions import ConfigurationError, ProviderError
+from ..exceptions import ConfigurationError, ProviderError, ResponseParsingError
 from .base import RETRYABLE_STATUS, ChatMessage, ProviderHealth, UsageTracker
 
 logger = logging.getLogger(__name__)
+
+
+def _failed_generation(exc: Exception) -> str | None:
+    """The rejected text Groq returns with ``json_validate_failed`` errors, if present."""
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        error = body.get("error", body)
+        if isinstance(error, dict) and isinstance(error.get("failed_generation"), str):
+            return str(error["failed_generation"])
+    return None
 
 
 class GroqProvider:
@@ -38,7 +48,9 @@ class GroqProvider:
                 "The 'groq' package is not installed. Run: pip install groq"
             ) from exc
 
-        self._client = Groq(api_key=api_key, timeout=timeout)
+        # max_retries=0: retries are owned by the Judge (and counted by quotas); the
+        # SDK's own retries would multiply requests and stretch timeouts.
+        self._client = Groq(api_key=api_key, timeout=timeout, max_retries=0)
         self.model = model
         self.usage = UsageTracker()
         self._temperature = temperature
@@ -57,6 +69,13 @@ class GroqProvider:
                 response_format={"type": "json_object"},
             )
         except Exception as exc:  # normalised into ProviderError below
+            if "json_validate_failed" in str(exc):
+                # JSON mode rejected the model's output: a malformed reply, which the
+                # Judge answers with a repair retry rather than failing outright.
+                raise ResponseParsingError(
+                    "The model's reply was not valid JSON (rejected by Groq JSON mode).",
+                    raw_response=_failed_generation(exc),
+                ) from exc
             raise self._to_provider_error(exc) from exc
 
         try:

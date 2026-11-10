@@ -286,35 +286,78 @@ def test_checkpoint_resume_skips_done_and_retries_failed(
     tmp_path, hermetic_settings, single_criterion_payload
 ):
     checkpoint = tmp_path / "run.ckpt.jsonl"
-    flaky = _failing_provider({"a1"}, single_criterion_payload)
-    first = DatasetRunner(
-        Judge(provider=flaky, settings=hermetic_settings), checkpoint=checkpoint
-    ).run(_pairs(3))
+    state = {"healthy": False}
+
+    def recovering(messages):
+        if not state["healthy"] and slots(messages)[0] == "a1":
+            raise ProviderError("judge down", retryable=False)
+        return single_criterion_payload
+
+    provider = FnProvider(recovering)
+    judge = Judge(provider=provider, settings=hermetic_settings)
+    first = DatasetRunner(judge, checkpoint=checkpoint).run(_pairs(3))
     assert first.failed == 1
     assert len(checkpoint.read_text(encoding="utf-8").splitlines()) == 3
 
     # Starting again without --resume must not silently mix runs.
     with pytest.raises(DatasetError, match="already exists"):
-        DatasetRunner(Judge(provider=flaky, settings=hermetic_settings), checkpoint=checkpoint).run(
-            _pairs(3)
-        )
+        DatasetRunner(judge, checkpoint=checkpoint).run(_pairs(3))
 
-    healthy = FakeProvider(single_criterion_payload)
-    second = DatasetRunner(
-        Judge(provider=healthy, settings=hermetic_settings), checkpoint=checkpoint, resume=True
-    ).run(_pairs(3))
-    assert healthy.calls == 1  # only the failed row was re-run
+    state["healthy"] = True
+    before = provider.calls
+    second = DatasetRunner(judge, checkpoint=checkpoint, resume=True).run(_pairs(3))
+    assert provider.calls - before == 1  # only the failed row was re-run
     assert second.succeeded == 3 and second.resumed == 2
     assert read_checkpoint(checkpoint, "pairwise")["r1"].ok is True  # the retry appended
 
-    keep = FakeProvider(single_criterion_payload)
-    DatasetRunner(
-        Judge(provider=keep, settings=hermetic_settings),
-        checkpoint=checkpoint,
-        resume=True,
-        retry_failed=False,
-    ).run(_pairs(4))
-    assert keep.calls == 1  # just the new row r3
+    before = provider.calls
+    DatasetRunner(judge, checkpoint=checkpoint, resume=True, retry_failed=False).run(_pairs(4))
+    assert provider.calls - before == 1  # just the new row r3
+
+
+def test_resume_refuses_a_different_judge_configuration(
+    tmp_path, hermetic_settings, single_criterion_payload
+):
+    checkpoint = tmp_path / "run.ckpt.jsonl"
+    judge = Judge(provider=FakeProvider(single_criterion_payload), settings=hermetic_settings)
+    DatasetRunner(judge, ["Helpfulness"], checkpoint=checkpoint).run(_pairs(2))
+
+    other_model = Judge(
+        provider=FakeProvider(single_criterion_payload, model="another-model"),
+        settings=hermetic_settings,
+    )
+    other_bias = Judge(
+        provider=FakeProvider(single_criterion_payload),
+        settings=hermetic_settings.model_copy(update={"mitigate_position_bias": True}),
+    )
+    attempts = [
+        (other_model, ["Helpfulness"]),
+        (judge, ["Conciseness"]),
+        (other_bias, ["Helpfulness"]),
+    ]
+    for candidate, criteria in attempts:
+        with pytest.raises(DatasetError, match="different judge configuration"):
+            DatasetRunner(candidate, criteria, checkpoint=checkpoint, resume=True).run(_pairs(3))
+    # The original configuration still resumes.
+    report = DatasetRunner(judge, ["Helpfulness"], checkpoint=checkpoint, resume=True).run(
+        _pairs(3)
+    )
+    assert report.resumed == 2 and report.succeeded == 3
+
+
+def test_a_torn_checkpoint_line_does_not_break_later_resumes(
+    tmp_path, hermetic_settings, single_criterion_payload
+):
+    checkpoint = tmp_path / "run.ckpt.jsonl"
+    judge = Judge(provider=FakeProvider(single_criterion_payload), settings=hermetic_settings)
+    DatasetRunner(judge, checkpoint=checkpoint).run(_pairs(2))
+    with checkpoint.open("a", encoding="utf-8") as fh:
+        fh.write('{"v": 1, "id": "r2", "kind": "pair')  # a crash mid-write
+    first = DatasetRunner(judge, checkpoint=checkpoint, resume=True).run(_pairs(4))
+    assert first.complete and first.resumed == 2
+    second = DatasetRunner(judge, checkpoint=checkpoint, resume=True).run(_pairs(4))
+    assert second.resumed == 4  # the earlier resume left a well-formed file
+    assert all(line.endswith("}") for line in checkpoint.read_text("utf-8").splitlines())
 
 
 def test_resume_refuses_changed_records(tmp_path, hermetic_settings, single_criterion_payload):

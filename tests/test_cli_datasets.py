@@ -75,9 +75,10 @@ def test_batch_rejects_invalid_data_unless_skipping(tmp_path, capsys):
         encoding="utf-8",
     )
     out = tmp_path / "out.csv"
-    with pytest.raises(SystemExit, match="--skip-invalid"):
-        main(["batch", "--input", str(data), "--output", str(out), "--no-checkpoint"])
-    assert "missing required field(s): output_b" in capsys.readouterr().out
+    assert main(["batch", "--input", str(data), "--output", str(out), "--no-checkpoint"]) == 2
+    captured = capsys.readouterr()
+    assert "--skip-invalid" in captured.err
+    assert "missing required field(s): output_b" in captured.out
     assert (
         main(
             [
@@ -119,10 +120,13 @@ def test_batch_sample_limit_criteria_and_json_summary(tmp_path, capsys):
     assert summary["total"] == 2 and summary["criteria"] == ["Code Readability"]
 
 
-def test_batch_with_no_rows_errors(tmp_path):
+def test_batch_with_no_rows_errors(tmp_path, capsys):
     data = _export(tmp_path, "rag")
-    with pytest.raises(SystemExit, match="no rows"):
+    assert (
         main(["batch", "--input", str(data), "--output", str(tmp_path / "o.csv"), "--limit", "0"])
+        == 2
+    )
+    assert "no rows" in capsys.readouterr().err
 
 
 def test_datasets_validate_and_samples(tmp_path, capsys):

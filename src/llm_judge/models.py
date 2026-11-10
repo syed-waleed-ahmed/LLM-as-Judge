@@ -23,10 +23,22 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 #: Version of the JSON result schema produced by this library.
 RESULT_SCHEMA_VERSION = "1.2"
 
-# "Output A" / "Response B" / "Candidate A" style references. The prefix is
-# case-insensitive but the letter must be uppercase, so ordinary prose such as
-# "a response a reader expects" is never rewritten.
-_LABEL_RE = re.compile(r"\b((?i:output|response|candidate))(\s+)([AB])\b")
+# "Output A" / "Response B" / "Candidates A and B" style references. The prefix is
+# case-insensitive but letters must be uppercase, so ordinary prose such as
+# "a response a reader expects" is never rewritten. A second letter joined by
+# and/or/vs/&/comma is swapped too ("Output A and B" -> "Output B and A").
+_LABEL_RE = re.compile(
+    r"\b((?i:outputs?|responses?|candidates?))(\s+)([AB])\b"
+    r"(?:(\s*(?:,|&|/|(?i:and|or|vs\.?|versus))\s*)([AB])\b)?"
+)
+_SWAP = {"A": "B", "B": "A"}
+
+
+def _swap_match(m: re.Match[str]) -> str:
+    text = m.group(1) + m.group(2) + _SWAP[m.group(3)]
+    if m.group(5):
+        text += m.group(4) + _SWAP[m.group(5)]
+    return text
 
 
 def swap_labels(text: str) -> str:
@@ -37,9 +49,7 @@ def swap_labels(text: str) -> str:
     labels it saw, so those references must be swapped along with the scores.
     Applying the function twice returns the original text.
     """
-    return _LABEL_RE.sub(
-        lambda m: m.group(1) + m.group(2) + ("B" if m.group(3) == "A" else "A"), text
-    )
+    return _LABEL_RE.sub(_swap_match, text)
 
 
 def _coerce_winner(value: object) -> object:

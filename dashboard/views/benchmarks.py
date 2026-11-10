@@ -10,6 +10,7 @@ from dashboard.common import (
     render_summary,
     row_limit,
     run_safely,
+    show_stop_reason,
 )
 from llm_judge.datasets import SAMPLE_DATASETS, DatasetRunner, load_sample, summarize
 from llm_judge.experiments import record_dataset_run
@@ -43,6 +44,8 @@ if st.button("Run benchmark", type="primary", key="bm:run"):
         lambda: DatasetRunner(judge, list(sample.criteria), progress=progress).run(records)
     )
     if run:
+        show_stop_reason(run.stop_reason)
+    if run and run.succeeded:
         provider = getattr(judge.provider, "name", "judge")
         info = record_dataset_run(
             experiment_store(),

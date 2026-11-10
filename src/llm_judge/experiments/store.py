@@ -19,7 +19,7 @@ import secrets
 import sqlite3
 import sys
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -153,7 +153,7 @@ def _hash(text: str) -> str:
 
 
 def reproducibility_config(
-    settings: Settings, criteria: list[Criterion | str] | None
+    settings: Settings, criteria: Sequence[Criterion | str | dict[str, Any]] | None
 ) -> dict[str, Any]:
     """Everything needed to understand (and repeat) how a run was judged."""
     from .. import __version__
@@ -162,6 +162,8 @@ def reproducibility_config(
     for c in criteria or []:
         if isinstance(c, Criterion):
             criteria_info.append(c.model_dump())
+        elif isinstance(c, dict):
+            criteria_info.append(dict(c))
         else:
             criteria_info.append({"name": c})
     return {
@@ -373,9 +375,12 @@ class ExperimentStore:
     def get_run(self, run_id: str) -> RunInfo | None:
         """Look up a run by id, or by a unique id prefix."""
         with self._tx() as conn:
+            # Escape LIKE wildcards so "%" or "_" in user input match literally.
+            prefix = run_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             rows = conn.execute(
-                f"{self._RUN_SELECT} WHERE r.id = ? OR r.id LIKE ? ORDER BY r.id = ? DESC",
-                (run_id, f"{run_id}%", run_id),
+                f"{self._RUN_SELECT} WHERE r.id = ? OR r.id LIKE ? ESCAPE '\\' "
+                "ORDER BY r.id = ? DESC",
+                (run_id, f"{prefix}%", run_id),
             ).fetchall()
         if not rows:
             return None

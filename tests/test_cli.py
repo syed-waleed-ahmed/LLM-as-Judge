@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -17,9 +18,18 @@ class _FakeJudge:
     last_kwargs = None
     last_settings = None
 
+    provider = SimpleNamespace(name="fake", model="fake")
+
     def __init__(self, *args, settings=None, **kwargs):
         self.settings = settings
         _FakeJudge.last_settings = settings
+
+    def resolve_criteria(self, criteria):
+        from llm_judge.criteria import resolve_criterion
+        from llm_judge.models import Criterion
+
+        items = [criteria] if isinstance(criteria, (str, Criterion)) else criteria
+        return [c if isinstance(c, Criterion) else resolve_criterion(c) for c in items]
 
     def evaluate(self, task_description, output_a, output_b, criteria, **kwargs):
         _FakeJudge.last_kwargs = {
@@ -98,8 +108,7 @@ def test_evaluate_reads_from_files(patched_judge, tmp_path):
 
 
 def test_evaluate_missing_input_errors(patched_judge):
-    with pytest.raises(SystemExit):
-        main(["evaluate", "--output-a", "a", "--output-b", "b"])
+    assert main(["evaluate", "--output-a", "a", "--output-b", "b"]) == 2
 
 
 def test_mitigate_bias_flag_propagates(patched_judge):
@@ -137,8 +146,7 @@ def test_weights_and_candidate_models_are_passed_through(patched_judge):
 )
 def test_invalid_weights_exit_with_an_error(patched_judge, weights):
     base = ["evaluate", "--task", "t", "--output-a", "a", "--output-b", "b"]
-    with pytest.raises(SystemExit):
-        main([*base, "--criteria", "Helpfulness,Conciseness", "--weights", weights])
+    assert main([*base, "--criteria", "Helpfulness,Conciseness", "--weights", weights]) == 2
 
 
 def test_summary_shows_overall_scores_and_warnings(capsys):
@@ -279,8 +287,7 @@ def test_rank_command_rejects_bad_candidate_files(real_judge_with, tmp_path, con
     real_judge_with(FakeProvider("{}"))
     path = tmp_path / "c.json"
     path.write_text(content, encoding="utf-8")
-    with pytest.raises(SystemExit):
-        main(["rank", "--task", "t", "--candidates-file", str(path)])
+    assert main(["rank", "--task", "t", "--candidates-file", str(path)]) == 2
 
 
 # --- providers, health, version, --provider ---------------------------------------

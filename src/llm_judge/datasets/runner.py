@@ -19,6 +19,7 @@ Guarantees:
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import logging
 import threading
@@ -32,6 +33,7 @@ from typing import IO, TYPE_CHECKING, Any
 from ..criteria import DEFAULT_REFERENCE_CRITERIA
 from ..csv_safety import safe_rows
 from ..models import Criterion, JudgeResult, PointwiseResult
+from ..providers.quota import QuotaExceededError
 from .io import DatasetError
 from .records import (
     DatasetKind,
@@ -77,6 +79,10 @@ class RunReport:
     duration_seconds: float = 0.0
     checkpoint: str | None = None
     criteria: list[str] = field(default_factory=list)
+    #: Full criterion definitions (name, description, scale, weight) used for the run.
+    criteria_details: list[dict[str, Any]] = field(default_factory=list)
+    #: Why the run stopped early, when it did (e.g. an exhausted call budget).
+    stop_reason: str | None = None
 
     @property
     def succeeded(self) -> int:
@@ -102,13 +108,27 @@ class _Checkpointed:
     ok: bool
     result: dict[str, Any] | None
     error: str | None
+    config: str | None = None
+
+
+def _drop_torn_tail(path: Path) -> None:
+    """Remove a partially written last line, so appended lines start on a fresh line."""
+    if not path.exists() or path.stat().st_size == 0:
+        return
+    data = path.read_bytes()
+    if data.endswith(b"\n"):
+        return
+    with path.open("rb+") as fh:
+        fh.truncate(data.rfind(b"\n") + 1)
 
 
 class _CheckpointWriter:
     """Thread-safe append-only JSONL writer."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, config: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
+        _drop_torn_tail(path)
+        self._config = config
         self._fh: IO[str] = path.open("a", encoding="utf-8")
         self._lock = threading.Lock()
 
@@ -118,6 +138,7 @@ class _CheckpointWriter:
                 "v": CHECKPOINT_VERSION,
                 "id": outcome.id,
                 "kind": outcome.kind,
+                "config": self._config,
                 "fingerprint": record_fingerprint(outcome.record),
                 "ok": outcome.ok,
                 "error": outcome.error,
@@ -156,6 +177,7 @@ def read_checkpoint(path: Path, kind: DatasetKind) -> dict[str, _Checkpointed]:
             ok=bool(data["ok"]),
             result=data.get("result"),
             error=data.get("error"),
+            config=data.get("config"),
         )
     return entries
 
@@ -183,14 +205,32 @@ class DatasetRunner:
         self.retry_failed = retry_failed
         self.progress = progress
         self.stop_event = stop_event or threading.Event()
+        self._stop_reason: str | None = None
+        self._resolved: list[Criterion] = []
 
     def _criteria_for(self, kind: DatasetKind) -> list[Criterion | str]:
         if self.criteria:
             return self.criteria
         return list(DEFAULT_REFERENCE_CRITERIA) if kind == "reference" else ["Helpfulness"]
 
+    def _config_key(self, criteria: list[Criterion]) -> str:
+        """Fingerprint of everything that changes how rows are judged."""
+        from ..judge import provider_name
+        from ..prompts import PROMPT_VERSION
+
+        settings = self.judge.settings
+        payload = {
+            "provider": provider_name(self.judge.provider),
+            "model": self.judge.provider.model,
+            "criteria": [c.model_dump() for c in criteria],
+            "mitigate_position_bias": settings.mitigate_position_bias,
+            "tie_margin": settings.tie_margin,
+            "prompt_version": PROMPT_VERSION,
+        }
+        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
+
     def _evaluate(self, record: Record, kind: DatasetKind) -> RowOutcome:
-        criteria = self._criteria_for(kind)
+        criteria = self._resolved
         try:
             result: EvaluationResult
             if isinstance(record, PairwiseRecord):
@@ -215,6 +255,11 @@ class DatasetRunner:
                 result = self.judge.evaluate_pointwise(
                     record.task_description, record.output, criteria, candidate_model=record.model
                 )
+        except QuotaExceededError as exc:
+            # A spent budget will fail every remaining row too: stop instead.
+            self._stop_reason = str(exc)
+            self.stop_event.set()
+            return RowOutcome(record.id, kind, ok=False, record=record, error=str(exc))
         except Exception as exc:  # isolate per-row failures so one bad row never aborts the run
             logger.error("Failed to evaluate record %s: %s", record.id, exc)
             return RowOutcome(record.id, kind, ok=False, record=record, error=str(exc))
@@ -236,6 +281,8 @@ class DatasetRunner:
         if len(set(ids)) != len(ids):
             raise DatasetError("Record ids must be unique to run (and resume) a dataset.")
 
+        self._resolved = self.judge.resolve_criteria(self._criteria_for(kind))
+        config = self._config_key(self._resolved)
         previous: dict[str, _Checkpointed] = {}
         if self.checkpoint and self.checkpoint.exists():
             if not self.resume:
@@ -244,6 +291,12 @@ class DatasetRunner:
                     "or delete it to start over."
                 )
             previous = read_checkpoint(self.checkpoint, kind)
+            if any(e.config not in (None, config) for e in previous.values()):
+                raise DatasetError(
+                    f"Checkpoint {self.checkpoint} was written with a different judge "
+                    "configuration (provider, model, criteria or bias settings). Resume with "
+                    "the original settings, or delete the checkpoint to start over."
+                )
 
         outcomes: dict[str, RowOutcome] = {}
         pending: list[Record] = []
@@ -265,7 +318,7 @@ class DatasetRunner:
         started = time.perf_counter()
         total = len(records)
         self._report_progress(len(outcomes), total)
-        interrupted = self._execute(pending, kind, outcomes, total)
+        interrupted = self._execute(pending, kind, outcomes, total, config)
 
         return RunReport(
             kind=kind,
@@ -274,7 +327,9 @@ class DatasetRunner:
             interrupted=interrupted or len(outcomes) < total,
             duration_seconds=round(time.perf_counter() - started, 3),
             checkpoint=str(self.checkpoint) if self.checkpoint else None,
-            criteria=[c.name if isinstance(c, Criterion) else c for c in self._criteria_for(kind)],
+            criteria=[c.name for c in self._resolved],
+            criteria_details=[c.model_dump() for c in self._resolved],
+            stop_reason=self._stop_reason,
         )
 
     def _report_progress(self, done: int, total: int) -> None:
@@ -287,9 +342,10 @@ class DatasetRunner:
         kind: DatasetKind,
         outcomes: dict[str, RowOutcome],
         total: int,
+        config: str,
     ) -> bool:
         """Run ``pending`` with a bounded window. Returns True if interrupted."""
-        writer = _CheckpointWriter(self.checkpoint) if self.checkpoint else None
+        writer = _CheckpointWriter(self.checkpoint, config) if self.checkpoint else None
         window = self.max_workers * 2
         queue = iter(pending)
         inflight: dict[Future[RowOutcome], Record] = {}

@@ -50,7 +50,9 @@ def record_dataset_run(
     from ..judge import provider_name
 
     records = [o.record for o in report.outcomes]
-    config: dict[str, Any] = reproducibility_config(judge.settings, report.criteria)  # type: ignore[arg-type]
+    config: dict[str, Any] = reproducibility_config(
+        judge.settings, report.criteria_details or [{"name": c} for c in report.criteria]
+    )
     return store.record_run(
         report,
         judge_provider=provider_name(judge.provider),

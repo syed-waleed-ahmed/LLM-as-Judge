@@ -54,13 +54,13 @@ def test_cli_rag(mock_settings, capsys, tmp_path):
     assert "context 2: not relevant" in capsys.readouterr().out
 
 
-def test_cli_rag_input_errors(mock_settings, tmp_path):
-    with pytest.raises(SystemExit, match="--context"):
-        main(["rag", "--question", "q", "--answer", "a"])
+def test_cli_rag_input_errors(mock_settings, tmp_path, capsys):
+    assert main(["rag", "--question", "q", "--answer", "a"]) == 2
+    assert "--context" in capsys.readouterr().err
     bad = tmp_path / "bad.json"
     bad.write_text(json.dumps({"not": "a list"}), encoding="utf-8")
-    with pytest.raises(SystemExit, match="list of strings"):
-        main(["rag", "--question", "q", "--answer", "a", "--contexts-file", str(bad)])
+    assert main(["rag", "--question", "q", "--answer", "a", "--contexts-file", str(bad)]) == 2
+    assert "list of strings" in capsys.readouterr().err
 
 
 def test_cli_agent(mock_settings, capsys, tmp_path):
@@ -75,8 +75,8 @@ def test_cli_agent(mock_settings, capsys, tmp_path):
     assert json.loads(capsys.readouterr().out)["metrics"]["tool_calls"] == 1
 
     trace.write_text(json.dumps({"task": ""}), encoding="utf-8")
-    with pytest.raises(SystemExit, match="invalid trace"):
-        main(["agent", "--trace-file", str(trace)])
+    assert main(["agent", "--trace-file", str(trace)]) == 2
+    assert "invalid trace" in capsys.readouterr().err
 
 
 def test_cli_consistency_and_agreement(mock_settings, capsys):
@@ -196,7 +196,7 @@ def test_dashboard_agent_page(app):
     assert not app.exception
     assert any("missing required argument" in e.value for e in app.error)
 
-    app.text_area(key="ag:trace").set_value("{not json").run()
+    app.text_area(key="ag:trace:example").set_value("{not json").run()
     app.button(key="ag:run").click().run()
     assert any("not valid" in e.value for e in app.error)
 

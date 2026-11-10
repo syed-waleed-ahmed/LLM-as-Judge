@@ -68,6 +68,8 @@ class RunComparison(BaseModel):
     regressed_rows: int = 0
     improved_rows: int = 0
     winner_flips: int | None = None
+    baseline_failed_rows: int = 0
+    candidate_failed_rows: int = 0
     regressions: list[RowDelta] = Field(default_factory=list)
     improvements: list[RowDelta] = Field(default_factory=list)
     criteria_deltas: dict[str, float] = Field(default_factory=dict)
@@ -117,12 +119,19 @@ def _comparability(baseline: RunInfo, candidate: RunInfo) -> list[str]:
         ("prompt version", baseline.prompt_version, candidate.prompt_version),
         ("criteria", baseline.criteria, candidate.criteria),
         (
+            "criterion definitions (descriptions, scales or weights)",
+            baseline.config.get("criteria"),
+            candidate.config.get("criteria"),
+        ),
+        (
             "position-bias mitigation",
             baseline.config.get("settings", {}).get("mitigate_position_bias"),
             candidate.config.get("settings", {}).get("mitigate_position_bias"),
         ),
     )
     for label, a, b in pairs:
+        if label.startswith("criterion definitions") and baseline.criteria != candidate.criteria:
+            continue  # already reported as a change of criteria
         if a != b:
             warnings.append(
                 f"The runs differ in {label} ({a} vs {b}); score differences may reflect "
@@ -149,7 +158,7 @@ def compare_runs(
     base_rows = {r.row_id: r for r in store.get_rows(baseline.id)}
     cand_rows = {r.row_id: r for r in store.get_rows(candidate.id)}
     shared = [rid for rid in base_rows if rid in cand_rows]
-    mismatched = [rid for rid in shared if base_rows[rid].task_hash != cand_rows[rid].task_hash]
+    mismatched = {rid for rid in shared if base_rows[rid].task_hash != cand_rows[rid].task_hash}
 
     warnings = _comparability(baseline, candidate)
     if mismatched:
@@ -160,10 +169,13 @@ def compare_runs(
 
     deltas: list[RowDelta] = []
     flips = 0
+    failed_base = failed_cand = 0
     for rid in shared:
         if rid in mismatched:
             continue
         b, c = base_rows[rid], cand_rows[rid]
+        failed_base += not b.ok
+        failed_cand += not c.ok
         mb, mc = _metric(b, kind), _metric(c, kind)
         if mb is None or mc is None:
             continue
@@ -192,8 +204,28 @@ def compare_runs(
         min_effect=min_effect,
         verdict="insufficient_data",
         winner_flips=flips if kind == "pairwise" else None,
+        baseline_failed_rows=failed_base,
+        candidate_failed_rows=failed_cand,
         warnings=warnings,
     )
+    # The model copied ``warnings`` on construction, so append to it directly.
+    comparable = len(shared) - len(mismatched)
+    if comparison.baseline_only:
+        comparison.warnings.append(
+            f"{comparison.baseline_only} baseline row(s) are missing from the candidate run "
+            "(for example an interrupted or sampled run) and were not compared."
+        )
+    if failed_base or failed_cand:
+        comparison.warnings.append(
+            f"{failed_cand} row(s) failed in the candidate run and {failed_base} in the "
+            "baseline; failed rows were excluded from the comparison."
+        )
+    if comparable and len(deltas) < 0.5 * comparable:
+        comparison.warnings.append(
+            f"Only {len(deltas)} of {comparable} matched rows succeeded in both runs, too few "
+            "for a reliable verdict."
+        )
+        return comparison
     if kind != "pairwise":
         names = [n for n in baseline.criteria if n in candidate.criteria]
         matched = [rid for rid in shared if rid not in mismatched]

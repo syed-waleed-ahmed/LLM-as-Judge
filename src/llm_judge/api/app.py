@@ -290,12 +290,43 @@ def create_app(
             CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"]
         )
 
+    def guard(request: Request) -> JSONResponse | None:
+        """Authentication and rate limiting for /api/v1, applied before body parsing.
+
+        The rate-limit identity is the authenticated key, or the client address;
+        an unverified header is never trusted as an identity. Failed
+        authentication attempts are rate-limited by address too.
+        """
+        if not request.url.path.startswith("/api/v1"):
+            return None
+        host = request.client.host if request.client else None
+        key = presented_key(request.headers, "x-api-key")
+        authenticated = bool(state.api_keys) and key_matches(key, state.api_keys)
+        wait = state.limiter.check(client_identity(key if authenticated else None, host))
+        if wait:
+            return _error_response(
+                request,
+                429,
+                "rate_limited",
+                "Rate limit exceeded; slow down.",
+                headers={"Retry-After": str(max(1, round(wait)))},
+            )
+        if state.api_keys and not authenticated:
+            return _error_response(
+                request,
+                401,
+                "unauthorized",
+                "A valid API key is required.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return None
+
     @app.middleware("http")
     async def request_context(request: Request, call_next: Any) -> Response:
         request_id = request_id_from(request.headers.get("x-request-id"))
         request.state.request_id = request_id
         started = time.perf_counter()
-        response: Response = await call_next(request)
+        response: Response = guard(request) or await call_next(request)
         response.headers["X-Request-ID"] = request_id
         access_log.info(
             json.dumps(
@@ -348,25 +379,6 @@ def create_app(
 
     # -- dependencies ------------------------------------------------------------------
 
-    def authenticate(request: Request) -> None:
-        key = presented_key(request.headers, "x-api-key")
-        if state.api_keys and not key_matches(key, state.api_keys):
-            raise ApiError(
-                401,
-                "unauthorized",
-                "A valid API key is required.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        host = request.client.host if request.client else None
-        wait = state.limiter.check(client_identity(key, host))
-        if wait:
-            raise ApiError(
-                429,
-                "rate_limited",
-                "Rate limit exceeded; slow down.",
-                headers={"Retry-After": str(max(1, round(wait)))},
-            )
-
     def require_admin(request: Request) -> None:
         admin = settings.api_admin_key
         if not admin:
@@ -374,7 +386,7 @@ def create_app(
         if not key_matches(presented_key(request.headers, "x-admin-key"), [admin]):
             raise ApiError(401, "unauthorized", "A valid admin key is required.")
 
-    api = APIRouter(prefix="/api/v1", dependencies=[Depends(authenticate)])
+    api = APIRouter(prefix="/api/v1")  # authentication runs in the middleware
     admin = [Depends(require_admin)]
 
     # -- service ---------------------------------------------------------------------
@@ -567,7 +579,13 @@ def create_app(
         crit = _criteria(criteria_items)  # type: ignore[arg-type]
 
         def run(recs: list[Record], stop: threading.Event, progress: Any) -> RunReport:
-            return DatasetRunner(judge, crit, stop_event=stop, progress=progress).run(recs)
+            return DatasetRunner(
+                judge,
+                crit,
+                max_workers=min(settings.batch_max_workers, settings.api_max_concurrent),
+                stop_event=stop,
+                progress=progress,
+            ).run(recs)
 
         def record(report: RunReport, job: Job) -> str | None:
             if not job.experiment:

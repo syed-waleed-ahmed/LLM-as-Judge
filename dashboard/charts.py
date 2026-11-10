@@ -125,6 +125,11 @@ def _layout(
     fig.update_yaxes(**{**axis, "showgrid": False}, automargin=False, ticksuffix="  ")
 
 
+def _categorical_y(fig: go.Figure) -> None:
+    """Keep category order even for ids like "1", "2" (Plotly would make them numbers)."""
+    fig.update_yaxes(type="category")
+
+
 def criterion_comparison(
     criteria: Sequence[str],
     scores_a: Sequence[float],
@@ -166,6 +171,7 @@ def criterion_comparison(
         legend=True,
         labels=names,
     )
+    _categorical_y(fig)
     fig.update_layout(legend_traceorder="reversed")
     low, high = scale if scale is not None else (0.0, 1.0)
     fig.update_xaxes(range=[low, high + (high - low) * 0.08])
@@ -208,6 +214,7 @@ def ranked_bars(
         legend=False,
         labels=names,
     )
+    _categorical_y(fig)
     low, high = value_range
     fig.update_xaxes(range=[low, high + (high - low) * 0.1])
     return fig
@@ -258,6 +265,7 @@ def delta_bars(
         legend=True,
         labels=[p[0] for p in pairs],
     )
+    _categorical_y(fig)
     fig.update_yaxes(categoryorder="array", categoryarray=[p[0] for p in pairs])
     fig.add_vline(x=0, line_width=1, line_color=theme.text_secondary)
     return fig

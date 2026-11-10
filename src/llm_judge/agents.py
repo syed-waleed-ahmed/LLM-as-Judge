@@ -199,9 +199,31 @@ def _clip(text: str) -> str:
     return text if len(text) <= _MAX_STEP_CHARS else text[:_MAX_STEP_CHARS] + " [...]"
 
 
-def render_trace(trace: AgentTrace) -> str:
-    """A compact, readable text form of the trajectory for the judge."""
-    lines = []
+def render_trace(trace: AgentTrace, max_chars: int | None = None) -> str:
+    """A compact, readable text form of the trajectory for the judge.
+
+    With ``max_chars``, later steps are dropped (with an explicit marker) so the
+    text fits. The tools and the final answer are always kept, so the judge
+    never grades a trajectory whose outcome was cut off.
+    """
+    head, steps, tail = _trace_sections(trace)
+    if max_chars is None:
+        return "\n".join([*head, *steps, *tail])
+    budget = max_chars - len("\n".join([*head, *tail])) - 120
+    kept: list[str] = []
+    used = 0
+    for line in steps:
+        if used + len(line) + 1 > budget:
+            omitted = len(steps) - len(kept)
+            kept.append(f"[... {omitted} later step(s) omitted to fit the input limit ...]")
+            break
+        kept.append(line)
+        used += len(line) + 1
+    return "\n".join([*head, *kept, *tail])
+
+
+def _trace_sections(trace: AgentTrace) -> tuple[list[str], list[str], list[str]]:
+    lines: list[str] = []
     if trace.tools:
         lines.append("Available tools:")
         for tool in trace.tools:
@@ -209,6 +231,9 @@ def render_trace(trace: AgentTrace) -> str:
             lines.append(f"- {tool.name}: {tool.description}{req}")
         lines.append("")
     lines.append("Trajectory:")
+    head = lines
+    steps: list[str] = []
+    lines = steps
     if not trace.steps:
         lines.append("(no steps)")
     for i, step in enumerate(trace.steps, start=1):
@@ -220,9 +245,8 @@ def render_trace(trace: AgentTrace) -> str:
             lines.append(f"[{i}] tool_result{status} {step.tool or ''}: {_clip(step.content)}")
         else:
             lines.append(f"[{i}] {step.type}: {_clip(step.content)}")
-    lines.append("")
-    lines.append(f"Final answer: {trace.final_answer.strip() or '(none)'}")
-    return "\n".join(lines)
+    tail = ["", f"Final answer: {trace.final_answer.strip() or '(none)'}"]
+    return head, steps, tail
 
 
 def run_agent_evaluation(
@@ -239,9 +263,19 @@ def run_agent_evaluation(
     task = f"An AI agent was given this task:\n{trace.task}"
     if trace.max_steps:
         task += f"\n(Step budget: {trace.max_steps}.)"
+    rendered = render_trace(trace, max_chars=judge.settings.max_input_chars)
+    if "later step(s) omitted" in rendered:
+        checks.append(
+            TraceCheck(
+                code="trace_truncated",
+                severity="warning",
+                message="The trace was longer than the input limit; later steps were not "
+                "shown to the judge (the final answer was kept).",
+            )
+        )
     grade = judge.evaluate_pointwise(
         task,
-        render_trace(trace),
+        rendered,
         list(criteria) if criteria else list(DEFAULT_AGENT_CRITERIA),
         reference=trace.reference_answer,
         candidate_model=candidate_model,

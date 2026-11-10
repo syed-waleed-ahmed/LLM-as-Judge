@@ -18,6 +18,12 @@ from ..exceptions import ValidationError
 
 SUPPORTED_FORMATS = (".csv", ".jsonl", ".ndjson", ".json", ".yaml", ".yml")
 
+# The csv module refuses fields over 131,072 characters by default. Long outputs
+# are legitimate (they are truncated later, with a warning), and the per-file byte
+# limit already bounds memory, so allow fields up to 16 MiB.
+_CSV_FIELD_LIMIT = 16 * 1024 * 1024
+csv.field_size_limit(max(csv.field_size_limit(), _CSV_FIELD_LIMIT))
+
 
 class DatasetError(ValidationError):
     """A dataset file can't be read, or a resume checkpoint doesn't match it."""
@@ -51,13 +57,18 @@ def iter_rows(
         )
 
     count = 0
-    for row in _rows(path, suffix):
-        count += 1
-        if max_rows is not None and count > max_rows:
-            raise DatasetError(
-                f"{path.name} has more than {max_rows:,} rows (JUDGE_MAX_DATASET_ROWS)."
-            )
-        yield row
+    try:
+        for row in _rows(path, suffix):
+            count += 1
+            if max_rows is not None and count > max_rows:
+                raise DatasetError(
+                    f"{path.name} has more than {max_rows:,} rows (JUDGE_MAX_DATASET_ROWS)."
+                )
+            yield row
+    except UnicodeDecodeError:
+        raise DatasetError(f"{path.name} is not valid UTF-8 text; save it as UTF-8.") from None
+    except csv.Error as exc:
+        raise DatasetError(f"{path.name}: malformed CSV ({exc}).") from None
 
 
 def _rows(path: Path, suffix: str) -> Iterator[dict[str, Any]]:
@@ -88,6 +99,19 @@ def _rows(path: Path, suffix: str) -> Iterator[dict[str, Any]]:
         yield from _document_rows(path, suffix)
 
 
+def _no_alias_loader(yaml: Any) -> Any:
+    class _NoAliasSafeLoader(yaml.SafeLoader):
+        def compose_node(self, parent: Any, index: Any) -> Any:
+            if self.check_event(yaml.events.AliasEvent):
+                event = self.peek_event()
+                raise yaml.composer.ComposerError(
+                    None, None, "YAML aliases are not allowed in datasets", event.start_mark
+                )
+            return super().compose_node(parent, index)
+
+    return _NoAliasSafeLoader
+
+
 def _document_rows(path: Path, suffix: str) -> Iterator[dict[str, Any]]:
     """Rows from a whole-document format (JSON or YAML): a list, or {"records": [...]}."""
     text = path.read_text(encoding="utf-8")
@@ -104,7 +128,9 @@ def _document_rows(path: Path, suffix: str) -> Iterator[dict[str, Any]]:
                 "Reading YAML datasets needs PyYAML: pip install 'llm-as-judge[yaml]'."
             ) from None
         try:
-            data = yaml.safe_load(text)  # safe_load never constructs arbitrary objects
+            # A SafeLoader that also forbids aliases: anchors and aliases let a tiny
+            # file expand into gigabytes ("billion laughs").
+            data = yaml.load(text, Loader=_no_alias_loader(yaml))
         except (yaml.YAMLError, RecursionError) as exc:
             raise DatasetError(f"{path.name}: invalid YAML ({exc}).") from None
 

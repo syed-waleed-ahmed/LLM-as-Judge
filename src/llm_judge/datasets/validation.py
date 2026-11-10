@@ -76,9 +76,16 @@ class DatasetReport(BaseModel):
         return self.kind is not None and self.valid_rows == self.rows and self.rows > 0
 
 
+class _NonScalarError(ValueError):
+    pass
+
+
 def _stringify(value: object) -> str | None:
+    """Text for a field value; nested lists or objects are rejected, not stringified."""
     if value is None:
         return None
+    if isinstance(value, (dict, list, tuple, set)):
+        raise _NonScalarError(type(value).__name__)
     text = value if isinstance(value, str) else str(value)
     return text if text.strip() else None
 
@@ -126,7 +133,7 @@ def load_dataset(
         ]
         fmt, label = "python", "<in-memory>"
 
-    rows = [dict(r) for r in raw]
+    rows = [{str(k): v for k, v in r.items()} for r in raw]
     columns: list[str] = []
     for row in rows:
         for col in row:
@@ -163,8 +170,19 @@ def load_dataset(
     model = RECORD_TYPES[resolved_kind]
 
     records: list[Record] = []
+    source_row: dict[int, int] = {}  # id(record) -> original 0-based row index
     for index, row in enumerate(rows):
-        fields = {mapping[k]: _stringify(v) for k, v in row.items() if mapping[k] in known}
+        try:
+            fields = {mapping[k]: _stringify(v) for k, v in row.items() if mapping[k] in known}
+        except _NonScalarError as exc:
+            issues.append(
+                RowIssue(
+                    row=index + 1,
+                    severity="error",
+                    message=f"field values must be text or numbers, not {exc}",
+                )
+            )
+            continue
         record_id = fields.get("id") or str(index)
         missing = [f for f in REQUIRED_FIELDS[resolved_kind] if not fields.get(f)]
         if missing:
@@ -198,12 +216,13 @@ def load_dataset(
                     )
                 )
         records.append(record)  # type: ignore[arg-type]
+        source_row[id(record)] = index
 
     # Duplicate ids make resume ambiguous, so they are errors; duplicate
     # content is only suspicious, so it's a warning.
     by_id: dict[str, list[int]] = defaultdict(list)
-    for i, record in enumerate(records):
-        by_id[record.id].append(i)
+    for record in records:
+        by_id[record.id].append(source_row[id(record)])
     duplicate_ids = sorted(rid for rid, idx in by_id.items() if len(idx) > 1)
     if duplicate_ids:
         for rid in duplicate_ids:

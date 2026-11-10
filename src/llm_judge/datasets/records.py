@@ -101,14 +101,36 @@ def infer_kind(columns: Iterable[str]) -> DatasetKind | None:
     return None
 
 
-def canonical_columns(columns: Iterable[str]) -> dict[str, str]:
-    """Map each original column to its canonical name (aliases applied when safe)."""
-    original = [c.strip() for c in columns]
-    present = set(original)
+#: Every canonical field name across all dataset kinds.
+CANONICAL_FIELDS = frozenset(
+    name for fields in (*REQUIRED_FIELDS.values(), *OPTIONAL_FIELDS.values()) for name in fields
+)
+
+
+def canonical_columns(columns: Iterable[object]) -> dict[str, str]:
+    """Map each original column name (as given) to its canonical field name.
+
+    Names are compared after trimming whitespace, so ``" output "`` is
+    ``output``. An alias such as ``prompt`` applies only when the canonical
+    column is absent and no earlier column already claimed that field. Any
+    other column keeps its own name and is reported as unknown, so two columns
+    never silently overwrite each other.
+    """
+    original = [str(c) for c in columns]
+    present = {c.strip() for c in original}
+    claimed: set[str] = set()
     mapping: dict[str, str] = {}
     for col in original:
-        target = FIELD_ALIASES.get(col.lower())
-        mapping[col] = target if target and target not in present else col
+        name = col.strip()
+        target = name
+        if name not in CANONICAL_FIELDS:
+            alias = FIELD_ALIASES.get(name.lower())
+            if alias and alias not in present:
+                target = alias
+        if target in CANONICAL_FIELDS and target in claimed:
+            target = col  # a second source for the same field: keep it separate
+        claimed.add(target)
+        mapping[col] = target
     return mapping
 
 

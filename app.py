@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from dashboard.common import render_sidebar
+from dashboard.common import render_sidebar, render_sidebar_status
 
 st.set_page_config(page_title="LLM-as-Judge", page_icon=":material/balance:", layout="wide")
 
@@ -42,3 +42,4 @@ navigation = st.navigation(
 )
 render_sidebar()
 navigation.run()
+render_sidebar_status()  # after the page, so quota counts are current

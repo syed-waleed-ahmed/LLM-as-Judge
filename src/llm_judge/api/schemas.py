@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from ..agents import AgentTrace
 from ..datasets import DatasetKind, DatasetSummary
@@ -25,7 +25,8 @@ class CriterionInput(_Strict):
     weight: float = Field(default=1.0, gt=0, le=100)
 
 
-CriteriaField = list[str | CriterionInput]
+CriterionName = Annotated[str, StringConstraints(min_length=1, max_length=120)]
+CriteriaField = Annotated[list[CriterionName | CriterionInput], Field(max_length=100)]
 
 
 def _default_criteria() -> CriteriaField:

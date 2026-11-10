@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
@@ -39,13 +40,41 @@ if TYPE_CHECKING:
     from .judge import Judge
 
 
+class CliError(Exception):
+    """A usage or input problem: reported on stderr with exit code 2."""
+
+
+_OUTPUT_SUFFIXES = (".csv", ".jsonl", ".ndjson", ".json")
+
+
+def _check_output_path(path: str | None) -> None:
+    """Fail before any (possibly paid) evaluation if results can't be written."""
+    if path and Path(path).suffix.lower() not in _OUTPUT_SUFFIXES:
+        raise CliError(
+            f"unsupported output format '{Path(path).suffix}'; use .csv, .jsonl or .json"
+        )
+
+
+def _info(args: argparse.Namespace, message: str = "", **kwargs: object) -> None:
+    """Status output: stderr when --json is on, so stdout stays valid JSON."""
+    stream = sys.stderr if getattr(args, "json", False) else sys.stdout
+    print(message, file=stream, **kwargs)  # type: ignore[call-overload]
+
+
+def _temperature(value: str) -> float:
+    number = float(value)
+    if not 0 <= number <= 2:
+        raise argparse.ArgumentTypeError("must be between 0 and 2")
+    return number
+
+
 def _read_text_arg(value: str | None, file_value: str | None, name: str) -> str:
     """Resolve a text argument from an inline value or a file path."""
     if file_value:
         return Path(file_value).read_text(encoding="utf-8")
     if value is not None:
         return value
-    raise SystemExit(f"error: provide --{name} or --{name}-file")
+    raise CliError(f"provide --{name} or --{name}-file")
 
 
 def _parse_criteria(raw: str) -> list[str]:
@@ -66,7 +95,7 @@ def _parse_weights(raw: str | None) -> dict[str, float]:
                 raise ValueError
             weights[name.strip()] = float(value)
         except ValueError:
-            raise SystemExit(f"error: invalid weight '{item}'; expected Name=number") from None
+            raise CliError(f"invalid weight '{item}'; expected Name=number") from None
     return weights
 
 
@@ -76,7 +105,7 @@ def _build_criteria(raw_criteria: str, raw_weights: str | None) -> list[Criterio
     weights = _parse_weights(raw_weights)
     unknown = [n for n in weights if n not in names]
     if unknown:
-        raise SystemExit(f"error: --weights names criteria not in --criteria: {unknown}")
+        raise CliError(f"--weights names criteria not in --criteria: {unknown}")
     criteria: list[Criterion] = []
     for name in names:
         criterion = resolve_criterion(name)
@@ -86,8 +115,8 @@ def _build_criteria(raw_criteria: str, raw_weights: str | None) -> list[Criterio
                     {**criterion.model_dump(), "weight": weights[name]}
                 )
             except PydanticValidationError:
-                raise SystemExit(
-                    f"error: weight for '{name}' must be greater than 0 and at most 100"
+                raise CliError(
+                    f"weight for '{name}' must be greater than 0 and at most 100"
                 ) from None
         criteria.append(criterion)
     return criteria
@@ -350,7 +379,7 @@ def _build_parser() -> argparse.ArgumentParser:
     cs.add_argument("--samples", type=int, default=5, help="Number of repeated judgments (2-50).")
     cs.add_argument(
         "--temperature",
-        type=float,
+        type=_temperature,
         default=None,
         help="Judge sampling temperature for this check (default: JUDGE_TEMPERATURE).",
     )
@@ -406,7 +435,7 @@ def _load_candidates(path: str) -> tuple[dict[str, str], dict[str, str | None]]:
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (json.JSONDecodeError, RecursionError) as exc:
-        raise SystemExit(f"error: {path} is not valid JSON: {exc}") from None
+        raise CliError(f"{path} is not valid JSON: {exc}") from None
     if isinstance(data, dict) and all(isinstance(v, str) for v in data.values()):
         return {str(k): v for k, v in data.items()}, {}
     if isinstance(data, list) and all(isinstance(item, dict) for item in data):
@@ -415,13 +444,11 @@ def _load_candidates(path: str) -> tuple[dict[str, str], dict[str, str | None]]:
         for i, item in enumerate(data, start=1):
             cid = str(item.get("id") or i)
             if cid in texts:
-                raise SystemExit(f"error: duplicate candidate id '{cid}' in {path}")
+                raise CliError(f"duplicate candidate id '{cid}' in {path}")
             texts[cid] = str(item.get("output", ""))
             models[cid] = item.get("model")
         return texts, models
-    raise SystemExit(
-        f'error: {path} must hold {{"id": "text"}} or a list of {{"id", "output"}} objects'
-    )
+    raise CliError(f'{path} must hold {{"id": "text"}} or a list of {{"id", "output"}} objects')
 
 
 def _cmd_grade(args: argparse.Namespace) -> int:
@@ -517,16 +544,14 @@ def _load_for_run(args: argparse.Namespace, source: str | Path, kind: str | None
     if not report.ok:
         _print_report(report)
         if not (args.skip_invalid and records):
-            raise SystemExit(
-                "error: the dataset has problems (see above); fix them or pass --skip-invalid"
-            )
+            raise CliError("the dataset has problems (see above); fix them or pass --skip-invalid")
         print(f"Continuing with {len(records)} valid row(s) (--skip-invalid).")
     if args.sample is not None:
         records = sample_records(records, args.sample, seed=args.seed)
     if args.limit is not None:
         records = records[: max(0, args.limit)]
     if not records:
-        raise SystemExit("error: no rows to evaluate")
+        raise CliError("no rows to evaluate")
     return records
 
 
@@ -547,11 +572,16 @@ def _run_dataset(
         checkpoint=checkpoint,
         resume=getattr(args, "resume", False),
         retry_failed=not getattr(args, "no_retry_failed", False),
-        progress=lambda done, total: print(f"\r  {done}/{total} done", end="", flush=True),
+        progress=lambda done, total: print(
+            f"\r  {done}/{total} done", end="", flush=True, file=sys.stderr
+        ),
     )
-    print(f"Evaluating {len(records)} row(s) with {runner.max_workers} worker(s)...")
+    print(
+        f"Evaluating {len(records)} row(s) with {runner.max_workers} worker(s)...",
+        file=sys.stderr,
+    )
     report = runner.run(records)
-    print()
+    print(file=sys.stderr)
     return report, judge
 
 
@@ -575,7 +605,7 @@ def _maybe_record(args: argparse.Namespace, report: RunReport, judge: Judge, sou
             name=args.run_name,
             dataset_source=source,
         )
-    print(f"Recorded run {info.id} in experiment '{args.experiment}' ({store.path}).")
+    _info(args, f"Recorded run {info.id} in experiment '{args.experiment}' ({store.path}).")
 
 
 def _print_summary_stats(summary: DatasetSummary) -> None:
@@ -610,6 +640,7 @@ def _print_summary_stats(summary: DatasetSummary) -> None:
 def _cmd_batch(args: argparse.Namespace) -> int:
     from .datasets import summarize, write_outcomes
 
+    _check_output_path(args.output)
     records = _load_for_run(args, args.input, args.kind)
     criteria = _build_criteria(args.criteria, args.weights) if args.criteria else None
     checkpoint: Path | None = None
@@ -623,9 +654,10 @@ def _cmd_batch(args: argparse.Namespace) -> int:
         print(_json_text(summary.model_dump(mode="json")))
     else:
         _print_summary_stats(summary)
-    print(
+    _info(
+        args,
         f"\nWrote {len(report.outcomes)} result(s) to {args.output} "
-        f"({report.succeeded} ok, {report.failed} failed)."
+        f"({report.succeeded} ok, {report.failed} failed).",
     )
     _maybe_record(args, report, judge, str(args.input))
 
@@ -805,8 +837,8 @@ def _cmd_serve(args: argparse.Namespace) -> int:
 
         from .api import create_app
     except ImportError:
-        raise SystemExit(
-            "error: the API server needs FastAPI and Uvicorn: pip install 'llm-as-judge[api]'"
+        raise CliError(
+            "the API server needs FastAPI and Uvicorn: pip install 'llm-as-judge[api]'"
         ) from None
     settings = _settings(args)
     if args.host not in _LOCAL_HOSTS and not settings.api_keys:
@@ -825,6 +857,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
 def _cmd_benchmark(args: argparse.Namespace) -> int:
     from .datasets import SAMPLE_DATASETS, load_sample, summarize, write_outcomes
 
+    _check_output_path(args.output)
     if args.dataset in SAMPLE_DATASETS:
         sample = SAMPLE_DATASETS[args.dataset]
         records = load_sample(args.dataset, settings=_settings(args))
@@ -905,11 +938,11 @@ def _read_contexts(args: argparse.Namespace) -> list[str]:
         if isinstance(data, list) and all(isinstance(c, str) for c in data):
             contexts.extend(data)
         elif data is not None:
-            raise SystemExit("error: --contexts-file JSON must be a list of strings")
+            raise CliError("--contexts-file JSON must be a list of strings")
         else:
             contexts.extend(p.strip() for p in text.split("\n\n") if p.strip())
     if not contexts:
-        raise SystemExit("error: provide --context (repeatable) or --contexts-file")
+        raise CliError("provide --context (repeatable) or --contexts-file")
     return contexts
 
 
@@ -949,7 +982,7 @@ def _cmd_agent(args: argparse.Namespace) -> int:
     try:
         trace = AgentTrace.model_validate_json(Path(args.trace_file).read_text(encoding="utf-8"))
     except PydanticValidationError as exc:
-        raise SystemExit(f"error: invalid trace file: {exc}") from None
+        raise CliError(f"invalid trace file: {exc}") from None
     criteria = _parse_criteria(args.criteria) if args.criteria else None
     result = Judge(settings=_settings(args)).evaluate_agent(
         trace, criteria, candidate_model=args.model
@@ -991,7 +1024,7 @@ def _cmd_consistency(args: argparse.Namespace) -> int:
     )
     if args.json:
         print(_json_text(report.model_dump(mode="json")))
-        return 0
+        return 0 if report.succeeded >= 2 else 1
     print(
         f"\n{report.mode} consistency over {report.succeeded}/{report.samples} sample(s) "
         f"at temperature {report.temperature:g}"
@@ -1010,7 +1043,7 @@ def _cmd_consistency(args: argparse.Namespace) -> int:
         print(f"  failed sample: {error}")
     for note in report.notes:
         print(f"  note: {note}")
-    return 0
+    return 0 if report.succeeded >= 2 else 1
 
 
 def _print_warnings(warnings: list[EvaluationWarning]) -> None:
@@ -1103,7 +1136,7 @@ def main(argv: list[str] | None = None) -> int:
     _make_console_safe(sys.stderr)
     parser = _build_parser()
     args = parser.parse_args(argv)
-    configure_logging(args.log_level or "INFO")
+    configure_logging(args.log_level or os.environ.get("LOG_LEVEL", "INFO"))
 
     try:
         if args.command == "list-criteria":
@@ -1137,7 +1170,7 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_grade(args)
         if args.command == "rank":
             return _cmd_rank(args)
-    except LLMJudgeError as exc:
+    except (LLMJudgeError, CliError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except FileNotFoundError as exc:

@@ -192,6 +192,12 @@ def render_sidebar() -> None:
             key="mitigate_bias",
             help="Judge pairs in both orders and average. More reliable; twice the calls.",
         )
+
+
+def render_sidebar_status() -> None:
+    """Quota and demo notices, rendered after the page so the counts are current."""
+    settings = app_settings()
+    with st.sidebar:
         if settings.demo_mode and judge_mode() == "live":
             session = _session_budget(settings)
             daily = _daily_budget(settings.demo_daily_calls)
@@ -201,6 +207,15 @@ def render_sidebar() -> None:
             )
         if settings.demo_mode:
             st.caption("Public demo: inputs are capped and nothing you enter is stored.")
+
+
+def show_stop_reason(stop_reason: str | None) -> None:
+    """Explain a dataset run that stopped early (e.g. an exhausted demo budget)."""
+    if stop_reason:
+        st.warning(
+            f"{stop_reason} Pick 'Mock' in the sidebar to keep exploring.",
+            icon=":material/hourglass_empty:",
+        )
 
 
 def render_judge_badge(metadata: dict[str, Any]) -> None:
@@ -272,6 +287,7 @@ def _download(label: str, payload: Any, file_name: str, key: str) -> None:
         file_name=file_name,
         mime="application/json",
         key=key,
+        on_click="ignore",  # downloading must not rerun the page and clear the results
         icon=":material/download:",
     )
 

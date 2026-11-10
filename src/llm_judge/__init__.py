@@ -16,6 +16,9 @@ Quick start::
 
 from __future__ import annotations
 
+import sys
+import warnings
+
 from .agents import AgentResult, AgentStep, AgentTrace, ToolSpec
 from .config import Settings, get_settings
 from .criteria import (
@@ -52,6 +55,16 @@ from .reliability import ConsistencyReport, JudgeAgreement
 
 # Single source of truth for the package version (read by setuptools).
 __version__ = "2.0.1"
+
+if sys.version_info < (3, 11):  # pragma: no cover - depends on the interpreter
+    warnings.warn(
+        "Python 3.10 reached end of life in October 2026. LLM-as-Judge still supports it "
+        "for the library, CLI and REST API, but support is deprecated and will be removed "
+        "in a future release. Use Python 3.11 or later (the dashboard needs it for "
+        "Pillow security fixes).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
 __all__ = [
     "Judge",

@@ -123,6 +123,10 @@ The dashboard with the live Groq judge (`openai/gpt-oss-120b`). Try it in the
 <!-- --8<-- [start:install] -->
 ## Installation
 
+Python 3.11 or later is recommended. Python 3.10 reached end of life in October
+2026: the library, CLI and REST API still run on it but support is deprecated, and
+the dashboard needs 3.11+ for Pillow's security fixes.
+
 ```bash
 git clone https://github.com/syed-waleed-ahmed/LLM-as-Judge.git
 cd LLM-as-Judge
@@ -847,6 +851,10 @@ benchmark samples.
 - **Single-node storage and jobs.** Runs live in SQLite, and API jobs run in an
   in-process queue that doesn't survive a restart. There's no Supabase/Postgres
   adapter and no horizontal scaling.
+- **Python 3.10 is deprecated.** It's past end of life. The fixed versions of
+  Pillow, which Streamlit needs, require Python 3.11+, so run the dashboard on
+  3.11 or later. The library, CLI and API still run on 3.10, and CI audits their
+  dependencies there.
 - **Not externally verified everywhere.** The Ollama provider is tested against
   simulated responses only. The REST API isn't hosted publicly; run it locally
   or on your own server. The package isn't on PyPI yet.

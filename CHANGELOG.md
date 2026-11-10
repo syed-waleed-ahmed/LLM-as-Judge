@@ -86,6 +86,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Cloud, demo mode). The README, the documentation site and the package
   metadata link to it.
 
+### Deprecated
+- Python 3.10, which reached end of life in October 2026.
+  - The library, CLI and REST API still run on it, and a new CI job audits
+    their dependencies on 3.10.
+  - Importing the package on 3.10 emits a `DeprecationWarning`.
+  - The dashboard should run on Python 3.11 or later, because Pillow's
+    security fixes need it. The Settings page warns when the app runs on
+    3.10.
+
 ### Verified
 - The `openai_compatible` provider was tested live against Groq's
   OpenAI-compatible endpoint: health check, pairwise, reference grading and

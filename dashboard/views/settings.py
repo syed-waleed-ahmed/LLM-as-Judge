@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import streamlit as st
 
 from dashboard.common import (
@@ -18,6 +20,13 @@ from llm_judge.providers.registry import build_provider, fallback_names
 
 settings = app_settings()
 st.title("Settings")
+if sys.version_info < (3, 11):
+    st.warning(
+        "This app is running on Python 3.10, which reached end of life in October 2026. "
+        "Security fixes for Pillow, which the dashboard depends on, need Python 3.11 or "
+        "later. Please run the dashboard on a newer Python.",
+        icon=":material/warning:",
+    )
 st.caption(
     "Server-wide settings come from environment variables or Streamlit secrets and are shown "
     "read-only. The options under This session apply to your session only."

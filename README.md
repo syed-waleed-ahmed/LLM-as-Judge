@@ -147,11 +147,11 @@ release tag or from the wheel attached to a
 [GitHub Release](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases):
 
 ```bash
-# From the v2.0.1 tag (extras: ui, api, yaml, all)
-pip install "llm-as-judge[all] @ git+https://github.com/syed-waleed-ahmed/LLM-as-Judge@v2.0.1"
+# From the v2.1.0 tag (extras: ui, api, yaml, all)
+pip install "llm-as-judge[all] @ git+https://github.com/syed-waleed-ahmed/LLM-as-Judge@v2.1.0"
 
 # Or from the release wheel
-pip install "llm-as-judge[all] @ https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/download/v2.0.1/llm_as_judge-2.0.1-py3-none-any.whl"
+pip install "llm-as-judge[all] @ https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/download/v2.1.0/llm_as_judge-2.1.0-py3-none-any.whl"
 ```
 
 Either way you get the `llm-judge` command. To run the dashboard, clone the
@@ -333,7 +333,7 @@ Every pairwise evaluation returns a validated, versioned result:
 
 ```json
 {
-  "schema_version": "1.2",
+  "schema_version": "1.3",
   "criteria": [
     {
       "criterion": "Helpfulness",
@@ -865,7 +865,8 @@ benchmark samples.
 
 ## Roadmap
 
-Version 2.0.0 completed the planned phases: evaluation modes, providers,
+Version 2.0.0 completed the planned phases, and 2.1.0 closed the gaps a
+line-by-line review of the plan found: evaluation modes, providers,
 datasets, experiment tracking, the REST API, the dashboard, RAG and agent
 evaluation, security hardening, and documentation. Open items include a
 Supabase/Postgres experiment store and publishing to PyPI. See

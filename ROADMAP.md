@@ -1,8 +1,10 @@
 # Roadmap
 
 Version 2.0.0 (released 2026-11-10) turned a pairwise judging library (v1.0.0)
-into an open-source LLM evaluation platform, in the phases below. The guiding
-constraints, which still apply to new work:
+into an open-source LLM evaluation platform, in the phases below. Version 2.1.0
+closed the remaining gaps that a line-by-line review against the original plan
+found; the [delivery report](docs/design/delivery-report.md) lists them. The
+guiding constraints, which still apply to new work:
 
 - **$0 to run.** Use only open-source software and free tiers, with no
   mandatory paid service and no credit card. Every cloud integration is
@@ -44,6 +46,11 @@ before starting.
   registry or the `llm_judge.providers` entry-point group.
 - **More benchmark samples.** Small, synthetic, clearly licensed datasets for
   the bundled benchmarks.
+- **Live checks for Ollama and embeddings.** The Ollama provider and the
+  embedding backends are tested against simulated responses only; a CI job
+  with a small local model would verify them end to end.
+- **Drop Python 3.10.** It is deprecated (end of life since October 2026) and
+  can be removed in the next major or minor release.
 
 ## Known free-tier limits
 

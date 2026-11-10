@@ -54,7 +54,7 @@ from .rag import RagResult
 from .reliability import ConsistencyReport, JudgeAgreement
 
 # Single source of truth for the package version (read by setuptools).
-__version__ = "2.0.1"
+__version__ = "2.1.0"
 
 if sys.version_info < (3, 11):  # pragma: no cover - depends on the interpreter
     warnings.warn(

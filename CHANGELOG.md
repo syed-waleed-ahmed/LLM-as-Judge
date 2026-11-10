@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-10
+
+Closes the gaps that a line-by-line review against the original platform plan
+found:
+- judge instructions, opt-in provider fallback, async methods and a result
+  cache;
+- Markdown evaluation reports;
+- Analytics and Settings dashboard pages;
+- optional semantic similarity;
+- a free-tier rate-limit fix, screenshots and a coverage badge.
+
+Python 3.10 is deprecated. The public API is backwards compatible. The result
+schema only gains optional fields (`reference_metrics.semantic_similarity` and
+`embedding_model`, plus new metadata keys), so `schema_version` is now "1.3".
+
 ### Added
 - Evaluator instructions: optional guidance for the judge ("penalise answers
   without sources") on pairwise, pointwise, reference and ranking
@@ -535,6 +550,7 @@ of scripts into an installable, tested, and documented framework.
 - Legacy flat modules (`config.py`, `judge.py`, `prompts.py`) superseded by the
   package.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/tag/v2.0.0

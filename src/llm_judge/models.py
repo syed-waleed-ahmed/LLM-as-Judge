@@ -21,7 +21,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 #: Version of the JSON result schema produced by this library.
-RESULT_SCHEMA_VERSION = "1.2"
+RESULT_SCHEMA_VERSION = "1.3"
 
 # "Output A" / "Response B" / "Candidates A and B" style references. The prefix is
 # case-insensitive but letters must be uppercase, so ordinary prose such as

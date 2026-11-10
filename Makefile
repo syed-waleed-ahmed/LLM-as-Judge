@@ -1,4 +1,4 @@
-.PHONY: install test lint type check format run cli clean
+.PHONY: install test lint type check format format-check run cli clean
 
 install:  ## Install the package with UI + dev extras (editable)
 	pip install -e ".[ui,dev]"
@@ -12,10 +12,14 @@ lint:  ## Lint with ruff
 type:  ## Type-check with mypy
 	mypy
 
-format:  ## Auto-format / auto-fix with ruff
+format:  ## Auto-format and auto-fix with ruff
+	ruff format .
 	ruff check --fix .
 
-check: lint type test  ## Run lint, type-check, and tests
+format-check:  ## Verify formatting without changing files
+	ruff format --check .
+
+check: lint format-check type test  ## Run lint, format check, type-check, and tests
 
 run:  ## Launch the Streamlit app
 	streamlit run app.py

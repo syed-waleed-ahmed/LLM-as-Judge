@@ -157,8 +157,7 @@ class BatchEvaluator:
             return BatchRowResult(id=record.id, ok=False, error=str(exc))
 
         scores = {
-            c.criterion: {"A": c.output_a_score, "B": c.output_b_score}
-            for c in result.criteria
+            c.criterion: {"A": c.output_a_score, "B": c.output_b_score} for c in result.criteria
         }
         return BatchRowResult(
             id=record.id,

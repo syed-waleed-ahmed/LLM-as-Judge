@@ -61,10 +61,14 @@ def test_evaluate_summary(patched_judge, capsys):
     code = main(
         [
             "evaluate",
-            "--task", "t",
-            "--output-a", "a",
-            "--output-b", "b",
-            "--criteria", "Helpfulness",
+            "--task",
+            "t",
+            "--output-a",
+            "a",
+            "--output-b",
+            "b",
+            "--criteria",
+            "Helpfulness",
         ]
     )
     assert code == 0
@@ -85,9 +89,7 @@ def test_evaluate_reads_from_files(patched_judge, tmp_path):
     b = tmp_path / "b.txt"
     a.write_text("from file a", encoding="utf-8")
     b.write_text("from file b", encoding="utf-8")
-    code = main(
-        ["evaluate", "--task", "t", "--output-a-file", str(a), "--output-b-file", str(b)]
-    )
+    code = main(["evaluate", "--task", "t", "--output-a-file", str(a), "--output-b-file", str(b)])
     assert code == 0
     assert patched_judge.last_kwargs["output_a"] == "from file a"
 
@@ -106,13 +108,9 @@ def test_mitigate_bias_flag_propagates(patched_judge):
 
 def test_batch_command(patched_judge, tmp_path, capsys):
     inp = tmp_path / "in.csv"
-    inp.write_text(
-        "id,task_description,output_a,output_b\n1,t,a,b\n2,t,a,b\n", encoding="utf-8"
-    )
+    inp.write_text("id,task_description,output_a,output_b\n1,t,a,b\n2,t,a,b\n", encoding="utf-8")
     out = tmp_path / "out.csv"
-    code = main(
-        ["batch", "--input", str(inp), "--output", str(out), "--criteria", "Helpfulness"]
-    )
+    code = main(["batch", "--input", str(inp), "--output", str(out), "--criteria", "Helpfulness"])
     assert code == 0
     assert out.exists()
     assert "overall_winner" in out.read_text(encoding="utf-8")

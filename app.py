@@ -55,9 +55,7 @@ def _sidebar() -> tuple[list[str], bool]:
         )
 
         st.markdown("---")
-        st.caption(
-            "Tip: write a clear task description so the judge knows what 'good' means."
-        )
+        st.caption("Tip: write a clear task description so the judge knows what 'good' means.")
 
         criteria = selected + custom
         return criteria, mitigate_bias

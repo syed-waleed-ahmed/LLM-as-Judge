@@ -81,9 +81,7 @@ class Judge:
         result = self._evaluate_once(task_description, output_a, output_b, resolved)
 
         if self.settings.mitigate_position_bias:
-            swapped_raw = self._evaluate_once(
-                task_description, output_b, output_a, resolved
-            )
+            swapped_raw = self._evaluate_once(task_description, output_b, output_a, resolved)
             swapped_back = JudgeResult(
                 criteria=[c.swapped() for c in swapped_raw.criteria],
                 overall_winner=swapped_raw.overall_winner.swapped(),
@@ -201,16 +199,12 @@ class Judge:
             overall_comment=first.overall_comment,
         )
 
-    def _resolve_criteria(
-        self, criteria: list[Criterion] | list[str] | str
-    ) -> list[Criterion]:
+    def _resolve_criteria(self, criteria: list[Criterion] | list[str] | str) -> list[Criterion]:
         if isinstance(criteria, str):
             criteria = [criteria]
         if not criteria:
             raise ValidationError("At least one criterion is required.")
-        resolved = [
-            c if isinstance(c, Criterion) else resolve_criterion(c) for c in criteria
-        ]
+        resolved = [c if isinstance(c, Criterion) else resolve_criterion(c) for c in criteria]
         return resolved
 
     def _validate_text(self, field: str, value: str) -> str:

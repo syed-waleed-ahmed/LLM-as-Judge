@@ -48,9 +48,7 @@ def test_complete_json_returns_content():
         choices=[SimpleNamespace(message=SimpleNamespace(content='{"ok": true}'))]
     )
     provider._client = SimpleNamespace(
-        chat=SimpleNamespace(
-            completions=SimpleNamespace(create=lambda **kwargs: fake_response)
-        )
+        chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kwargs: fake_response))
     )
     assert provider.complete_json([{"role": "user", "content": "hi"}]) == '{"ok": true}'
 
@@ -61,9 +59,7 @@ def test_complete_json_rejects_empty_response():
         choices=[SimpleNamespace(message=SimpleNamespace(content="   "))]
     )
     provider._client = SimpleNamespace(
-        chat=SimpleNamespace(
-            completions=SimpleNamespace(create=lambda **kwargs: fake_response)
-        )
+        chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kwargs: fake_response))
     )
     with pytest.raises(ProviderError) as exc:
         provider.complete_json([{"role": "user", "content": "hi"}])

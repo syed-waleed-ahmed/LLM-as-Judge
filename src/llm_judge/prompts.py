@@ -50,7 +50,7 @@ def build_system_prompt(criteria: list[Criterion]) -> str:
         "4. Ignore output length unless the criterion is explicitly about it.\n"
         "5. Keep explanations concise (one to three sentences) and specific.\n"
         "6. 'winner' per criterion and 'overall_winner' must be exactly \"A\", "
-        "\"B\", or \"tie\".\n\n"
+        '"B", or "tie".\n\n'
         "Respond with a SINGLE valid JSON object and nothing else — no prose, no "
         "markdown fences. It must match this schema exactly:\n"
         f"{json.dumps(example, indent=2)}"

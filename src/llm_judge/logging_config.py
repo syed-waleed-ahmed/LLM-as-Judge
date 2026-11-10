@@ -22,9 +22,7 @@ def configure_logging(level: str = "INFO") -> None:
     logger = logging.getLogger("llm_judge")
     if not _CONFIGURED:
         handler = logging.StreamHandler()
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s %(levelname)-8s %(name)s: %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)-8s %(name)s: %(message)s"))
         logger.addHandler(handler)
         _CONFIGURED = True
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))

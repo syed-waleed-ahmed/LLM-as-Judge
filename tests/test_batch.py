@@ -59,8 +59,7 @@ def test_batch_evaluator_runs_all_records(hermetic_settings, single_criterion_pa
     judge = _judge(hermetic_settings, single_criterion_payload)
     evaluator = BatchEvaluator(judge, max_workers=4)
     records = [
-        BatchRecord(id=str(i), task_description="t", output_a="a", output_b="b")
-        for i in range(5)
+        BatchRecord(id=str(i), task_description="t", output_a="a", output_b="b") for i in range(5)
     ]
     seen = []
     results = evaluator.run(records, ["Helpfulness"], progress=lambda d, t: seen.append((d, t)))

@@ -635,7 +635,7 @@ The judge runs on any of these backends. Pick one with `JUDGE_PROVIDER` or the
 |---|---|---|---|
 | `groq` (default) | yes ([free](https://console.groq.com/keys)) | cloud | Free plan, rate-limited per model. Default judge `openai/gpt-oss-120b`. |
 | `ollama` | no | your machine | Free local models via [Ollama](https://ollama.com): `ollama pull llama3.2`. |
-| `openai_compatible` | optional | either | Any `/chat/completions` server: LM Studio, vLLM, llama.cpp, or hosted free models. |
+| `openai_compatible` | optional | either | Any `/chat/completions` server: LM Studio, vLLM, llama.cpp, or hosted free models. Verified live against Groq's OpenAI-compatible endpoint (`https://api.groq.com/openai/v1`). |
 | `mock` | no | offline | Deterministic heuristic, **not an LLM**. For demos, tests and trying the tool without a key. |
 
 ```bash

@@ -68,6 +68,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Cloud, demo mode). The README, the documentation site and the package
   metadata link to it.
 
+### Verified
+- The `openai_compatible` provider was tested live against Groq's
+  OpenAI-compatible endpoint: health check, pairwise, reference grading and
+  RAG evaluation. Previously it was only tested against simulated responses.
+
 ### Fixed
 - The CLI's log handler kept the `stderr` stream that existed when logging was
   set up. After a host or test runner replaced and closed that stream, log

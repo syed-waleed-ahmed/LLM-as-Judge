@@ -22,6 +22,7 @@ Please make sure the full quality gate passes locally — the same checks run in
 
 ```bash
 ruff check .          # lint
+ruff format --check . # formatting
 mypy                  # type-check
 pytest --cov=llm_judge   # tests + coverage
 ```

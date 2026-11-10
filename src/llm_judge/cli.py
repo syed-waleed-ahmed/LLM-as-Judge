@@ -17,11 +17,13 @@ import json
 import sys
 from pathlib import Path
 
+from pydantic import ValidationError as PydanticValidationError
+
 from . import __version__
-from .criteria import CRITERIA_PRESETS
+from .criteria import CRITERIA_PRESETS, resolve_criterion
 from .exceptions import LLMJudgeError
 from .logging_config import configure_logging
-from .models import JudgeResult
+from .models import Criterion, JudgeResult
 
 
 def _read_text_arg(value: str | None, file_value: str | None, name: str) -> str:
@@ -35,6 +37,47 @@ def _read_text_arg(value: str | None, file_value: str | None, name: str) -> str:
 
 def _parse_criteria(raw: str) -> list[str]:
     return [c.strip() for c in raw.split(",") if c.strip()]
+
+
+def _parse_weights(raw: str | None) -> dict[str, float]:
+    """Parse ``"Name=2,Other=0.5"`` into a mapping, exiting with a message on bad input."""
+    weights: dict[str, float] = {}
+    if not raw:
+        return weights
+    for item in (part.strip() for part in raw.split(",")):
+        if not item:
+            continue
+        name, sep, value = item.rpartition("=")
+        try:
+            if not sep or not name.strip():
+                raise ValueError
+            weights[name.strip()] = float(value)
+        except ValueError:
+            raise SystemExit(f"error: invalid weight '{item}'; expected Name=number") from None
+    return weights
+
+
+def _build_criteria(raw_criteria: str, raw_weights: str | None) -> list[Criterion]:
+    """Resolve criteria names and apply any ``--weights``."""
+    names = _parse_criteria(raw_criteria)
+    weights = _parse_weights(raw_weights)
+    unknown = [n for n in weights if n not in names]
+    if unknown:
+        raise SystemExit(f"error: --weights names criteria not in --criteria: {unknown}")
+    criteria: list[Criterion] = []
+    for name in names:
+        criterion = resolve_criterion(name)
+        if name in weights:
+            try:
+                criterion = Criterion.model_validate(
+                    {**criterion.model_dump(), "weight": weights[name]}
+                )
+            except PydanticValidationError:
+                raise SystemExit(
+                    f"error: weight for '{name}' must be greater than 0 and at most 100"
+                ) from None
+        criteria.append(criterion)
+    return criteria
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -64,6 +107,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Comma-separated criteria names (presets or custom). Default: Helpfulness.",
     )
     ev.add_argument(
+        "--weights",
+        default=None,
+        help='Relative criterion weights, e.g. "Helpfulness=2,Conciseness=1". Default: 1 each.',
+    )
+    ev.add_argument("--model-a", default=None, help="Name of the model that produced Output A.")
+    ev.add_argument("--model-b", default=None, help="Name of the model that produced Output B.")
+    ev.add_argument(
         "--mitigate-bias",
         action="store_true",
         help="Run each pair in both orders and average to reduce position bias.",
@@ -75,6 +125,7 @@ def _build_parser() -> argparse.ArgumentParser:
     ba.add_argument("--input", required=True, help="Input .csv or .jsonl file.")
     ba.add_argument("--output", required=True, help="Output .csv or .jsonl file.")
     ba.add_argument("--criteria", default="Helpfulness", help="Comma-separated criteria names.")
+    ba.add_argument("--weights", default=None, help='Relative weights, e.g. "Helpfulness=2".')
     ba.add_argument("--workers", type=int, default=None, help="Max concurrent requests.")
     ba.add_argument(
         "--mitigate-bias",
@@ -103,13 +154,21 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
     task = _read_text_arg(args.task, args.task_file, "task")
     output_a = _read_text_arg(args.output_a, args.output_a_file, "output-a")
     output_b = _read_text_arg(args.output_b, args.output_b_file, "output-b")
+    criteria = _build_criteria(args.criteria, args.weights)
 
     settings = get_settings()
     if args.mitigate_bias:
         settings = settings.model_copy(update={"mitigate_position_bias": True})
 
     judge = Judge(settings=settings)
-    result = judge.evaluate(task, output_a, output_b, _parse_criteria(args.criteria))
+    result = judge.evaluate(
+        task,
+        output_a,
+        output_b,
+        criteria,
+        candidate_a_model=args.model_a,
+        candidate_b_model=args.model_b,
+    )
 
     if args.json:
         print(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
@@ -124,6 +183,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
     from .judge import Judge
 
     records = read_records(args.input)
+    criteria = _build_criteria(args.criteria, args.weights)
     settings = get_settings()
     if args.mitigate_bias:
         settings = settings.model_copy(update={"mitigate_position_bias": True})
@@ -136,7 +196,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
     def _progress(done: int, total: int) -> None:
         print(f"\r  {done}/{total} done", end="", flush=True)
 
-    results = evaluator.run(records, _parse_criteria(args.criteria), progress=_progress)
+    results = evaluator.run(records, criteria, progress=_progress)
     print()
     write_results(results, args.output)
 
@@ -149,11 +209,20 @@ def _print_summary(result: JudgeResult) -> None:
     print(f"\nOverall winner: {result.overall_winner.value.upper()}")
     if result.overall_comment:
         print(f"Comment: {result.overall_comment}\n")
+    if result.overall_score_a is not None and result.overall_score_b is not None:
+        print(
+            f"Overall score (weighted, 0-1): A={result.overall_score_a:.3f} "
+            f"B={result.overall_score_b:.3f}"
+        )
     for score in result.criteria:
         print(
             f"  [{score.criterion}] A={score.output_a_score} "
             f"B={score.output_b_score} -> winner {score.winner.value}"
         )
+    if result.warnings:
+        print("\nWarnings:")
+        for warning in result.warnings:
+            print(f"  - {warning.code}: {warning.message}")
     model = result.metadata.get("model")
     if model:
         print(f"\n(model: {model}, latency: {result.metadata.get('latency_seconds')}s)")

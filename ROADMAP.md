@@ -17,8 +17,8 @@ Status key: **done** = implemented and tested, **next** = in progress,
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Repository audit ([report](docs/design/phase-0-audit.md)) | done |
-| 1 | Core hardening: neutral prompt, injection-resistant prompting, exact criteria validation, scale normalisation and weights, consistent bias merges, parallel swap runs, JSON repair retries, brace-aware parsing, verbosity and self-preference signals, judge/candidate metadata | next |
-| 2 | Evaluation modes: pointwise, reference-based, multi-candidate ranking | planned |
+| 1 | Core hardening: neutral prompt, injection-resistant prompting, exact criteria validation, scale normalisation and weights, consistent bias merges, parallel swap runs, JSON repair retries, brace-aware parsing, verbosity and self-preference signals, judge/candidate metadata | done |
+| 2 | Evaluation modes: pointwise, reference-based, multi-candidate ranking | next |
 | 3 | Providers: mock (no key), Ollama (local), generic OpenAI-compatible, provider registry | planned |
 | 4 | Datasets: validation, streaming reads, checkpointed and resumable batches, bundled synthetic sample sets | planned |
 | 5 | Experiment tracking: SQLite store (optional Supabase), run comparison, regression detection | planned |

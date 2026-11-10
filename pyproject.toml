@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-as-judge"
-version = "1.0.0"
+dynamic = ["version"]
 description = "A production-grade LLM-as-Judge framework for evaluating and comparing model outputs, with position-bias mitigation, multi-criteria scoring, batch evaluation, a CLI, and a Streamlit UI."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,6 +36,7 @@ ui = ["streamlit>=1.35.0"]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
+    "hypothesis>=6.100.0",
     "ruff>=0.5.0",
     "mypy>=1.10.0",
 ]
@@ -51,6 +52,9 @@ Issues = "https://github.com/syed-waleed-ahmed/LLM-as-Judge/issues"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["llm_judge*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "llm_judge.__version__" }
 
 [tool.setuptools.package-data]
 llm_judge = ["py.typed"]

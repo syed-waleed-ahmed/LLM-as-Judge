@@ -15,16 +15,19 @@ class _FakeJudge:
     """Stand-in for Judge that records inputs and returns a fixed result."""
 
     last_kwargs = None
+    last_settings = None
 
     def __init__(self, *args, settings=None, **kwargs):
         self.settings = settings
+        _FakeJudge.last_settings = settings
 
-    def evaluate(self, task_description, output_a, output_b, criteria):
+    def evaluate(self, task_description, output_a, output_b, criteria, **kwargs):
         _FakeJudge.last_kwargs = {
             "task": task_description,
             "output_a": output_a,
             "output_b": output_b,
             "criteria": criteria,
+            **kwargs,
         }
         return JudgeResult(
             criteria=[
@@ -100,10 +103,59 @@ def test_evaluate_missing_input_errors(patched_judge):
 
 
 def test_mitigate_bias_flag_propagates(patched_judge):
+    main(["evaluate", "--task", "t", "--output-a", "a", "--output-b", "b"])
+    assert patched_judge.last_settings.mitigate_position_bias is False
     main(["evaluate", "--task", "t", "--output-a", "a", "--output-b", "b", "--mitigate-bias"])
-    # The fake judge captured the settings it was built with.
-    # (Constructed inside the command; verify via a fresh evaluate.)
-    assert patched_judge.last_kwargs is not None
+    assert patched_judge.last_settings.mitigate_position_bias is True
+
+
+def test_weights_and_candidate_models_are_passed_through(patched_judge):
+    base = ["evaluate", "--task", "t", "--output-a", "a", "--output-b", "b"]
+    code = main(
+        [
+            *base,
+            "--criteria",
+            "Helpfulness,Conciseness",
+            "--weights",
+            "Conciseness=3",
+            "--model-a",
+            "gpt-4o",
+            "--model-b",
+            "llama3.2",
+        ]
+    )
+    assert code == 0
+    kwargs = patched_judge.last_kwargs
+    assert [c.weight for c in kwargs["criteria"]] == [1.0, 3.0]
+    assert kwargs["candidate_a_model"] == "gpt-4o"
+    assert kwargs["candidate_b_model"] == "llama3.2"
+
+
+@pytest.mark.parametrize(
+    "weights",
+    ["Conciseness", "Conciseness=heavy", "=2", "Creativity=2", "Helpfulness=0"],
+)
+def test_invalid_weights_exit_with_an_error(patched_judge, weights):
+    base = ["evaluate", "--task", "t", "--output-a", "a", "--output-b", "b"]
+    with pytest.raises(SystemExit):
+        main([*base, "--criteria", "Helpfulness,Conciseness", "--weights", weights])
+
+
+def test_summary_shows_overall_scores_and_warnings(capsys):
+    from llm_judge.cli import _print_summary
+    from llm_judge.models import EvaluationWarning
+
+    result = JudgeResult(
+        criteria=[CriterionScore(criterion="C", output_a_score=8, output_b_score=3, winner="A")],
+        overall_winner=Winner.A,
+        overall_score_a=0.78,
+        overall_score_b=0.22,
+        warnings=[EvaluationWarning(code="possible_verbosity_bias", message="long")],
+    )
+    _print_summary(result)
+    out = capsys.readouterr().out
+    assert "A=0.780 B=0.220" in out
+    assert "possible_verbosity_bias: long" in out
 
 
 def test_batch_command(patched_judge, tmp_path, capsys):

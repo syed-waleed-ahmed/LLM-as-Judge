@@ -15,7 +15,15 @@ import json
 
 import streamlit as st
 
-from llm_judge import CRITERIA_PRESETS, Judge, JudgeResult, Winner, get_settings
+from llm_judge import (
+    CRITERIA_PRESETS,
+    Criterion,
+    Judge,
+    JudgeResult,
+    Winner,
+    get_settings,
+    resolve_criterion,
+)
 from llm_judge.exceptions import ConfigurationError, LLMJudgeError
 
 st.set_page_config(page_title="LLM-as-Judge", layout="wide")
@@ -28,7 +36,7 @@ def _get_judge(mitigate_bias: bool) -> Judge:
     return Judge(settings=settings)
 
 
-def _sidebar() -> tuple[list[str], bool]:
+def _sidebar() -> tuple[list[Criterion], bool, str | None, str | None]:
     with st.sidebar:
         st.header("Evaluation Settings")
 
@@ -45,6 +53,22 @@ def _sidebar() -> tuple[list[str], bool]:
             help="Add your own criteria on top of the presets.",
         )
         custom = [c.strip() for c in custom_raw.split(",") if c.strip()]
+        names = list(dict.fromkeys(selected + custom))
+
+        criteria: list[Criterion] = []
+        with st.expander("Criterion weights"):
+            st.caption("Relative importance of each criterion in the overall score.")
+            for name in names:
+                weight = st.number_input(
+                    name, min_value=0.1, max_value=10.0, value=1.0, step=0.5, key=f"w:{name}"
+                )
+                base = resolve_criterion(name)
+                criteria.append(Criterion(**{**base.model_dump(), "weight": weight}))
+
+        with st.expander("Candidate models (optional)"):
+            st.caption("Recorded in the result and used to flag self-preference risk.")
+            model_a = st.text_input("Model behind Output A", key="model_a").strip() or None
+            model_b = st.text_input("Model behind Output B", key="model_b").strip() or None
 
         st.markdown("---")
         mitigate_bias = st.toggle(
@@ -57,8 +81,7 @@ def _sidebar() -> tuple[list[str], bool]:
         st.markdown("---")
         st.caption("Tip: write a clear task description so the judge knows what 'good' means.")
 
-        criteria = selected + custom
-        return criteria, mitigate_bias
+        return criteria, mitigate_bias, model_a, model_b
 
 
 def _render_result(result: JudgeResult) -> None:
@@ -74,6 +97,14 @@ def _render_result(result: JudgeResult) -> None:
 
     if result.overall_comment:
         st.write(result.overall_comment)
+
+    if result.overall_score_a is not None and result.overall_score_b is not None:
+        c1, c2 = st.columns(2)
+        c1.metric("Overall score A (weighted, 0-1)", f"{result.overall_score_a:.2f}")
+        c2.metric("Overall score B (weighted, 0-1)", f"{result.overall_score_b:.2f}")
+
+    for warning in result.warnings:
+        st.warning(f"**{warning.code}**: {warning.message}")
 
     st.markdown("### Per-criterion breakdown")
     for score in result.criteria:
@@ -106,7 +137,7 @@ def main() -> None:
         "mitigation for more reliable verdicts."
     )
 
-    criteria, mitigate_bias = _sidebar()
+    criteria, mitigate_bias, model_a, model_b = _sidebar()
 
     col_task, col_a, col_b = st.columns(3)
     with col_task:
@@ -133,7 +164,14 @@ def main() -> None:
         try:
             judge = _get_judge(mitigate_bias)
             with st.spinner("Asking the LLM judge..."):
-                result = judge.evaluate(task, output_a, output_b, criteria)
+                result = judge.evaluate(
+                    task,
+                    output_a,
+                    output_b,
+                    criteria,
+                    candidate_a_model=model_a,
+                    candidate_b_model=model_b,
+                )
         except ConfigurationError as exc:
             st.error(f"Configuration problem: {exc}")
             return

@@ -41,13 +41,27 @@ class Settings(BaseSettings):
     request_timeout: float = Field(default=60.0, gt=0, alias="JUDGE_REQUEST_TIMEOUT")
     max_retries: int = Field(default=3, ge=0, le=10, alias="JUDGE_MAX_RETRIES")
 
+    # Malformed or schema-violating replies are retried this many times, each
+    # time telling the judge what was wrong (a "repair" retry).
+    max_parse_retries: int = Field(default=1, ge=0, le=5, alias="JUDGE_MAX_PARSE_RETRIES")
+
     # Evaluation behaviour.
     mitigate_position_bias: bool = Field(default=False, alias="JUDGE_MITIGATE_POSITION_BIAS")
+    # Run the two bias-mitigation orderings concurrently (requires a
+    # thread-safe provider; all bundled providers are).
+    parallel_bias_runs: bool = Field(default=True, alias="JUDGE_PARALLEL_BIAS_RUNS")
+    # Normalised (0-1) score difference treated as a tie. 0.06 is just over
+    # half a point on a 1-10 scale, so whole-point differences pick a winner.
+    tie_margin: float = Field(default=0.06, ge=0.0, le=0.5, alias="JUDGE_TIE_MARGIN")
+    # Warn when the winner is at least this many times longer (in words).
+    verbosity_ratio_threshold: float = Field(default=2.0, ge=1.0, alias="JUDGE_VERBOSITY_RATIO")
+    max_criteria: int = Field(default=20, ge=1, le=100, alias="JUDGE_MAX_CRITERIA")
 
     # Batch behaviour.
     batch_max_workers: int = Field(default=4, ge=1, le=64, alias="JUDGE_BATCH_MAX_WORKERS")
 
-    # Safety limit to avoid sending pathologically large prompts.
+    # Safety limit to avoid sending pathologically large prompts. Longer inputs
+    # are truncated and the result carries an "input_truncated" warning.
     max_input_chars: int = Field(default=50_000, gt=0, alias="JUDGE_MAX_INPUT_CHARS")
 
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")

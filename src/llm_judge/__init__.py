@@ -26,9 +26,18 @@ from .exceptions import (
     ValidationError,
 )
 from .judge import Judge
-from .models import Criterion, CriterionScore, JudgeResult, Winner
+from .models import (
+    RESULT_SCHEMA_VERSION,
+    Criterion,
+    CriterionScore,
+    EvaluationWarning,
+    JudgeResult,
+    Winner,
+)
+from .prompts import PROMPT_VERSION
 
-__version__ = "1.0.0"
+# Single source of truth for the package version (read by setuptools).
+__version__ = "1.1.0"
 
 __all__ = [
     "Judge",
@@ -36,6 +45,9 @@ __all__ = [
     "CriterionScore",
     "JudgeResult",
     "Winner",
+    "EvaluationWarning",
+    "RESULT_SCHEMA_VERSION",
+    "PROMPT_VERSION",
     "Settings",
     "get_settings",
     "CRITERIA_PRESETS",

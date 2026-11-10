@@ -36,12 +36,20 @@ truth. Doing it *well* in production requires more than a single API call, and
 this project handles the parts that usually get skipped:
 
 - **Structured, validated output.** The judge is pinned to a strict JSON schema
-  (via the provider's JSON mode) and every response is validated with Pydantic.
+  (via the provider's JSON mode), and every response is validated with Pydantic.
+  The returned criteria must match the requested ones exactly. A malformed
+  reply gets a bounded "repair" retry that tells the judge what was wrong.
 - **Position-bias mitigation.** LLM judges tend to favour whichever answer is
-  shown first. Optionally, each pair is judged in *both* orders and the scores
-  are averaged, cancelling that bias.
-- **Self-consistency.** Out-of-range scores are clamped and winners are
-  recomputed from the numbers, so the verdict never contradicts the scores.
+  shown first. Optionally, each pair is judged in *both* orders (concurrently)
+  and the scores are averaged, cancelling that bias. The explanations shown
+  always agree with the averaged verdict.
+- **Self-consistency.** Out-of-range scores are clamped (and flagged), and
+  winners are recomputed from the numbers, so the verdict never contradicts the
+  scores. Criteria on different scales are normalised before they're combined.
+- **Injection resistance.** Candidate outputs are treated as untrusted data,
+  wrapped in boundary markers that carry a random per-request token.
+- **Bias diagnostics.** Results carry warnings for suspected prompt injection,
+  verbosity bias, self-preference risk and order-dependent verdicts.
 - **Resilience.** Transient provider failures (rate limits, timeouts, 5xx) are
   retried with exponential backoff; permanent errors fail fast.
 - **Scale.** A concurrent batch runner grades thousands of rows from CSV/JSONL,
@@ -54,13 +62,14 @@ this project handles the parts that usually get skipped:
 | Capability | Description |
 |---|---|
 | **Library, CLI & UI** | One evaluation core, three ways to use it. |
-| **Multi-criteria** | Score on several criteria at once (built-in or custom). |
+| **Multi-criteria** | Score on several criteria at once (built-in or custom), with optional weights. |
 | **Bias mitigation** | Optional A/B order swapping to reduce position bias. |
-| **Retries & backoff** | Automatic retry of transient errors via `tenacity`. |
+| **Reliability warnings** | Flags prompt injection, verbosity bias, self-preference and order sensitivity. |
+| **Retries & repair** | Backoff for transient errors; repair retries for malformed replies. |
 | **Batch mode** | Concurrent CSV/JSONL evaluation for large datasets. |
-| **Fully tested** | 59 unit tests, ~97% coverage, no network calls in CI. |
+| **Fully tested** | Offline unit and property-based tests (Hypothesis), no network calls in CI. |
 | **Pluggable providers** | Add a backend by implementing one method. |
-| **Typed & linted** | Pydantic models, `mypy`-clean, `ruff`-clean. |
+| **Typed & linted** | Pydantic models, `mypy`-clean, `ruff`-clean and `ruff format`-clean. |
 
 ---
 
@@ -96,9 +105,9 @@ Get a free key at <https://console.groq.com/keys>.
 streamlit run app.py
 ```
 
-Paste a task description and two outputs, pick criteria in the sidebar,
-optionally enable position-bias mitigation, and click **Evaluate**. Download the
-full JSON judgment with one click.
+Paste a task description and two outputs, then pick criteria (and optionally
+their weights) in the sidebar. You can also enable position-bias mitigation.
+Click **Evaluate**, and download the full JSON judgment with one click.
 
 ### 2. Command line
 
@@ -114,6 +123,12 @@ llm-judge evaluate \
   --criteria "Creativity,Brand Tone Adherence" \
   --mitigate-bias
 
+# Weight criteria and record which models produced each output
+llm-judge evaluate --task-file task.txt \
+  --output-a-file a.txt --output-b-file b.txt \
+  --criteria "Helpfulness,Conciseness" --weights "Helpfulness=2" \
+  --model-a gpt-4o --model-b llama-3.1-8b-instant
+
 # Read long inputs from files and emit raw JSON
 llm-judge evaluate --task-file task.txt \
   --output-a-file a.txt --output-b-file b.txt --json
@@ -126,7 +141,7 @@ llm-judge batch --input examples/sample_batch.csv \
 ### 3. Python library
 
 ```python
-from llm_judge import Judge
+from llm_judge import Criterion, Judge, resolve_criterion
 
 judge = Judge()  # reads config from environment / .env
 
@@ -135,17 +150,25 @@ result = judge.evaluate(
     output_a="A concise, accurate one-line summary.",
     output_b="A rambling three-paragraph response.",
     criteria=["Helpfulness", "Conciseness"],
+    candidate_a_model="gpt-4o",          # optional; recorded in metadata
 )
 
 print(result.overall_winner)            # Winner.A
-print(result.score_for("A"))            # mean score across criteria
-print(result.model_dump(mode="json"))   # full structured result
+print(result.overall_score_a)           # weighted, scale-normalised score (0-1)
+for warning in result.warnings:         # reliability signals worth a second look
+    print(warning.code, warning.message)
+
+# Custom criteria can set their own scale and weight.
+coverage = Criterion(name="Coverage", description="Covers every key point.",
+                     scale_min=0, scale_max=100, weight=2)
+judge.evaluate("...", "...", "...", [resolve_criterion("Helpfulness"), coverage])
 ```
 
-Every evaluation returns a validated, structured result:
+Every evaluation returns a validated, versioned result:
 
 ```json
 {
+  "schema_version": "1.1",
   "criteria": [
     {
       "criterion": "Helpfulness",
@@ -158,13 +181,47 @@ Every evaluation returns a validated, structured result:
   ],
   "overall_winner": "A",
   "overall_comment": "Output A is clearly more helpful.",
+  "overall_score_a": 0.7778,
+  "overall_score_b": 0.2222,
+  "warnings": [],
   "metadata": {
     "model": "llama-3.3-70b-versatile",
+    "judge": { "provider": "groq", "model": "llama-3.3-70b-versatile" },
+    "candidates": { "A": { "model": "gpt-4o" }, "B": { "model": null } },
+    "prompt_version": "2.0",
     "position_bias_mitigated": false,
     "latency_seconds": 0.93
   }
 }
 ```
+
+---
+
+## Reliability safeguards
+
+| Safeguard | What it does |
+|---|---|
+| Neutral schema | The prompt shows the output shape with placeholders, never example scores or winners that could anchor the judge. |
+| Untrusted-content boundaries | The task and outputs sit between markers that carry a random per-request token. The judge is told to treat them as data and to ignore embedded instructions. |
+| Exact criteria matching | The reply must contain every requested criterion exactly once (case-insensitive). Missing, extra or duplicate criteria are rejected, never guessed. |
+| Repair retries | A reply that is malformed or doesn't match the schema is sent back with the reason it was rejected, up to `JUDGE_MAX_PARSE_RETRIES` times. |
+| Brace-aware recovery | JSON embedded in stray prose is recovered with a real JSON decoder, not string slicing. |
+| Scale normalisation and weights | Each score is mapped to 0-1 on its own scale before the weighted overall score is computed. |
+| Consistent bias merges | With mitigation on, explanations come from the ordering that agrees with the averaged verdict. When neither ordering agrees, both are kept and labelled. |
+
+Results also carry **warnings** (they never change scores):
+
+| Code | Meaning |
+|---|---|
+| `possible_prompt_injection` | An output contains text aimed at manipulating the judge. |
+| `possible_verbosity_bias` | The winner is much longer than the other output (`JUDGE_VERBOSITY_RATIO`). |
+| `self_preference_risk` | A candidate model is from the judge's own model family. |
+| `position_inconsistent` | The verdict changed when the outputs were swapped. |
+| `score_out_of_range` | The judge scored outside the scale; the score was clamped. |
+| `input_truncated` | An input exceeded `JUDGE_MAX_INPUT_CHARS` and was truncated. |
+
+These signals are heuristics. A clean result doesn't prove the absence of bias
+or manipulation, and a warning doesn't prove its presence.
 
 ---
 
@@ -178,8 +235,11 @@ id,task_description,output_a,output_b
 1,Write a tagline,"Fast. Simple. Yours.","Our product is good."
 ```
 
-The output file mirrors the input `id` and adds the winner, an overall comment,
-and per-criterion scores, plus an `error` column for any rows that failed.
+Optional `model_a` and `model_b` columns name the models behind each output.
+
+The output file mirrors the input `id`. For each row it adds the winner, an
+overall comment, the weighted overall scores, per-criterion scores and warning
+codes, plus an `error` column for any row that failed.
 
 ---
 
@@ -195,8 +255,14 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_TEMPERATURE` | `0.0` | Sampling temperature (0 = deterministic). |
 | `JUDGE_REQUEST_TIMEOUT` | `60` | Per-request timeout in seconds. |
 | `JUDGE_MAX_RETRIES` | `3` | Retries for transient failures. |
+| `JUDGE_MAX_PARSE_RETRIES` | `1` | Repair retries for malformed or schema-violating replies. |
 | `JUDGE_MITIGATE_POSITION_BIAS` | `false` | Judge each pair in both orders. |
-| `JUDGE_BATCH_MAX_WORKERS` | `4` | Concurrency for batch mode. |
+| `JUDGE_PARALLEL_BIAS_RUNS` | `true` | Run the two orderings concurrently. |
+| `JUDGE_TIE_MARGIN` | `0.06` | Normalised (0-1) score gap treated as a tie (just over half a point on a 1-10 scale). |
+| `JUDGE_VERBOSITY_RATIO` | `2.0` | Length ratio at which a long winner is flagged. |
+| `JUDGE_MAX_CRITERIA` | `20` | Maximum criteria per evaluation. |
+| `JUDGE_MAX_INPUT_CHARS` | `50000` | Longer inputs are truncated (with a warning). |
+| `JUDGE_BATCH_MAX_WORKERS` | `4` | Concurrency for batch mode (doubled when parallel bias runs are on). |
 | `LOG_LEVEL` | `INFO` | Logging verbosity. |
 
 ---
@@ -208,9 +274,11 @@ src/llm_judge/           # Installable package (src layout)
 ├─ config.py             # Typed settings (pydantic-settings); no import-time crash
 ├─ models.py             # Criterion / CriterionScore / JudgeResult (validated)
 ├─ criteria.py           # Built-in criteria presets + resolver
-├─ prompts.py            # System/user prompt construction
+├─ prompts.py            # Versioned, injection-resistant prompt construction
 ├─ parsing.py            # Defensive JSON → validated JudgeResult
-├─ judge.py              # Core engine: retries, bias mitigation, normalisation
+├─ scoring.py            # Pure helpers: criteria matching, normalisation, winners
+├─ diagnostics.py        # Injection, verbosity and self-preference signals
+├─ judge.py              # Core engine: retries, repair, bias mitigation, merging
 ├─ batch.py              # Concurrent CSV/JSONL batch evaluation
 ├─ cli.py                # `llm-judge` command-line interface
 ├─ logging_config.py     # Opt-in logging setup
@@ -219,7 +287,7 @@ src/llm_judge/           # Installable package (src layout)
    ├─ base.py            #   LLMProvider protocol
    └─ groq_provider.py   #   Groq implementation (JSON mode + error mapping)
 app.py                   # Streamlit UI (thin layer over the library)
-tests/                   # 59 offline unit tests (mocked provider)
+tests/                   # Offline unit + property tests (fake providers)
 ```
 
 The judge depends only on the `LLMProvider` protocol, so supporting a new backend
@@ -235,6 +303,7 @@ pip install -e ".[ui,dev]"
 
 pytest --cov=llm_judge     # run tests with coverage
 ruff check .               # lint
+ruff format --check .      # formatting
 mypy                       # type-check (config in pyproject.toml)
 ```
 
@@ -256,17 +325,17 @@ See [`SECURITY.md`](SECURITY.md) for the vulnerability-reporting policy.
 ## Contributing
 
 Contributions are welcome! Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
-development setup and the quality gate (`ruff`, `mypy`, `pytest`) your change
+development setup and the quality gate (`ruff check`, `ruff format`, `mypy`, `pytest`) your change
 should pass, then open an issue or pull request.
 
 ---
 
 ## Roadmap
 
-- Additional providers (OpenAI, Anthropic, local models)
-- Pointwise (single-output) grading in addition to pairwise
-- Confidence intervals via multi-sample judging
-- Experiment-tracking integrations (W&B, LangSmith)
+The project is evolving into a free-tier, open-source evaluation platform:
+pointwise and reference-based grading, multi-candidate ranking, local (Ollama)
+and OpenAI-compatible providers, experiment tracking and a public demo. See
+[`ROADMAP.md`](ROADMAP.md) for the phased plan and current status.
 
 ---
 

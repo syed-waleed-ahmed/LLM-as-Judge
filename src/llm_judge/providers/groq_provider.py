@@ -18,7 +18,11 @@ class GroqProvider:
 
     The heavy ``groq`` import is deferred to ``__init__`` so the package remains
     importable (for docs/tests/CLI help) even if the SDK is not installed.
+    The underlying HTTP client is thread-safe, so one instance can serve
+    concurrent batch workers and parallel bias-mitigation runs.
     """
+
+    name = "groq"
 
     def __init__(
         self,

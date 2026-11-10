@@ -2,40 +2,67 @@
 
 :class:`Judge` orchestrates a single pairwise evaluation:
 
-1. Validate and (if configured) truncate inputs.
-2. Build the prompts and call the provider, retrying transient failures.
-3. Parse and validate the JSON response.
-4. Clamp scores into each criterion's range and recompute winners so the
-   returned result is internally consistent.
-5. Optionally repeat with the outputs swapped to mitigate position bias, then
-   merge the two runs.
+1. Validate the inputs (truncating oversized text, with a warning).
+2. Build injection-resistant prompts and call the provider, retrying transient
+   provider failures with backoff.
+3. Parse and validate the JSON reply. If it is malformed or the criteria don't
+   match the request exactly, send a repair retry that tells the judge what was
+   wrong.
+4. Clamp scores into each criterion's range, normalise them to 0-1, and
+   recompute every winner from the numbers, so the result is internally
+   consistent. The overall winner uses the weighted mean of normalised scores.
+5. Optionally judge again with the outputs swapped (concurrently by default),
+   map that run back to canonical orientation, and merge the two runs. The
+   merge keeps explanations consistent with the averaged verdict.
+6. Attach reliability warnings (prompt injection, verbosity, self-preference,
+   position inconsistency) and judge/candidate metadata.
 """
 
 from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from typing import TypeVar
 
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from .config import Settings, get_settings
 from .criteria import resolve_criterion
-from .exceptions import ProviderError, ValidationError
-from .models import Criterion, CriterionScore, JudgeResult, Winner
+from .diagnostics import injection_warnings, self_preference_warnings, verbosity_warning
+from .exceptions import ProviderError, ResponseParsingError, ValidationError
+from .models import Criterion, CriterionScore, EvaluationWarning, JudgeResult, Winner
 from .parsing import parse_judge_result
-from .prompts import build_system_prompt, build_user_prompt
-from .providers.base import LLMProvider
+from .prompts import (
+    PROMPT_VERSION,
+    build_repair_prompt,
+    build_system_prompt,
+    build_user_prompt,
+    new_boundary,
+)
+from .providers.base import ChatMessage, LLMProvider
 from .providers.groq_provider import GroqProvider
+from .scoring import criterion_key, decide_winner, match_criteria, weighted_mean
 
 logger = logging.getLogger(__name__)
 
-# Scores within this absolute difference are treated as a tie when we recompute
-# winners from the numeric scores.
-_TIE_THRESHOLD = 0.5
+_T = TypeVar("_T")
+
+CriteriaInput = Sequence[Criterion | str] | Criterion | str
+
+# How much of a rejected reply is echoed back to the judge in a repair retry.
+_MAX_ECHO_CHARS = 4_000
 
 
 def _is_retryable(exc: BaseException) -> bool:
     return isinstance(exc, ProviderError) and exc.retryable
+
+
+def provider_name(provider: LLMProvider) -> str:
+    """Return a provider's short name (its ``name`` attribute, else its class name)."""
+    name = getattr(provider, "name", None)
+    return name if isinstance(name, str) and name else type(provider).__name__
 
 
 class Judge:
@@ -65,40 +92,146 @@ class Judge:
         task_description: str,
         output_a: str,
         output_b: str,
-        criteria: list[Criterion] | list[str] | str,
+        criteria: CriteriaInput,
+        *,
+        candidate_a_model: str | None = None,
+        candidate_b_model: str | None = None,
     ) -> JudgeResult:
         """Judge ``output_a`` against ``output_b`` for ``task_description``.
 
-        ``criteria`` may be a single name, a list of names, or a list of
-        :class:`Criterion` objects. Returns a validated :class:`JudgeResult`.
+        ``criteria`` may be a single name, a :class:`Criterion`, or a list of
+        either. ``candidate_a_model`` and ``candidate_b_model`` optionally name
+        the models that produced each output. They're recorded in the metadata
+        and used to detect self-preference risk.
+
+        Returns a validated :class:`JudgeResult`.
         """
-        resolved = self._resolve_criteria(criteria)
-        task_description = self._validate_text("task_description", task_description)
-        output_a = self._validate_text("output_a", output_a)
-        output_b = self._validate_text("output_b", output_b)
+        resolved = self.resolve_criteria(criteria)
+        warnings: list[EvaluationWarning] = []
+        task_description = self.validate_text("task_description", task_description, warnings)
+        output_a = self.validate_text("output_a", output_a, warnings)
+        output_b = self.validate_text("output_b", output_b, warnings)
+        warnings.extend(injection_warnings({"A": output_a, "B": output_b}))
 
         started = time.perf_counter()
-        result = self._evaluate_once(task_description, output_a, output_b, resolved)
-
+        runs: dict[str, object] = {}
         if self.settings.mitigate_position_bias:
-            swapped_raw = self._evaluate_once(task_description, output_b, output_a, resolved)
-            swapped_back = JudgeResult(
-                criteria=[c.swapped() for c in swapped_raw.criteria],
-                overall_winner=swapped_raw.overall_winner.swapped(),
-                overall_comment=swapped_raw.overall_comment,
+            original, swapped_raw = self._run_both_orders(
+                task_description, output_a, output_b, resolved
             )
-            result = self._merge(resolved, result, swapped_back)
+            swapped = swapped_raw.swapped()
+            result = self._merge(resolved, original, swapped, warnings)
+            runs = {"original": _run_summary(original), "swapped": _run_summary(swapped)}
+        else:
+            result = self._evaluate_once(task_description, output_a, output_b, resolved)
+        latency = round(time.perf_counter() - started, 3)
+        warnings.extend(result.warnings)
 
-        result.metadata.update(
-            {
-                "model": self.provider.model,
-                "position_bias_mitigated": self.settings.mitigate_position_bias,
-                "latency_seconds": round(time.perf_counter() - started, 3),
-            }
+        verbosity = verbosity_warning(
+            output_a, output_b, result.overall_winner, self.settings.verbosity_ratio_threshold
         )
-        return result
+        if verbosity:
+            warnings.append(verbosity)
+        judge_model = self.provider.model
+        warnings.extend(
+            self_preference_warnings(judge_model, {"A": candidate_a_model, "B": candidate_b_model})
+        )
+
+        metadata: dict[str, object] = {
+            # "model" is kept for backwards compatibility with v1.0 consumers.
+            "model": judge_model,
+            "judge": {"provider": provider_name(self.provider), "model": judge_model},
+            "candidates": {"A": {"model": candidate_a_model}, "B": {"model": candidate_b_model}},
+            "prompt_version": PROMPT_VERSION,
+            "position_bias_mitigated": self.settings.mitigate_position_bias,
+            "latency_seconds": latency,
+        }
+        if runs:
+            metadata["runs"] = runs
+        return result.model_copy(update={"warnings": warnings, "metadata": metadata})
+
+    # -- shared helpers (also used by other evaluators) -----------------------
+
+    def resolve_criteria(self, criteria: CriteriaInput) -> list[Criterion]:
+        """Turn names and :class:`Criterion` objects into a validated list."""
+        items: Sequence[Criterion | str]
+        if isinstance(criteria, (str, Criterion)):
+            items = [criteria]
+        else:
+            items = criteria
+        if not items:
+            raise ValidationError("At least one criterion is required.")
+        if len(items) > self.settings.max_criteria:
+            raise ValidationError(
+                f"Too many criteria ({len(items)}); the limit is {self.settings.max_criteria}."
+            )
+        resolved = [c if isinstance(c, Criterion) else resolve_criterion(c) for c in items]
+        keys = [criterion_key(c.name) for c in resolved]
+        duplicates = sorted(
+            {c.name for c, k in zip(resolved, keys, strict=True) if keys.count(k) > 1}
+        )
+        if duplicates:
+            raise ValidationError(f"Duplicate criteria: {duplicates}")
+        return resolved
+
+    def validate_text(self, field: str, value: str, warnings: list[EvaluationWarning]) -> str:
+        """Reject empty text and truncate oversized text (recording a warning)."""
+        if value is None or not isinstance(value, str) or not value.strip():
+            raise ValidationError(f"'{field}' must be a non-empty string.")
+        limit = self.settings.max_input_chars
+        if len(value) > limit:
+            logger.warning("Truncating '%s' from %d to %d chars.", field, len(value), limit)
+            warnings.append(
+                EvaluationWarning(
+                    code="input_truncated",
+                    message=f"'{field}' was truncated from {len(value)} to {limit} characters.",
+                )
+            )
+            return value[:limit]
+        return value
+
+    def complete_and_parse(self, messages: list[ChatMessage], parse: Callable[[str], _T]) -> _T:
+        """Call the provider and parse the reply, with repair retries.
+
+        Provider errors are retried by :meth:`_call_with_retries`. Replies that
+        ``parse`` rejects with :class:`ResponseParsingError` are retried up to
+        ``max_parse_retries`` times. Each retry shows the judge its rejected
+        reply and the reason it was rejected.
+        """
+        conversation: list[ChatMessage] = list(messages)
+        attempts = self.settings.max_parse_retries + 1
+        for attempt in range(1, attempts + 1):
+            raw = self._call_with_retries(conversation)
+            try:
+                return parse(raw)
+            except ResponseParsingError as exc:
+                if exc.raw_response is None:
+                    exc.raw_response = raw
+                if attempt == attempts:
+                    raise
+                logger.warning("Judge reply rejected (attempt %d/%d): %s", attempt, attempts, exc)
+                conversation = [
+                    *messages,
+                    {"role": "assistant", "content": raw[:_MAX_ECHO_CHARS]},
+                    {"role": "user", "content": build_repair_prompt(str(exc))},
+                ]
+        raise AssertionError("unreachable")  # pragma: no cover
 
     # -- internals ----------------------------------------------------------
+
+    def _run_both_orders(
+        self, task: str, output_a: str, output_b: str, criteria: list[Criterion]
+    ) -> tuple[JudgeResult, JudgeResult]:
+        """Judge (A, B) and (B, A). Returns the raw results of both orderings."""
+        if not self.settings.parallel_bias_runs:
+            return (
+                self._evaluate_once(task, output_a, output_b, criteria),
+                self._evaluate_once(task, output_b, output_a, criteria),
+            )
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="llm-judge-swap") as pool:
+            first = pool.submit(self._evaluate_once, task, output_a, output_b, criteria)
+            second = pool.submit(self._evaluate_once, task, output_b, output_a, criteria)
+            return first.result(), second.result()
 
     def _evaluate_once(
         self,
@@ -107,18 +240,21 @@ class Judge:
         output_b: str,
         criteria: list[Criterion],
     ) -> JudgeResult:
-        system_prompt = build_system_prompt(criteria)
-        user_prompt = build_user_prompt(task_description, output_a, output_b)
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+        boundary = new_boundary(task_description, output_a, output_b)
+        messages: list[ChatMessage] = [
+            {"role": "system", "content": build_system_prompt(criteria, boundary=boundary)},
+            {
+                "role": "user",
+                "content": build_user_prompt(
+                    task_description, output_a, output_b, boundary=boundary
+                ),
+            },
         ]
+        return self.complete_and_parse(
+            messages, lambda raw: self._normalise(criteria, parse_judge_result(raw))
+        )
 
-        raw = self._call_with_retries(messages)
-        result = parse_judge_result(raw)
-        return self._normalise(criteria, result)
-
-    def _call_with_retries(self, messages: list[dict[str, str]]) -> str:
+    def _call_with_retries(self, messages: list[ChatMessage]) -> str:
         """Call the provider, retrying only on retryable :class:`ProviderError`s."""
 
         @retry(
@@ -133,95 +269,171 @@ class Judge:
             ),
         )
         def _do_call() -> str:
-            return self.provider.complete_json(messages)  # type: ignore[arg-type]
+            return self.provider.complete_json(messages)
 
         return _do_call()
 
-    def _normalise(self, criteria: list[Criterion], result: JudgeResult) -> JudgeResult:
-        """Clamp scores to each criterion's range and recompute winners.
+    def _winner(self, norm_a: float, norm_b: float) -> Winner:
+        return decide_winner(norm_a, norm_b, self.settings.tie_margin)
+
+    def _overall(
+        self, criteria: list[Criterion], scores: list[CriterionScore]
+    ) -> tuple[float, float]:
+        weights = [c.weight for c in criteria]
+        norm_a = [c.normalise(s.output_a_score) for c, s in zip(criteria, scores, strict=True)]
+        norm_b = [c.normalise(s.output_b_score) for c, s in zip(criteria, scores, strict=True)]
+        return weighted_mean(norm_a, weights), weighted_mean(norm_b, weights)
+
+    def _normalise(self, criteria: list[Criterion], parsed: JudgeResult) -> JudgeResult:
+        """Validate criteria, clamp scores and recompute every winner.
 
         LLMs occasionally return out-of-range scores or a ``winner`` that
-        contradicts the numbers. We trust the numbers: clamp them, then derive
-        each per-criterion winner and the overall winner from the clamped scores.
+        contradicts the numbers. We trust the numbers: clamp them (recording a
+        warning), then derive each winner from the clamped scores.
         """
-        by_name = {c.name: c for c in criteria}
+        matched = match_criteria(criteria, parsed.criteria)
+        warnings: list[EvaluationWarning] = []
         normalised: list[CriterionScore] = []
-        for score in result.criteria:
-            crit = by_name.get(score.criterion)
-            lo, hi = (crit.scale_min, crit.scale_max) if crit else (0, 100)
-            a = _clamp(score.output_a_score, lo, hi)
-            b = _clamp(score.output_b_score, lo, hi)
+        for crit, score in zip(criteria, matched, strict=True):
+            a, b = crit.clamp(score.output_a_score), crit.clamp(score.output_b_score)
+            if (a, b) != (score.output_a_score, score.output_b_score):
+                warnings.append(
+                    EvaluationWarning(
+                        code="score_out_of_range",
+                        criterion=crit.name,
+                        message=(
+                            f"Judge returned scores outside {crit.scale_min}-{crit.scale_max} "
+                            f"({score.output_a_score:g} and {score.output_b_score:g}); "
+                            "they were clamped into range."
+                        ),
+                    )
+                )
             normalised.append(
                 score.model_copy(
                     update={
+                        "criterion": crit.name,
                         "output_a_score": a,
                         "output_b_score": b,
-                        "winner": _winner_from_scores(a, b),
+                        "winner": self._winner(crit.normalise(a), crit.normalise(b)),
                     }
                 )
             )
 
-        mean_a = sum(s.output_a_score for s in normalised) / len(normalised)
-        mean_b = sum(s.output_b_score for s in normalised) / len(normalised)
-        return result.model_copy(
-            update={
-                "criteria": normalised,
-                "overall_winner": _winner_from_scores(mean_a, mean_b),
-            }
+        overall_a, overall_b = self._overall(criteria, normalised)
+        return JudgeResult(
+            criteria=normalised,
+            overall_winner=self._winner(overall_a, overall_b),
+            overall_comment=parsed.overall_comment,
+            overall_score_a=round(overall_a, 4),
+            overall_score_b=round(overall_b, 4),
+            warnings=warnings,
         )
 
     def _merge(
-        self, criteria: list[Criterion], first: JudgeResult, second: JudgeResult
+        self,
+        criteria: list[Criterion],
+        first: JudgeResult,
+        second: JudgeResult,
+        warnings: list[EvaluationWarning],
     ) -> JudgeResult:
-        """Average two runs (original + swapped) into one bias-mitigated result."""
-        second_by_name = {c.criterion: c for c in second.criteria}
+        """Average two runs (original + swapped-back) into one result.
+
+        Both runs are in canonical orientation and in ``criteria`` order. The
+        explanations and comment come from the run whose verdict matches the
+        averaged verdict, so the text never argues against the numbers. When
+        neither run matches, both perspectives are kept and labelled.
+        """
+        warnings.extend(w for w in first.warnings if w.code == "score_out_of_range")
+        warnings.extend(w for w in second.warnings if w.code == "score_out_of_range")
+
         merged: list[CriterionScore] = []
-        for s1 in first.criteria:
-            s2 = second_by_name.get(s1.criterion, s1)
+        for crit, s1, s2 in zip(criteria, first.criteria, second.criteria, strict=True):
             a = (s1.output_a_score + s2.output_a_score) / 2
             b = (s1.output_b_score + s2.output_b_score) / 2
+            winner = self._winner(crit.normalise(a), crit.normalise(b))
+            if s1.winner is not s2.winner:
+                warnings.append(
+                    EvaluationWarning(
+                        code="position_inconsistent",
+                        criterion=crit.name,
+                        message=(
+                            "The verdict changed when the outputs were swapped "
+                            f"(original order: {s1.winner.value}, swapped order: "
+                            f"{s2.winner.value})."
+                        ),
+                    )
+                )
+            expl_a, expl_b = _explanations_for(winner, s1, s2)
             merged.append(
                 CriterionScore(
-                    criterion=s1.criterion,
+                    criterion=crit.name,
                     output_a_score=round(a, 2),
                     output_b_score=round(b, 2),
-                    output_a_explanation=s1.output_a_explanation,
-                    output_b_explanation=s1.output_b_explanation,
-                    winner=_winner_from_scores(a, b),
+                    output_a_explanation=expl_a,
+                    output_b_explanation=expl_b,
+                    winner=winner,
                 )
             )
 
-        mean_a = sum(s.output_a_score for s in merged) / len(merged)
-        mean_b = sum(s.output_b_score for s in merged) / len(merged)
+        overall_a, overall_b = self._overall(criteria, merged)
+        overall = self._winner(overall_a, overall_b)
+        if first.overall_winner is not second.overall_winner:
+            warnings.append(
+                EvaluationWarning(
+                    code="position_inconsistent",
+                    message=(
+                        "The overall verdict changed when the outputs were swapped "
+                        f"(original order: {first.overall_winner.value}, swapped order: "
+                        f"{second.overall_winner.value})."
+                    ),
+                )
+            )
         return JudgeResult(
             criteria=merged,
-            overall_winner=_winner_from_scores(mean_a, mean_b),
-            overall_comment=first.overall_comment,
+            overall_winner=overall,
+            overall_comment=_comment_for(overall, first, second),
+            overall_score_a=round(overall_a, 4),
+            overall_score_b=round(overall_b, 4),
         )
 
-    def _resolve_criteria(self, criteria: list[Criterion] | list[str] | str) -> list[Criterion]:
-        if isinstance(criteria, str):
-            criteria = [criteria]
-        if not criteria:
-            raise ValidationError("At least one criterion is required.")
-        resolved = [c if isinstance(c, Criterion) else resolve_criterion(c) for c in criteria]
-        return resolved
 
-    def _validate_text(self, field: str, value: str) -> str:
-        if value is None or not value.strip():
-            raise ValidationError(f"'{field}' must be a non-empty string.")
-        limit = self.settings.max_input_chars
-        if len(value) > limit:
-            logger.warning("Truncating '%s' from %d to %d chars.", field, len(value), limit)
-            return value[:limit]
-        return value
+def _run_summary(result: JudgeResult) -> dict[str, object]:
+    return {
+        "overall_winner": result.overall_winner.value,
+        "overall_score_a": result.overall_score_a,
+        "overall_score_b": result.overall_score_b,
+    }
 
 
-def _clamp(value: float, low: float, high: float) -> float:
-    return max(low, min(high, value))
+def _labelled(original: str, swapped: str) -> str:
+    parts = []
+    if original:
+        parts.append(f"[original order] {original}")
+    if swapped:
+        parts.append(f"[swapped order] {swapped}")
+    return " ".join(parts)
 
 
-def _winner_from_scores(a: float, b: float) -> Winner:
-    if abs(a - b) <= _TIE_THRESHOLD:
-        return Winner.TIE
-    return Winner.A if a > b else Winner.B
+def _explanations_for(
+    winner: Winner, first: CriterionScore, second: CriterionScore
+) -> tuple[str, str]:
+    """Pick explanations that agree with ``winner``, preferring the original order."""
+    for run in (first, second):
+        if run.winner is winner:
+            return run.output_a_explanation, run.output_b_explanation
+    return (
+        _labelled(first.output_a_explanation, second.output_a_explanation),
+        _labelled(first.output_b_explanation, second.output_b_explanation),
+    )
+
+
+def _comment_for(overall: Winner, first: JudgeResult, second: JudgeResult) -> str:
+    """Pick an overall comment that agrees with ``overall``, preferring the original."""
+    agreeing = [run for run in (first, second) if run.overall_winner is overall]
+    if agreeing:
+        return next((run.overall_comment for run in agreeing if run.overall_comment), "")
+    return (
+        "The verdict changed when the outputs were swapped (original order: "
+        f"{first.overall_winner.value}, swapped order: {second.overall_winner.value}). "
+        f"Averaging both orderings gives: {overall.value}."
+    )

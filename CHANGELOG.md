@@ -4,6 +4,38 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - Unreleased
+
+Phase 8 of the platform roadmap: RAG, agents, and reliability analytics.
+
+### Added
+- `Judge.evaluate_rag()`: claim-level verdicts, from which faithfulness,
+  answer relevance, context precision (average precision) and context recall
+  are computed deterministically. It lists unsupported claims and flags prompt
+  injection in retrieved passages.
+- `Judge.evaluate_agent()`: framework-agnostic `AgentTrace` with
+  deterministic checks (unknown tools, missing arguments, malformed or failed
+  calls, repeats, step budget, expected tools, missing answer), plus a judged
+  grade on new agent criteria presets.
+- `llm_judge.reliability`: `measure_consistency()` (agreement rate, spread,
+  bootstrap CI), `judge_agreement()` across stored runs, `cohen_kappa()`, and
+  tie-aware `spearman()`.
+- The mock judge understands RAG prompts, so everything works offline.
+- CLI: `rag`, `agent`, `consistency`, `experiments agreement`.
+- API: `POST /evaluate/rag`, `/evaluate/agent`, `/analysis/consistency`
+  (capped at 10 samples), and `GET /runs/agreement`.
+- Dashboard pages: RAG evaluation, Agent evaluation, Reliability.
+
+### Changed
+- mypy is pinned to 2.4.x. Its inference changes between versions, which made
+  local and CI results disagree.
+- The dashboard handles `None` from select boxes, which newer Streamlit types
+  allow.
+
+### Verified live
+- RAG and agent prompts were run against Groq `openai/gpt-oss-120b` with
+  schema-valid results.
+
 ## [1.7.0] - Unreleased
 
 Phase 7 of the platform roadmap: the dashboard and public demo mode.

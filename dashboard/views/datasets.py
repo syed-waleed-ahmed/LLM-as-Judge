@@ -39,7 +39,9 @@ st.caption(
 source = st.radio("Source", ["Bundled sample", "Upload a file"], horizontal=True, key="ds:source")
 records, report = [], None
 if source == "Bundled sample":
-    name = st.selectbox("Sample", list(SAMPLE_DATASETS), key="ds:sample")
+    name = st.selectbox("Sample", list(SAMPLE_DATASETS), key="ds:sample") or next(
+        iter(SAMPLE_DATASETS)
+    )
     st.caption(SAMPLE_DATASETS[name].description)
     st.download_button(
         "Download this sample", sample_text(name), f"{name}.jsonl", key="ds:sample-dl"
@@ -78,7 +80,7 @@ if records:
         st.info(f"Evaluating the first {limit} of {len(records)} rows (row limit).")
         records = records[:limit]
     default = (
-        SAMPLE_DATASETS[st.session_state["ds:sample"]].criteria
+        SAMPLE_DATASETS[name].criteria
         if source == "Bundled sample"
         else (
             ["Correctness", "Completeness"]

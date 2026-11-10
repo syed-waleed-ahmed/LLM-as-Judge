@@ -46,6 +46,8 @@ left, right = st.columns(2)
 baseline_id = left.selectbox(
     "Baseline", [r.id for r in runs][::-1], format_func=labels.__getitem__, key="ex:base"
 )
+if baseline_id is None:
+    st.stop()
 baseline_kind = next(r.kind for r in runs if r.id == baseline_id)
 candidates = [r.id for r in runs if r.kind == baseline_kind and r.id != baseline_id]
 if not candidates:
@@ -54,6 +56,8 @@ if not candidates:
 candidate_id = right.selectbox(
     "Candidate", candidates, format_func=labels.__getitem__, key="ex:cand"
 )
+if candidate_id is None:
+    st.stop()
 min_effect = st.slider(
     "Minimum effect size",
     0.0,
@@ -99,10 +103,15 @@ for row_id, b in base_rows.items():
     if c is None or not (b.ok and c.ok):
         continue
     if baseline_kind == "pairwise":
-        if None in (b.overall_score_a, b.overall_score_b, c.overall_score_a, c.overall_score_b):
+        b_a, b_b, c_a, c_b = (
+            b.overall_score_a,
+            b.overall_score_b,
+            c.overall_score_a,
+            c.overall_score_b,
+        )
+        if b_a is None or b_b is None or c_a is None or c_b is None:
             continue
-        before = b.overall_score_a - b.overall_score_b  # type: ignore[operator]
-        after = c.overall_score_a - c.overall_score_b  # type: ignore[operator]
+        before, after = b_a - b_b, c_a - c_b
     else:
         if b.overall_score is None or c.overall_score is None:
             continue
@@ -148,6 +157,6 @@ if not settings.demo_mode:
         doomed = st.selectbox(
             "Run", [r.id for r in runs], format_func=labels.__getitem__, key="ex:del"
         )
-        if st.button("Delete run", key="ex:delete"):
+        if doomed is not None and st.button("Delete run", key="ex:delete"):
             store.delete_run(doomed)
             st.rerun()

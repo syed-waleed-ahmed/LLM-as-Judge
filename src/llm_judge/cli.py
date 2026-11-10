@@ -242,6 +242,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Exit with status 1 when the verdict is a regression (for CI gates).",
     )
     ec.add_argument("--json", action="store_true")
+    ea = ex_sub.add_parser(
+        "agreement", help="How closely two runs over the same rows agree (e.g. two judges)."
+    )
+    ea.add_argument("run_a")
+    ea.add_argument("run_b")
+    ea.add_argument("--json", action="store_true")
     ee = ex_sub.add_parser("export", help="Write a stored run's rows to a file.")
     ee.add_argument("run_id")
     ee.add_argument("--output", required=True, help=".csv or .jsonl")
@@ -301,6 +307,53 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Judge every pair in both orders (round_robin only; doubles the calls).",
     )
     rk.add_argument("--json", action="store_true", help="Print raw JSON instead of a summary.")
+
+    # rag -----------------------------------------------------------------
+    rg = sub.add_parser("rag", help="Evaluate a RAG answer against its retrieved contexts.")
+    rg.add_argument("--question", required=True, help="The user question.")
+    rg.add_argument(
+        "--context",
+        action="append",
+        default=[],
+        help="A retrieved passage (repeat, in rank order).",
+    )
+    rg.add_argument(
+        "--contexts-file",
+        default=None,
+        help="JSON list of passages, or a text file with passages separated by blank lines.",
+    )
+    rg.add_argument("--answer", help="The generated answer (inline).")
+    rg.add_argument("--answer-file", help="Path to the generated answer.")
+    rg.add_argument("--reference", help="Expected answer; enables context recall.")
+    rg.add_argument("--json", action="store_true", help="Print raw JSON instead of a summary.")
+
+    # agent ---------------------------------------------------------------
+    ag = sub.add_parser("agent", help="Evaluate an agent trajectory from a JSON trace file.")
+    ag.add_argument("--trace-file", required=True, help="AgentTrace JSON (see llm_judge.agents).")
+    ag.add_argument(
+        "--criteria", default=None, help="Comma-separated criteria (default: agent set)."
+    )
+    ag.add_argument("--model", default=None, help="Name of the agent's model.")
+    ag.add_argument("--json", action="store_true", help="Print raw JSON instead of a summary.")
+
+    # consistency ---------------------------------------------------------
+    cs = sub.add_parser(
+        "consistency", help="Judge one input repeatedly and report how stable the verdict is."
+    )
+    cs.add_argument("--task", help="Task description (inline).")
+    cs.add_argument("--task-file", help="Path to a file with the task description.")
+    cs.add_argument("--output-a", help="Output A (pairwise check).")
+    cs.add_argument("--output-b", help="Output B (pairwise check).")
+    cs.add_argument("--output", help="A single output (pointwise check).")
+    cs.add_argument("--criteria", default="Helpfulness", help="Comma-separated criteria names.")
+    cs.add_argument("--samples", type=int, default=5, help="Number of repeated judgments (2-50).")
+    cs.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="Judge sampling temperature for this check (default: JUDGE_TEMPERATURE).",
+    )
+    cs.add_argument("--json", action="store_true", help="Print raw JSON instead of a summary.")
 
     # list-criteria -------------------------------------------------------
     sub.add_parser("list-criteria", help="List built-in criteria presets.")
@@ -689,6 +742,28 @@ def _cmd_experiments(args: argparse.Namespace) -> int:
                 _print_comparison(comparison)
             regression = comparison.verdict == "regression"
             return 1 if regression and args.fail_on_regression else 0
+        if command == "agreement":
+            from .reliability import judge_agreement
+
+            agreement = judge_agreement(store, args.run_a, args.run_b)
+            if args.json:
+                print(_json_text(agreement.model_dump(mode="json")))
+                return 0
+            print(f"{agreement.judge_a} vs {agreement.judge_b} on {agreement.matched_rows} row(s)")
+            if agreement.cohen_kappa is not None:
+                print(
+                    f"  winner agreement {agreement.raw_agreement:.0%}, "
+                    f"Cohen's kappa {agreement.cohen_kappa:+.3f}"
+                )
+            if agreement.mean_absolute_difference is not None:
+                rho = "n/a" if agreement.spearman is None else f"{agreement.spearman:+.3f}"
+                print(
+                    f"  Spearman rho {rho}, mean absolute score difference "
+                    f"{agreement.mean_absolute_difference:.3f}"
+                )
+            for note in agreement.notes:
+                print(f"  note: {note}")
+            return 0
         if command == "export":
             rows = store.get_rows(args.run_id)
             out = Path(args.output)
@@ -818,6 +893,125 @@ def _cmd_health(args: argparse.Namespace) -> int:
     return 0 if health.ok else 1
 
 
+def _read_contexts(args: argparse.Namespace) -> list[str]:
+    contexts = list(args.context)
+    if args.contexts_file:
+        text = Path(args.contexts_file).read_text(encoding="utf-8")
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, list) and all(isinstance(c, str) for c in data):
+            contexts.extend(data)
+        elif data is not None:
+            raise SystemExit("error: --contexts-file JSON must be a list of strings")
+        else:
+            contexts.extend(p.strip() for p in text.split("\n\n") if p.strip())
+    if not contexts:
+        raise SystemExit("error: provide --context (repeatable) or --contexts-file")
+    return contexts
+
+
+def _cmd_rag(args: argparse.Namespace) -> int:
+    from .judge import Judge
+
+    contexts = _read_contexts(args)
+    answer = _read_text_arg(args.answer, args.answer_file, "answer")
+    result = Judge(settings=_settings(args)).evaluate_rag(
+        args.question, contexts, answer, reference=args.reference
+    )
+    if args.json:
+        print(_json_text(result.model_dump(mode="json")))
+        return 0
+
+    def pct(value: float | None) -> str:
+        return "n/a" if value is None else f"{value:.0%}"
+
+    print(f"\nFaithfulness:      {pct(result.faithfulness)} of claims supported by the contexts")
+    print(f"Answer relevance:  {pct(result.answer_relevance)}")
+    print(f"Context precision: {pct(result.context_precision)} (relevant contexts ranked early)")
+    if result.context_recall is not None:
+        print(f"Context recall:    {pct(result.context_recall)} of the reference covered")
+    for claim in result.unsupported_claims:
+        print(f"  unsupported: {claim}")
+    for verdict in result.contexts:
+        mark = "relevant" if verdict.relevant else "not relevant"
+        print(f"  context {verdict.context_id}: {mark}")
+    _print_warnings(result.warnings)
+    return 0
+
+
+def _cmd_agent(args: argparse.Namespace) -> int:
+    from .agents import AgentTrace
+    from .judge import Judge
+
+    try:
+        trace = AgentTrace.model_validate_json(Path(args.trace_file).read_text(encoding="utf-8"))
+    except PydanticValidationError as exc:
+        raise SystemExit(f"error: invalid trace file: {exc}") from None
+    criteria = _parse_criteria(args.criteria) if args.criteria else None
+    result = Judge(settings=_settings(args)).evaluate_agent(
+        trace, criteria, candidate_model=args.model
+    )
+    if args.json:
+        print(_json_text(result.model_dump(mode="json")))
+        return 0
+    m = result.metrics
+    print(
+        f"\nSteps {m.steps}, tool calls {m.tool_calls} "
+        f"({m.invalid_tool_calls} invalid, {m.failed_tool_calls} failed, "
+        f"{m.repeated_calls} repeated)"
+    )
+    if m.expected_tool_recall is not None:
+        print(f"Expected tools used: {m.expected_tool_recall:.0%}")
+    for check in result.checks:
+        where = f"step {check.step}: " if check.step else ""
+        print(f"  {check.severity}: {where}{check.message}")
+    _print_grade(result.grade)
+    return 0
+
+
+def _cmd_consistency(args: argparse.Namespace) -> int:
+    from .judge import Judge
+    from .reliability import measure_consistency
+
+    task = _read_text_arg(args.task, args.task_file, "task")
+    settings = _settings(args)
+    if args.temperature is not None:
+        settings = settings.model_copy(update={"temperature": args.temperature})
+    report = measure_consistency(
+        Judge(settings=settings),
+        task,
+        output_a=args.output_a,
+        output_b=args.output_b,
+        output=args.output,
+        criteria=_parse_criteria(args.criteria),
+        samples=args.samples,
+    )
+    if args.json:
+        print(_json_text(report.model_dump(mode="json")))
+        return 0
+    print(
+        f"\n{report.mode} consistency over {report.succeeded}/{report.samples} sample(s) "
+        f"at temperature {report.temperature:g}"
+    )
+    if report.agreement_rate is not None:
+        print(
+            f"  modal verdict {report.modal_winner} in {report.agreement_rate:.0%} of samples "
+            f"{report.winner_counts}"
+        )
+    if report.mean is not None:
+        print(
+            f"  {report.metric}: mean {report.mean:+.3f}, sd {report.std:.3f}, "
+            f"95% CI [{report.ci_low:+.3f}, {report.ci_high:+.3f}]"
+        )
+    for error in report.errors:
+        print(f"  failed sample: {error}")
+    for note in report.notes:
+        print(f"  note: {note}")
+    return 0
+
+
 def _print_warnings(warnings: list[EvaluationWarning]) -> None:
     if warnings:
         print("\nWarnings:")
@@ -932,6 +1126,12 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_experiments(args)
         if args.command == "serve":
             return _cmd_serve(args)
+        if args.command == "rag":
+            return _cmd_rag(args)
+        if args.command == "agent":
+            return _cmd_agent(args)
+        if args.command == "consistency":
+            return _cmd_consistency(args)
         if args.command == "grade":
             return _cmd_grade(args)
         if args.command == "rank":

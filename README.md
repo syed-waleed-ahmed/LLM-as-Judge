@@ -18,6 +18,7 @@ tool**, and a **Streamlit web app** — all sharing the same evaluation core.
 - [Installation](#installation)
 - [Usage](#usage)
 - [Reliability safeguards](#reliability-safeguards)
+- [RAG, agents and judge reliability](#rag-agents-and-judge-reliability)
 - [Datasets, batches and benchmarks](#datasets-batches-and-benchmarks)
 - [Configuration](#configuration)
 - [Providers](#providers)
@@ -65,7 +66,8 @@ this project handles the parts that usually get skipped:
 | Capability | Description |
 |---|---|
 | **Library, CLI, UI & REST API** | One evaluation core, four ways to use it. |
-| **Four evaluation modes** | Pairwise (A vs B), pointwise (one output), reference-based (vs. an expected answer), and multi-candidate ranking. |
+| **Evaluation modes** | Pairwise (A vs B), pointwise, reference-based, multi-candidate ranking, RAG (faithfulness, context precision/recall) and agent trajectories. |
+| **Judge reliability** | Repeated-judgment consistency with confidence intervals; inter-judge agreement (Cohen's kappa, Spearman). |
 | **Multi-criteria** | Score on several criteria at once (built-in or custom), with optional weights. |
 | **Bias mitigation** | Optional A/B order swapping to reduce position bias. |
 | **Reliability warnings** | Flags prompt injection, verbosity bias, self-preference and order sensitivity. |
@@ -123,7 +125,10 @@ A multi-page dashboard over the same engine:
 | **Playground** | Compare two outputs, grade one, check against a reference, or rank candidates, with charts, explanations and warnings |
 | **Datasets** | Upload CSV/JSON/JSONL/YAML (or pick a sample), validate, evaluate, chart and download results |
 | **Benchmarks** | Run a bundled sample and see per-system statistics |
+| **RAG evaluation** | Faithfulness, answer relevance, context precision and recall, with claim-level verdicts |
+| **Agent evaluation** | Paste or upload a trace: deterministic checks plus a judged grade |
 | **Experiments** | Compare two recorded runs: verdict, confidence interval, per-row changes |
+| **Reliability** | Repeated-judgment consistency and agreement between judges |
 | **About** | Providers, limits in effect, privacy, how to run it yourself |
 
 The sidebar switches between the **live judge** (when a key is configured) and
@@ -273,6 +278,8 @@ curl -s http://127.0.0.1:8000/api/v1/evaluate/pairwise \
 | Endpoint | Purpose |
 |---|---|
 | `POST /api/v1/evaluate/{pairwise,pointwise,reference,rank}` | Single evaluations |
+| `POST /api/v1/evaluate/{rag,agent}` | RAG and agent-trajectory evaluation |
+| `POST /api/v1/analysis/consistency`, `GET /api/v1/runs/agreement` | Judge reliability |
 | `POST /api/v1/evaluate/batch` | Small synchronous batches (`JUDGE_API_MAX_BATCH_ROWS`) |
 | `POST /api/v1/jobs`, `GET /api/v1/jobs/{id}[/rows]`, `DELETE /api/v1/jobs/{id}` | Background dataset jobs (bounded queue, cancellable, idempotent with `Idempotency-Key`) |
 | `POST /api/v1/datasets/validate` | Validate rows or CSV/JSONL/JSON/YAML content |
@@ -321,6 +328,60 @@ Results also carry **warnings** (they never change scores):
 
 These signals are heuristics. A clean result doesn't prove the absence of bias
 or manipulation, and a warning doesn't prove its presence.
+
+---
+
+## RAG, agents and judge reliability
+
+### RAG evaluation
+
+```python
+result = judge.evaluate_rag(
+    "What is the range of the Aurora 3?",
+    contexts=["The Aurora 3 has a range of up to 80 km.", "Showroom hours: 10-18."],
+    answer="Up to 80 km, and it comes with a free helmet.",
+    reference="Up to 80 km.",  # optional: enables context recall
+)
+result.faithfulness  # 0.5: share of the answer's claims supported by the contexts
+result.unsupported_claims  # ['It comes with a free helmet.']: possible hallucinations
+result.context_precision  # average precision of the relevant contexts, in rank order
+result.context_recall  # share of the reference covered by the contexts
+result.answer_relevance  # how directly the answer addresses the question
+```
+
+The judge returns claim-level verdicts and the metrics are computed from
+them, so every number can be traced back to specific claims and passages.
+Retrieved passages are fenced as untrusted data and scanned for prompt
+injection. CLI: `llm-judge rag --question ... --context ... --answer ...`.
+
+### Agent evaluation
+
+`judge.evaluate_agent(trace)` takes a framework-agnostic trace: the task, the
+available tools, the ordered steps (`thought`, `tool_call`, `tool_result`,
+`message`) and the final answer. It returns two separate assessments:
+
+- **Deterministic checks.** Unknown tools, missing required arguments,
+  malformed calls, failed tool results, repeated identical calls, step-budget
+  overruns, expected tools never used, and a missing final answer.
+- **A judged grade** on Task Completion, Tool Selection and Step Efficiency
+  (configurable), optionally against a reference answer.
+
+CLI: `llm-judge agent --trace-file trace.json`.
+
+### Judge reliability
+
+- `measure_consistency(judge, task, output_a=..., output_b=...)` judges the
+  same input repeatedly. It reports agreement with the modal verdict, the
+  spread, and a bootstrap 95% CI. At temperature 0 this only shows provider
+  nondeterminism, so raise `JUDGE_TEMPERATURE` to probe sensitivity. CLI:
+  `llm-judge consistency ... --samples 5 --temperature 0.7`.
+- `judge_agreement(store, run_a, run_b)` compares two recorded runs over the
+  same rows, typically by two different judges. It uses Cohen's kappa for
+  winners, and Spearman correlation plus mean absolute difference for scores.
+  CLI: `llm-judge experiments agreement <run-a> <run-b>`.
+
+All intervals come from repeated samples. None of them is a model's
+self-reported confidence or a calibrated probability.
 
 ---
 
@@ -522,6 +583,9 @@ src/llm_judge/           # Installable package (src layout)
 ├─ pointwise.py          # Single-output and reference-based grading
 ├─ ranking.py            # Multi-candidate round-robin / pointwise leaderboards
 ├─ metrics.py            # Deterministic reference metrics (exact match, token F1)
+├─ rag.py                # RAG verdicts -> faithfulness, context precision/recall
+├─ agents.py             # Agent trace checks + judged trajectory grade
+├─ reliability.py        # Consistency, Cohen's kappa, Spearman agreement
 ├─ batch.py              # v1 batch API (kept for compatibility)
 ├─ datasets/             # Readers, validation, checkpointed runner, summaries,
 │                        #   bundled synthetic samples

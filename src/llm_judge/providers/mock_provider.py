@@ -31,7 +31,9 @@ _SCHEMA_ENTRY_RE = re.compile(
     r'"(?:output_a_score|score)": <integer from (\d+) \(worst\) to (\d+) \(best\)>'
 )
 _BLOCK_RE = re.compile(
-    r"<<<(TASK|OUTPUT A|OUTPUT B|OUTPUT|REFERENCE) (\w+)>>>\n(.*?)\n<<<END \1 \2>>>", re.S
+    r"<<<(TASK|QUESTION|ANSWER|OUTPUT A|OUTPUT B|OUTPUT|REFERENCE|CONTEXT \d+) (\w+)>>>\n"
+    r"(.*?)\n<<<END \1 \2>>>",
+    re.S,
 )
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 _STOPWORDS = frozenset(
@@ -76,6 +78,9 @@ class MockProvider:
             for name, lo, hi in _SCHEMA_ENTRY_RE.findall(system)
         ]
         blocks = {label: text for label, _token, text in _BLOCK_RE.findall(user)}
+        if "QUESTION" in blocks and "ANSWER" in blocks:
+            self.usage.record()
+            return json.dumps(self._rag(blocks))
         if not criteria or "TASK" not in blocks:
             raise ProviderError(
                 "The mock provider only understands prompts built by llm_judge.", retryable=False
@@ -170,6 +175,56 @@ class MockProvider:
                 "as a demonstration, not a real evaluation."
             ),
         }
+
+    def _rag(self, blocks: dict[str, str]) -> dict[str, object]:
+        """Heuristic RAG verdicts: word overlap stands in for entailment."""
+        contexts = [
+            (int(label.split()[1]), text)
+            for label, text in blocks.items()
+            if label.startswith("CONTEXT ")
+        ]
+        contexts.sort()
+        ctx_tokens = {i: _content_tokens(text) for i, text in contexts}
+        question = _content_tokens(blocks["QUESTION"])
+
+        all_tokens = [t for toks in ctx_tokens.values() for t in toks]
+
+        def supporting(sentence: str) -> list[int]:
+            """Supported when the contexts together cover most of the sentence's terms."""
+            tokens = _content_tokens(sentence)
+            if not tokens or _overlap(tokens, all_tokens) < 0.6:
+                return []
+            return [i for i, toks in ctx_tokens.items() if _overlap(tokens, toks) >= 0.2]
+
+        claims = []
+        for sentence in _sentences(blocks["ANSWER"])[:30]:
+            ids = supporting(sentence)
+            claims.append({"claim": sentence, "supported": bool(ids), "context_ids": ids})
+        verdicts = []
+        for i, _ in contexts:
+            share = _overlap(question, ctx_tokens[i])
+            verdicts.append(
+                {
+                    "context_id": i,
+                    "relevant": share >= 0.3,
+                    "reason": f"{MOCK_NOTICE}: question-term overlap {share:.0%}.",
+                }
+            )
+        relevance = 1 + round(9 * _overlap(question, _content_tokens(blocks["ANSWER"])))
+        payload: dict[str, object] = {
+            "claims": claims,
+            "contexts": verdicts,
+            "answer_relevance": {
+                "score": relevance,
+                "explanation": f"{MOCK_NOTICE}: share of question terms the answer uses.",
+            },
+        }
+        if "REFERENCE" in blocks:
+            payload["reference_statements"] = [
+                {"statement": s, "supported_by_context": bool(supporting(s))}
+                for s in _sentences(blocks["REFERENCE"])[:30]
+            ]
+        return payload
 
     def _pointwise(
         self,

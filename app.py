@@ -31,9 +31,12 @@ navigation = st.navigation(
             st.Page(f"{VIEWS}/playground.py", title="Playground", icon=":material/compare:"),
             st.Page(f"{VIEWS}/datasets.py", title="Datasets", icon=":material/table:"),
             st.Page(f"{VIEWS}/benchmarks.py", title="Benchmarks", icon=":material/speed:"),
+            st.Page(f"{VIEWS}/rag.py", title="RAG evaluation", icon=":material/library_books:"),
+            st.Page(f"{VIEWS}/agents.py", title="Agent evaluation", icon=":material/smart_toy:"),
         ],
         "Analyze": [
             st.Page(f"{VIEWS}/experiments.py", title="Experiments", icon=":material/history:"),
+            st.Page(f"{VIEWS}/reliability.py", title="Reliability", icon=":material/verified:"),
         ],
     }
 )

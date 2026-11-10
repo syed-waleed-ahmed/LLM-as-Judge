@@ -35,6 +35,7 @@ from pydantic import ValidationError as PydanticValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .. import __version__
+from ..agents import AgentResult
 from ..config import Settings, get_settings
 from ..criteria import CRITERIA_PRESETS, REFERENCE_CRITERIA_PRESETS, resolve_criterion
 from ..datasets import (
@@ -67,11 +68,15 @@ from ..experiments import (
 )
 from ..judge import Judge
 from ..models import Criterion, JudgeResult, PointwiseResult, RankingResult
+from ..rag import RagResult
+from ..reliability import ConsistencyReport, JudgeAgreement, judge_agreement, measure_consistency
 from .jobs import IdempotencyConflictError, Job, JobManager, QueueFullError
 from .schemas import (
+    AgentRequest,
     BatchRequest,
     BatchResponse,
     BenchmarkJobRequest,
+    ConsistencyRequest,
     CriteriaField,
     CriteriaOut,
     CriterionInput,
@@ -82,6 +87,7 @@ from .schemas import (
     PointwiseRequest,
     ProviderHealthOut,
     ProviderOut,
+    RagRequest,
     RankRequest,
     ReferenceRequest,
     RowResult,
@@ -478,6 +484,34 @@ def create_app(
                 candidate_models=body.candidate_models,
             )
 
+    @api.post("/evaluate/rag", response_model=RagResult, tags=["evaluate"])
+    def evaluate_rag(body: RagRequest) -> RagResult:
+        with state.evaluation_slot():
+            return state.judge().evaluate_rag(
+                body.question, body.contexts, body.answer, reference=body.reference
+            )
+
+    @api.post("/evaluate/agent", response_model=AgentResult, tags=["evaluate"])
+    def evaluate_agent(body: AgentRequest) -> AgentResult:
+        with state.evaluation_slot():
+            return state.judge().evaluate_agent(
+                body.trace, _criteria(body.criteria), candidate_model=body.candidate_model
+            )
+
+    @api.post("/analysis/consistency", response_model=ConsistencyReport, tags=["analysis"])
+    def consistency(body: ConsistencyRequest) -> ConsistencyReport:
+        with state.evaluation_slot():
+            return measure_consistency(
+                state.judge(),
+                body.task_description,
+                output_a=body.output_a,
+                output_b=body.output_b,
+                output=body.output,
+                criteria=_criteria(body.criteria) or ["Helpfulness"],
+                samples=body.samples,
+                max_workers=min(settings.batch_max_workers, 2),
+            )
+
     def _load_rows(rows: list[dict[str, Any]], kind: Any) -> list[Record]:
         records, report = load_dataset(rows, kind=kind, settings=settings)
         if not report.ok:
@@ -697,6 +731,11 @@ def create_app(
         min_effect: Annotated[float, Query(ge=0, le=1)] = 0.02,
     ) -> RunComparison:
         return compare_runs(state.store(), baseline, candidate, min_effect=min_effect)
+
+    @api.get("/runs/agreement", response_model=JudgeAgreement, tags=["analysis"])
+    def agreement(run_a: str, run_b: str) -> JudgeAgreement:
+        """Agreement between two runs over the same rows (e.g. two different judges)."""
+        return judge_agreement(state.store(), run_a, run_b)
 
     def _run(run_id: str) -> RunInfo:
         run = state.store().get_run(run_id)

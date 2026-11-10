@@ -68,6 +68,31 @@ REFERENCE_CRITERIA_PRESETS: dict[str, Criterion] = {
     ),
 }
 
+# Criteria for grading agent trajectories (see llm_judge.agents).
+AGENT_CRITERIA_PRESETS: dict[str, Criterion] = {
+    "Task Completion": Criterion(
+        name="Task Completion",
+        description="Whether the agent fully accomplished the task it was given.",
+    ),
+    "Tool Selection": Criterion(
+        name="Tool Selection",
+        description=(
+            "Whether the agent chose appropriate tools with sensible arguments, and avoided "
+            "unnecessary or invalid calls."
+        ),
+    ),
+    "Step Efficiency": Criterion(
+        name="Step Efficiency",
+        description=(
+            "Whether the agent reached its result without wasted, looping or redundant steps."
+        ),
+    ),
+    "Final Answer Quality": Criterion(
+        name="Final Answer Quality",
+        description="How correct, complete and useful the agent's final answer is.",
+    ),
+}
+
 #: Default criteria for :meth:`Judge.evaluate_reference`.
 DEFAULT_REFERENCE_CRITERIA = ("Correctness", "Completeness")
 
@@ -83,6 +108,8 @@ def resolve_criterion(name: str, description: str | None = None) -> Criterion:
         return CRITERIA_PRESETS[name]
     if name in REFERENCE_CRITERIA_PRESETS:
         return REFERENCE_CRITERIA_PRESETS[name]
+    if name in AGENT_CRITERIA_PRESETS:
+        return AGENT_CRITERIA_PRESETS[name]
     return Criterion(
         name=name,
         description=description or f"User-defined criterion: evaluate outputs on '{name}'.",

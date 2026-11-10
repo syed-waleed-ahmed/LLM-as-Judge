@@ -15,7 +15,17 @@ pytest.importorskip("plotly")
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
 APP = str(Path(__file__).resolve().parents[1] / "app.py")
-PAGES = ["overview", "playground", "datasets", "benchmarks", "experiments", "about"]
+PAGES = [
+    "overview",
+    "playground",
+    "datasets",
+    "benchmarks",
+    "rag",
+    "agents",
+    "experiments",
+    "reliability",
+    "about",
+]
 
 
 @pytest.fixture

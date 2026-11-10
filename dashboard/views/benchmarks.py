@@ -26,7 +26,7 @@ name = st.selectbox(
     list(SAMPLE_DATASETS),
     key="bm:name",
     format_func=lambda n: f"{n} ({SAMPLE_DATASETS[n].kind})",
-)
+) or next(iter(SAMPLE_DATASETS))
 sample = SAMPLE_DATASETS[name]
 st.markdown(f"{sample.description}  \nCriteria: {', '.join(sample.criteria)}")
 records = load_sample(name)[: row_limit()]

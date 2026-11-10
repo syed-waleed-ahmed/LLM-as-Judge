@@ -83,9 +83,9 @@ def chart_theme() -> charts.Theme:
 
 
 @st.cache_resource(show_spinner=False)
-def _shared_provider(name: str, model_key: str) -> LLMProvider:
-    """One live provider client per process (``model_key`` busts the cache on changes)."""
-    return build_provider(app_settings(), name)
+def _shared_provider(name: str, model_key: str, temperature: float) -> LLMProvider:
+    """One live client per (provider, model, temperature) per process."""
+    return build_provider(app_settings().model_copy(update={"temperature": temperature}), name)
 
 
 @st.cache_resource(show_spinner=False)
@@ -113,9 +113,11 @@ def judge_mode() -> str:
     return str(st.session_state.get("judge_mode", "mock"))
 
 
-def current_judge(*, mitigate: bool | None = None) -> Judge:
+def current_judge(*, mitigate: bool | None = None, temperature: float | None = None) -> Judge:
     """The judge for this session, with demo safeguards applied when enabled."""
     settings = app_settings()
+    if temperature is not None:
+        settings = settings.model_copy(update={"temperature": temperature})
     if mitigate is None:
         mitigate = bool(st.session_state.get("mitigate_bias", False))
     provider: LLMProvider
@@ -123,7 +125,7 @@ def current_judge(*, mitigate: bool | None = None) -> Judge:
         key = hashlib.sha256(
             f"{settings.provider}|{settings.groq_model}|{settings.groq_api_key}".encode()
         ).hexdigest()
-        provider = _shared_provider(settings.provider, key)
+        provider = _shared_provider(settings.provider, key, settings.temperature)
         if settings.demo_mode:
             provider = QuotaProvider(
                 provider, [_session_budget(settings), _daily_budget(settings.demo_daily_calls)]

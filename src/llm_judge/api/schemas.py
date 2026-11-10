@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..agents import AgentTrace
 from ..datasets import DatasetKind, DatasetSummary
 from ..models import Criterion, JudgeResult, PointwiseResult
 
@@ -67,6 +68,30 @@ class RankRequest(_Strict):
     strategy: Literal["round_robin", "pointwise"] = "round_robin"
     candidate_models: dict[str, str] | None = None
     mitigate_position_bias: bool | None = None
+
+
+class RagRequest(_Strict):
+    question: str
+    contexts: list[str] = Field(..., min_length=1, max_length=20, description="In rank order.")
+    answer: str
+    reference: str | None = Field(default=None, description="Enables context recall.")
+
+
+class AgentRequest(_Strict):
+    trace: AgentTrace
+    criteria: CriteriaField | None = Field(default=None, description="Defaults to the agent set.")
+    candidate_model: str | None = None
+
+
+class ConsistencyRequest(_Strict):
+    """Give output_a and output_b (pairwise) or output (pointwise)."""
+
+    task_description: str
+    output_a: str | None = None
+    output_b: str | None = None
+    output: str | None = None
+    criteria: CriteriaField = Field(default_factory=_default_criteria, min_length=1)
+    samples: int = Field(default=5, ge=2, le=10, description="Capped to protect provider quotas.")
 
 
 class BatchRequest(_Strict):

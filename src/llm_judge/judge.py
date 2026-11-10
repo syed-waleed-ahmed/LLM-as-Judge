@@ -24,7 +24,7 @@ import logging
 import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
@@ -51,6 +51,10 @@ from .prompts import (
 )
 from .providers.base import ChatMessage, LLMProvider
 from .scoring import criterion_key, decide_winner, match_criteria, weighted_mean
+
+if TYPE_CHECKING:
+    from .agents import AgentResult, AgentTrace
+    from .rag import RagResult
 
 logger = logging.getLogger(__name__)
 
@@ -233,6 +237,41 @@ class Judge:
             candidate_models=candidate_models,
             max_workers=max_workers,
         )
+
+    def evaluate_rag(
+        self,
+        question: str,
+        contexts: Sequence[str],
+        answer: str,
+        *,
+        reference: str | None = None,
+    ) -> RagResult:
+        """Evaluate a retrieval-augmented answer: faithfulness, relevance, context quality.
+
+        ``contexts`` are the retrieved passages in rank order. With ``reference``,
+        context recall is computed too. See :mod:`llm_judge.rag`.
+        """
+        from .rag import run_rag
+
+        return run_rag(self, question, contexts, answer, reference=reference)
+
+    def evaluate_agent(
+        self,
+        trace: AgentTrace | dict[str, Any],
+        criteria: CriteriaInput | None = None,
+        *,
+        candidate_model: str | None = None,
+    ) -> AgentResult:
+        """Evaluate an agent trajectory: deterministic checks plus a judged grade.
+
+        See :mod:`llm_judge.agents` for the trace format.
+        """
+        from .agents import run_agent_evaluation
+
+        items: list[Criterion | str] | None = None
+        if criteria is not None:
+            items = [criteria] if isinstance(criteria, (str, Criterion)) else list(criteria)
+        return run_agent_evaluation(self, trace, items, candidate_model=candidate_model)
 
     # -- shared helpers (also used by other evaluators) -----------------------
 

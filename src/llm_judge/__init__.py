@@ -16,8 +16,14 @@ Quick start::
 
 from __future__ import annotations
 
+from .agents import AgentResult, AgentStep, AgentTrace, ToolSpec
 from .config import Settings, get_settings
-from .criteria import CRITERIA_PRESETS, REFERENCE_CRITERIA_PRESETS, resolve_criterion
+from .criteria import (
+    AGENT_CRITERIA_PRESETS,
+    CRITERIA_PRESETS,
+    REFERENCE_CRITERIA_PRESETS,
+    resolve_criterion,
+)
 from .exceptions import (
     ConfigurationError,
     LLMJudgeError,
@@ -41,9 +47,11 @@ from .models import (
     Winner,
 )
 from .prompts import PROMPT_VERSION
+from .rag import RagResult
+from .reliability import ConsistencyReport, JudgeAgreement
 
 # Single source of truth for the package version (read by setuptools).
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 
 __all__ = [
     "Judge",
@@ -59,6 +67,14 @@ __all__ = [
     "RankedCandidate",
     "PairwiseMatch",
     "REFERENCE_CRITERIA_PRESETS",
+    "AGENT_CRITERIA_PRESETS",
+    "RagResult",
+    "AgentResult",
+    "AgentStep",
+    "AgentTrace",
+    "ToolSpec",
+    "ConsistencyReport",
+    "JudgeAgreement",
     "RESULT_SCHEMA_VERSION",
     "PROMPT_VERSION",
     "Settings",

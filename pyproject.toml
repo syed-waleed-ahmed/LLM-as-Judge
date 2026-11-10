@@ -46,7 +46,7 @@ dev = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
     "ruff>=0.17,<0.18",  # pinned: formatter output differs between minor versions
-    "mypy>=1.10.0",
+    "mypy>=2.4,<2.5",  # pinned: inference (and so unused-ignore checks) varies by version
 ]
 
 [project.scripts]

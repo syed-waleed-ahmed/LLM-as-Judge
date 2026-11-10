@@ -8,6 +8,7 @@ matter of implementing ``complete_json`` and does not touch the judging logic.
 from __future__ import annotations
 
 from .base import ChatMessage, LLMProvider, ProviderHealth, UsageTracker
+from .fallback import FallbackEvent, FallbackProvider, track_fallbacks
 from .groq_provider import GroqProvider
 from .mock_provider import MockProvider
 from .ollama_provider import OllamaProvider
@@ -27,6 +28,9 @@ __all__ = [
     "LLMProvider",
     "ProviderHealth",
     "UsageTracker",
+    "FallbackEvent",
+    "FallbackProvider",
+    "track_fallbacks",
     "GroqProvider",
     "MockProvider",
     "OllamaProvider",

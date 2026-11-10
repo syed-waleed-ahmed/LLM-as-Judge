@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     openai_model: str | None = Field(default=None, alias="JUDGE_OPENAI_MODEL")
     openai_json_mode: bool = Field(default=True, alias="JUDGE_OPENAI_JSON_MODE")
 
+    #: Opt-in fallback: comma-separated providers tried, in order, when a call to
+    #: the primary provider fails (e.g. "ollama"). Empty disables fallback.
+    fallback_providers: str = Field(default="", alias="JUDGE_FALLBACK_PROVIDERS")
+
     # Generation / request behaviour.
     temperature: float = Field(default=0.0, ge=0.0, le=2.0, alias="JUDGE_TEMPERATURE")
     request_timeout: float = Field(default=60.0, gt=0, alias="JUDGE_REQUEST_TIMEOUT")

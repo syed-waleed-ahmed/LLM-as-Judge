@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -50,6 +51,7 @@ from .prompts import (
     new_boundary,
 )
 from .providers.base import ChatMessage, LLMProvider
+from .providers.fallback import fallback_warnings, track_fallbacks
 from .scoring import criterion_key, decide_winner, match_criteria, weighted_mean
 
 if TYPE_CHECKING:
@@ -127,18 +129,20 @@ class Judge:
 
         started = time.perf_counter()
         runs: dict[str, object] = {}
-        if self.settings.mitigate_position_bias:
-            original, swapped_raw = self._run_both_orders(
-                task_description, output_a, output_b, resolved, instructions
-            )
-            swapped = swapped_raw.swapped()
-            result = self._merge(resolved, original, swapped, warnings)
-            runs = {"original": _run_summary(original), "swapped": _run_summary(swapped)}
-        else:
-            result = self._evaluate_once(
-                task_description, output_a, output_b, resolved, instructions
-            )
+        with track_fallbacks() as fallbacks:
+            if self.settings.mitigate_position_bias:
+                original, swapped_raw = self._run_both_orders(
+                    task_description, output_a, output_b, resolved, instructions
+                )
+                swapped = swapped_raw.swapped()
+                result = self._merge(resolved, original, swapped, warnings)
+                runs = {"original": _run_summary(original), "swapped": _run_summary(swapped)}
+            else:
+                result = self._evaluate_once(
+                    task_description, output_a, output_b, resolved, instructions
+                )
         latency = round(time.perf_counter() - started, 3)
+        warnings.extend(fallback_warnings(fallbacks))
         warnings.extend(result.warnings)
 
         verbosity = verbosity_warning(
@@ -164,6 +168,8 @@ class Judge:
             metadata["runs"] = runs
         if instructions:
             metadata["instructions"] = instructions
+        if fallbacks:
+            metadata["fallback"] = [event.as_dict() for event in fallbacks]
         return result.model_copy(update={"warnings": warnings, "metadata": metadata})
 
     def evaluate_pointwise(
@@ -401,12 +407,26 @@ class Judge:
                 self._evaluate_once(task, output_a, output_b, criteria, instructions),
                 self._evaluate_once(task, output_b, output_a, criteria, instructions),
             )
+        # Each worker runs in a copy of this context, so per-evaluation state
+        # (such as the fallback log) is shared with the calling thread.
         with ThreadPoolExecutor(max_workers=2, thread_name_prefix="llm-judge-swap") as pool:
             first = pool.submit(
-                self._evaluate_once, task, output_a, output_b, criteria, instructions
+                contextvars.copy_context().run,
+                self._evaluate_once,
+                task,
+                output_a,
+                output_b,
+                criteria,
+                instructions,
             )
             second = pool.submit(
-                self._evaluate_once, task, output_b, output_a, criteria, instructions
+                contextvars.copy_context().run,
+                self._evaluate_once,
+                task,
+                output_b,
+                output_a,
+                criteria,
+                instructions,
             )
             return first.result(), second.result()
 

@@ -382,6 +382,7 @@ Results also carry **warnings** (they never change scores):
 | `position_inconsistent` | The verdict changed when the outputs were swapped. |
 | `score_out_of_range` | The judge scored outside the scale; the score was clamped. |
 | `input_truncated` | An input exceeded `JUDGE_MAX_INPUT_CHARS` and was truncated. |
+| `provider_fallback` | The primary provider failed and a configured fallback (`JUDGE_FALLBACK_PROVIDERS`) answered instead. |
 
 These signals are heuristics. A clean result doesn't prove the absence of bias
 or manipulation, and a warning doesn't prove its presence.
@@ -564,6 +565,7 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_OPENAI_MODEL` | — | Model name on that endpoint. |
 | `JUDGE_OPENAI_API_KEY` | — | Optional bearer token for that endpoint. |
 | `JUDGE_OPENAI_JSON_MODE` | `true` | Send `response_format: json_object` (disable for servers that reject it). |
+| `JUDGE_FALLBACK_PROVIDERS` | *(empty)* | Opt-in fallback providers, comma-separated and tried in order when the primary fails (not `mock`). |
 | `JUDGE_TEMPERATURE` | `0.0` | Sampling temperature (0 = deterministic). |
 | `JUDGE_REQUEST_TIMEOUT` | `60` | Per-request timeout in seconds. |
 | `JUDGE_MAX_RETRIES` | `3` | Retries for transient failures. |
@@ -625,7 +627,19 @@ judge = Judge(provider=OpenAICompatibleProvider("http://localhost:1234/v1", "loc
 
 Every result records which provider and model produced it (`metadata.judge`),
 and the library never switches provider or model silently. Mock results say so
-in every explanation. Third-party packages can add providers through the
+in every explanation.
+
+**Fallback (opt-in).** Set `JUDGE_FALLBACK_PROVIDERS` (for example `ollama`) to
+try other providers, in order, when a call to the primary one fails. It is off
+by default and never silent:
+- a result answered by a fallback carries a `provider_fallback` warning;
+- it also carries `metadata.fallback` entries naming the provider that failed,
+  the one that answered, and the error;
+- `metadata.judge` keeps naming the configured judge.
+
+Two things never trigger a fallback: an exhausted demo budget, and a reply
+that fails validation (the repair retry handles that). The mock judge can't be
+a fallback, because its scores aren't LLM judgments. Third-party packages can add providers through the
 `llm_judge.providers` entry-point group (see `llm_judge/providers/registry.py`).
 
 Small local models are weaker judges than large hosted ones. Expect noisier
@@ -664,6 +678,7 @@ src/llm_judge/           # Installable package (src layout)
 └─ providers/            # Pluggable LLM backends
    ├─ base.py            #   LLMProvider protocol, health, usage counters
    ├─ registry.py        #   Name -> provider factory, plugin discovery
+   ├─ fallback.py        #   Opt-in fallback chain, recorded on every result
    ├─ groq_provider.py   #   Groq (default cloud judge)
    ├─ ollama_provider.py #   Local models via Ollama
    ├─ openai_compatible.py # Any /chat/completions endpoint

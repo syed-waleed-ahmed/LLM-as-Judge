@@ -18,6 +18,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   configuration; run comparisons flag different guidance, and resuming a
   checkpoint with different guidance is refused. Its length is capped by
   `JUDGE_MAX_INSTRUCTIONS_CHARS`. The prompt version is now 2.1.
+- Opt-in provider fallback (`JUDGE_FALLBACK_PROVIDERS`). When the primary
+  provider fails, the configured fallbacks are tried in order.
+  - Every result answered by a fallback carries a `provider_fallback` warning
+    and a `metadata.fallback` record (which provider failed, which answered,
+    and why). `metadata.judge` keeps naming the configured judge.
+  - An exhausted demo budget and replies that fail validation never fall
+    back, and the mock judge can't be a fallback.
+  - `llm-judge health` and `/api/v1/system/status` report every provider in
+    the chain.
+  - Verified live, with Ollama down and Groq answering.
 - The public demo is live at <https://llm-as-judge.streamlit.app/> (Streamlit Community
   Cloud, demo mode). The README, the documentation site and the package
   metadata link to it.

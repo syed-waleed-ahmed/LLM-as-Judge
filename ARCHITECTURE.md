@@ -103,6 +103,10 @@ sequenceDiagram
    the end of its own block.
 6. **No silent fallback.** The configured provider and model are what run,
    or the call fails with a clear error. Results always name the judge.
+   Fallback to other providers exists only when explicitly configured
+   (`JUDGE_FALLBACK_PROVIDERS`). Each result it touches records the provider
+   that failed and the one that answered, and carries a `provider_fallback`
+   warning.
 7. **Free-tier first.** SQLite (standard library) for storage, an in-process
    job queue, and an offline mock judge. Every external service is optional,
    and the queue and store sit behind narrow interfaces so they can be swapped

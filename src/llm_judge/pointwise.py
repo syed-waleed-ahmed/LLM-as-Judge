@@ -33,6 +33,7 @@ from .models import (
 from .parsing import extract_json_object
 from .prompts import PROMPT_VERSION, guidance_block, new_boundary
 from .providers.base import ChatMessage
+from .providers.fallback import fallback_warnings, track_fallbacks
 from .scoring import match_criteria, weighted_mean
 
 if TYPE_CHECKING:
@@ -231,11 +232,13 @@ def run_pointwise(
     ]
 
     started = time.perf_counter()
-    result = judge.complete_and_parse(
-        messages, lambda raw: _finalise(resolved, parse_pointwise_reply(raw))
-    )
+    with track_fallbacks() as fallbacks:
+        result = judge.complete_and_parse(
+            messages, lambda raw: _finalise(resolved, parse_pointwise_reply(raw))
+        )
     latency = round(time.perf_counter() - started, 3)
     warnings.extend(result.warnings)
+    warnings.extend(fallback_warnings(fallbacks))
 
     update: dict[str, object] = {"mode": "pointwise"}
     if reference is not None:
@@ -268,5 +271,7 @@ def run_pointwise(
     }
     if instructions:
         metadata["instructions"] = instructions
+    if fallbacks:
+        metadata["fallback"] = [event.as_dict() for event in fallbacks]
     update["metadata"] = metadata
     return result.model_copy(update=update)

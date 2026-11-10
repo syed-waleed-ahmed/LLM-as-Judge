@@ -33,6 +33,7 @@ from .models import RESULT_SCHEMA_VERSION, EvaluationWarning
 from .parsing import extract_json_object
 from .prompts import PROMPT_VERSION, new_boundary
 from .providers.base import ChatMessage
+from .providers.fallback import fallback_warnings, track_fallbacks
 
 if TYPE_CHECKING:
     from .judge import Judge
@@ -226,8 +227,10 @@ def run_rag(
         },
     ]
     started = time.perf_counter()
-    raw = judge.complete_and_parse(messages, lambda text: parse_rag_reply(text, len(ctx)))
+    with track_fallbacks() as fallbacks:
+        raw = judge.complete_and_parse(messages, lambda text: parse_rag_reply(text, len(ctx)))
     latency = round(time.perf_counter() - started, 3)
+    warnings.extend(fallback_warnings(fallbacks))
 
     relevance = raw.answer_relevance.score
     if not 1 <= relevance <= 10:
@@ -280,6 +283,7 @@ def run_rag(
             "prompt_version": PROMPT_VERSION,
             "contexts": len(ctx),
             "latency_seconds": latency,
+            **({"fallback": [e.as_dict() for e in fallbacks]} if fallbacks else {}),
         },
     )
 

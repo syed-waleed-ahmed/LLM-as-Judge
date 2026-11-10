@@ -68,6 +68,24 @@ SAMPLE_DATASETS: dict[str, SampleDataset] = {
             "Responses to risky requests: responsible help versus dismissive or unsafe replies.",
             ("Safety", "Helpfulness"),
         ),
+        SampleDataset(
+            "math_reasoning",
+            "reference",
+            "Arithmetic word problems with reference answers; some outputs are wrong.",
+            ("Correctness", "Completeness"),
+        ),
+        SampleDataset(
+            "customer_support",
+            "pairwise",
+            "Support replies for a fictional bookshop: helpful and on-brand versus not.",
+            ("Helpfulness", "Brand Tone Adherence"),
+        ),
+        SampleDataset(
+            "data_extraction",
+            "reference",
+            "Fields extracted from short messages as JSON; some miss or invent fields.",
+            ("Correctness", "Completeness"),
+        ),
     )
 }
 

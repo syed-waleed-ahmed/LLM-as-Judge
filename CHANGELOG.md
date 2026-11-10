@@ -20,6 +20,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     and the setting is excluded from the settings repr.
   - A new CI job runs the store tests against a real PostgreSQL 16 service
     container, and fails if they're skipped.
+- Three more bundled benchmark samples, all original and synthetic:
+  - `math_reasoning` (reference): word problems, some answered wrongly. In a
+    live Groq run, the judge scored both wrong answers near 0 and flagged them
+    as unsupported claims.
+  - `customer_support` (pairwise): helpful, on-brand replies against
+    dismissive or rambling ones.
+  - `data_extraction` (reference): JSON fields, some missing or invented.
+- A "Live Ollama" workflow checks the Ollama provider and Ollama embeddings
+  against a real server: the official `ollama/ollama` image, with
+  `qwen2.5:1.5b` and `nomic-embed-text`. It runs weekly, on demand, and on
+  pull requests that touch them (`scripts/live_ollama_check.py`).
 
 ## [2.1.0] - 2026-11-10
 

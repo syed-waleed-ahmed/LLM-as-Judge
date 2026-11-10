@@ -539,10 +539,11 @@ unsupported claims for graded data.
 
 ### Benchmarks
 
-Six small, original, synthetic datasets ship with the package for demos and
+Nine small, original, synthetic datasets ship with the package for demos and
 smoke tests: `general_qa`, `code_generation`, `summarization`, `rag`,
-`instruction_following` and `safety`. Their candidate "systems" are neutral
-labels, not real models.
+`instruction_following`, `safety`, `math_reasoning`, `customer_support` and
+`data_extraction`. Their candidate "systems" are neutral labels, not real
+models.
 
 ```bash
 llm-judge datasets samples                       # list them

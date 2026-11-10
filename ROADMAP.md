@@ -41,8 +41,8 @@ before starting.
   trusted-publisher setup described in DEPLOYMENT.md.
 - **More providers.** Further free or local backends, through the provider
   registry or the `llm_judge.providers` entry-point group.
-- **More benchmark samples.** Small, synthetic, clearly licensed datasets for
-  the bundled benchmarks.
+- **More benchmark samples.** Nine ship today. More small, synthetic, clearly
+  licensed datasets are welcome, for example translation or multi-turn dialogue.
 - **Live checks for Ollama and embeddings.** The Ollama provider and the
   embedding backends are tested against simulated responses only; a CI job
   with a small local model would verify them end to end.

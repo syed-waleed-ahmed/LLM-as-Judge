@@ -173,7 +173,8 @@ Live and browser checks, run during development:
 
 ## 8. Coverage results
 
-98% line coverage of the `llm_judge` package. The README badge is measured on
+About 98% line coverage of the `llm_judge` package, with the PostgreSQL store
+included. The README badge is measured on
 every deploy from `main`, so it always shows the current figure.
 
 ## 9. Security audit results

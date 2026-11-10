@@ -8,6 +8,7 @@ from dashboard.common import (
     app_settings,
     criteria_picker,
     current_judge,
+    instructions_input,
     render_pairwise,
     render_pointwise,
     render_ranking,
@@ -78,6 +79,7 @@ with pairwise_tab:
     output_a = left.text_area("Output A", key="pw:a", height=180, max_chars=max_chars)
     output_b = right.text_area("Output B", key="pw:b", height=180, max_chars=max_chars)
     criteria = criteria_picker("pw", default=["Helpfulness"])
+    guidance = instructions_input("pw")
     if st.button("Compare", type="primary", key="pw:run"):
         if not (task.strip() and output_a.strip() and output_b.strip()):
             st.error("Fill in the task and both outputs.")
@@ -86,7 +88,9 @@ with pairwise_tab:
         else:
             with st.spinner("Judging..."):
                 result = run_safely(
-                    lambda: current_judge().evaluate(task, output_a, output_b, criteria)
+                    lambda: current_judge().evaluate(
+                        task, output_a, output_b, criteria, instructions=guidance
+                    )
                 )
             if result:
                 render_pairwise(result, criteria, key="pw")
@@ -95,6 +99,7 @@ with pointwise_tab:
     task = st.text_area("Task", key="pt:task", height=100, max_chars=max_chars)
     output = st.text_area("Output", key="pt:output", height=180, max_chars=max_chars)
     criteria = criteria_picker("pt", default=["Helpfulness", "Conciseness"])
+    guidance = instructions_input("pt")
     if st.button("Grade", type="primary", key="pt:run"):
         if not (task.strip() and output.strip()):
             st.error("Fill in the task and the output.")
@@ -103,7 +108,9 @@ with pointwise_tab:
         else:
             with st.spinner("Judging..."):
                 graded = run_safely(
-                    lambda: current_judge().evaluate_pointwise(task, output, criteria)
+                    lambda: current_judge().evaluate_pointwise(
+                        task, output, criteria, instructions=guidance
+                    )
                 )
             if graded:
                 render_pointwise(graded, key="pt")
@@ -122,6 +129,7 @@ with reference_tab:
         "Reference (expected) answer", key="ref:reference", height=160, max_chars=max_chars
     )
     criteria = criteria_picker("ref", default=["Correctness", "Completeness"], reference=True)
+    guidance = instructions_input("ref")
     if st.button("Check", type="primary", key="ref:run"):
         if not (task.strip() and output.strip() and reference.strip()):
             st.error("Fill in the task, the output and the reference answer.")
@@ -130,7 +138,9 @@ with reference_tab:
         else:
             with st.spinner("Judging..."):
                 graded = run_safely(
-                    lambda: current_judge().evaluate_reference(task, output, reference, criteria)
+                    lambda: current_judge().evaluate_reference(
+                        task, output, reference, criteria, instructions=guidance
+                    )
                 )
             if graded:
                 render_pointwise(graded, key="ref")
@@ -166,6 +176,7 @@ with rank_tab:
         }.__getitem__,
     )
     criteria = criteria_picker("rk", default=["Creativity", "Brand Tone Adherence"])
+    guidance = instructions_input("rk")
     if st.button("Rank", type="primary", key="rk:run"):
         candidates = {
             str(row.get("id") or i + 1).strip(): str(row.get("output") or "")
@@ -184,6 +195,7 @@ with rank_tab:
                         candidates,
                         criteria,
                         strategy="pointwise" if strategy == "pointwise" else "round_robin",
+                        instructions=guidance,
                     )
                 )
             if ranking:

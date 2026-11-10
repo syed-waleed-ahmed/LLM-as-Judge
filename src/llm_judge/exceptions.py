@@ -21,12 +21,17 @@ class ProviderError(LLMJudgeError):
     """Raised when the underlying LLM provider fails or is unreachable.
 
     ``retryable`` signals whether the failure is transient (rate limits,
-    timeouts, 5xx responses) and therefore worth retrying.
+    timeouts, 5xx responses) and therefore worth retrying. ``retry_after`` is
+    the provider's own hint, in seconds, for how long to wait before retrying
+    (from a ``Retry-After`` header or a "try again in 6s" message), if it gave one.
     """
 
-    def __init__(self, message: str, *, retryable: bool = False) -> None:
+    def __init__(
+        self, message: str, *, retryable: bool = False, retry_after: float | None = None
+    ) -> None:
         super().__init__(message)
         self.retryable = retryable
+        self.retry_after = retry_after
 
 
 class ResponseParsingError(LLMJudgeError):

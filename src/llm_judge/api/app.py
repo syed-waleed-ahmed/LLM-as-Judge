@@ -30,7 +30,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import ValidationError as PydanticValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -65,6 +65,7 @@ from ..experiments import (
     RunInfo,
     compare_runs,
     record_dataset_run,
+    run_report,
 )
 from ..judge import Judge
 from ..models import Criterion, JudgeResult, PointwiseResult, RankingResult
@@ -81,6 +82,7 @@ from .schemas import (
     CriteriaOut,
     CriterionInput,
     ErrorResponse,
+    ExperimentDetail,
     JobInfo,
     JobRequest,
     PairwiseRequest,
@@ -462,6 +464,7 @@ def create_app(
                 _criteria(body.criteria) or ["Helpfulness"],
                 candidate_a_model=body.candidate_a_model,
                 candidate_b_model=body.candidate_b_model,
+                instructions=body.instructions,
             )
 
     @api.post("/evaluate/pointwise", response_model=PointwiseResult, tags=["evaluate"])
@@ -472,6 +475,7 @@ def create_app(
                 body.output,
                 _criteria(body.criteria) or ["Helpfulness"],
                 candidate_model=body.candidate_model,
+                instructions=body.instructions,
             )
 
     @api.post("/evaluate/reference", response_model=PointwiseResult, tags=["evaluate"])
@@ -483,6 +487,7 @@ def create_app(
                 body.reference,
                 _criteria(body.criteria),
                 candidate_model=body.candidate_model,
+                instructions=body.instructions,
             )
 
     @api.post("/evaluate/rank", response_model=RankingResult, tags=["evaluate"])
@@ -494,6 +499,7 @@ def create_app(
                 _criteria(body.criteria) or ["Helpfulness"],
                 strategy=body.strategy,
                 candidate_models=body.candidate_models,
+                instructions=body.instructions,
             )
 
     @api.post("/evaluate/rag", response_model=RagResult, tags=["evaluate"])
@@ -550,6 +556,7 @@ def create_app(
                 state.judge(body.mitigate_position_bias),
                 _criteria(body.criteria),
                 max_workers=min(settings.batch_max_workers, settings.api_max_concurrent),
+                instructions=body.instructions,
             )
             report = runner.run(records)
         return BatchResponse(
@@ -570,6 +577,7 @@ def create_app(
         payload: Any,
         response: Response,
         source: str,
+        instructions: str | None = None,
     ) -> JobInfo:
         if len(records) > settings.api_max_job_rows:
             raise ApiError(
@@ -585,6 +593,7 @@ def create_app(
                 max_workers=min(settings.batch_max_workers, settings.api_max_concurrent),
                 stop_event=stop,
                 progress=progress,
+                instructions=instructions,
             ).run(recs)
 
         def record(report: RunReport, job: Job) -> str | None:
@@ -645,6 +654,7 @@ def create_app(
             body.model_dump(mode="json"),
             response,
             "api:jobs",
+            body.instructions,
         )
 
     @api.get("/jobs", response_model=list[JobInfo], tags=["jobs"], dependencies=admin)
@@ -722,6 +732,7 @@ def create_app(
             {"benchmark": name, **body.model_dump(mode="json")},
             response,
             f"sample:{name}",
+            body.instructions,
         )
 
     # -- experiments -------------------------------------------------------------------
@@ -729,6 +740,24 @@ def create_app(
     @api.get("/experiments", response_model=list[Experiment], tags=["experiments"])
     def experiments() -> list[Experiment]:
         return state.store().list_experiments()
+
+    @api.get(
+        "/experiments/{experiment_name}", response_model=ExperimentDetail, tags=["experiments"]
+    )
+    def get_experiment(experiment_name: str, offset: int = 0, limit: int = 50) -> ExperimentDetail:
+        """One experiment and a page of its runs (newest first)."""
+        store_ = state.store()
+        found = store_.get_experiment(experiment_name)
+        if found is None:
+            raise ApiError(404, "not_found", f"No experiment named '{experiment_name}'.")
+        offset, limit = _page(offset, limit)
+        return ExperimentDetail(
+            experiment=found,
+            total_runs=store_.count_runs(experiment=experiment_name),
+            offset=offset,
+            limit=limit,
+            runs=store_.list_runs(experiment=experiment_name, limit=limit, offset=offset),
+        )
 
     @api.get("/runs", response_model=RowsPage, tags=["experiments"])
     def runs(experiment: str | None = None, offset: int = 0, limit: int = 50) -> RowsPage:
@@ -764,6 +793,22 @@ def create_app(
     @api.get("/runs/{run_id}", response_model=RunInfo, tags=["experiments"])
     def get_run(run_id: str) -> RunInfo:
         return _run(run_id)
+
+    @api.get(
+        "/runs/{run_id}/report",
+        response_class=PlainTextResponse,
+        tags=["experiments"],
+        responses={200: {"content": {"text/markdown": {}}}},
+    )
+    def get_run_report(
+        run_id: str,
+        baseline: str | None = None,
+        min_effect: Annotated[float, Query(ge=0, le=1)] = 0.02,
+    ) -> PlainTextResponse:
+        """A shareable Markdown report of a run, optionally compared with a baseline run."""
+        run = _run(run_id)
+        text = run_report(state.store(), run.id, baseline_id=baseline, min_effect=min_effect)
+        return PlainTextResponse(text, media_type="text/markdown; charset=utf-8")
 
     @api.get("/runs/{run_id}/rows", response_model=RowsPage, tags=["experiments"])
     def get_run_rows(run_id: str, offset: int = 0, limit: int = 50) -> RowsPage:

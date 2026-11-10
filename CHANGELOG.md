@@ -6,10 +6,128 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-10
+
+Closes the gaps that a line-by-line review against the original platform plan
+found:
+- judge instructions, opt-in provider fallback, async methods and a result
+  cache;
+- Markdown evaluation reports;
+- Analytics and Settings dashboard pages;
+- optional semantic similarity;
+- a free-tier rate-limit fix, screenshots and a coverage badge.
+
+Python 3.10 is deprecated. The public API is backwards compatible. The result
+schema only gains optional fields (`reference_metrics.semantic_similarity` and
+`embedding_model`, plus new metadata keys), so `schema_version` is now "1.3".
+
 ### Added
+- Evaluator instructions: optional guidance for the judge ("penalise answers
+  without sources") on pairwise, pointwise, reference and ranking
+  evaluations, dataset runs and benchmarks. It is available as
+  `instructions=` in the Python API, `--instructions` /
+  `--instructions-file` in the CLI, an `instructions` field in the REST API,
+  and a field on the dashboard's Playground. It goes into the system prompt
+  outside the untrusted-content markers, and can't change the response
+  format. It is recorded in the result metadata and the experiment run's
+  configuration; run comparisons flag different guidance, and resuming a
+  checkpoint with different guidance is refused. Its length is capped by
+  `JUDGE_MAX_INSTRUCTIONS_CHARS`. The prompt version is now 2.1.
+- Opt-in provider fallback (`JUDGE_FALLBACK_PROVIDERS`). When the primary
+  provider fails, the configured fallbacks are tried in order.
+  - Every result answered by a fallback carries a `provider_fallback` warning
+    and a `metadata.fallback` record (which provider failed, which answered,
+    and why). `metadata.judge` keeps naming the configured judge.
+  - An exhausted demo budget and replies that fail validation never fall
+    back, and the mock judge can't be a fallback.
+  - `llm-judge health` and `/api/v1/system/status` report every provider in
+    the chain.
+  - Verified live, with Ollama down and Groq answering.
+- Async evaluation methods: `aevaluate`, `aevaluate_pointwise`,
+  `aevaluate_reference`, `arank`, `aevaluate_rag` and `aevaluate_agent`.
+  They run the synchronous engine in worker threads, so they can be awaited
+  and gathered without blocking an event loop, and they're fully typed.
+- Opt-in result cache (`JUDGE_CACHE_SIZE`, `llm_judge.cache`).
+  - An in-memory LRU cache of identical temperature-0 evaluations; the key
+    covers inputs, criteria, instructions, judge, prompt version and scoring
+    settings.
+  - Hits are marked `metadata["cache_hit"]` and don't spend provider quota.
+  - Answers from a fallback provider are never cached, and consistency
+    analysis always bypasses the cache.
+- Evaluation reports: `run_report()`, `llm-judge experiments report` and
+  `GET /api/v1/runs/{id}/report` produce a shareable Markdown report of a
+  recorded run. It covers how the run was judged (criteria, instructions,
+  settings), the results (overall, per criterion, per model, warnings,
+  failures), an optional comparison with a baseline, and the reproducibility
+  metadata. Mock runs are labelled. The dashboard's Experiments page offers
+  run and comparison reports as downloads.
+- `GET /api/v1/experiments/{name}`: one experiment and a page of its runs.
+- Optional semantic similarity for reference grading.
+  - With `JUDGE_EMBEDDINGS_PROVIDER` set to `ollama` (local, e.g.
+    `nomic-embed-text`) or `openai_compatible` (any `/v1/embeddings` server),
+    `reference_metrics.semantic_similarity` holds the cosine similarity of
+    the output's and the reference's embeddings, alongside token F1.
+  - Batch outputs, run summaries (`mean_semantic_similarity`), reports, the
+    CLI and the dashboard show it.
+  - An embedding failure leaves it empty, with a
+    `semantic_similarity_unavailable` warning.
+  - Tested against simulated responses only: Groq offers no embeddings API.
+- README and docs site:
+  - screenshots of the Playground, RAG evaluation, Experiments and Analytics
+    pages, with live Groq judgments;
+  - an architecture diagram, a technology-stack section and a limitations
+    section;
+  - a coverage badge. The docs workflow measures coverage on every deploy
+    from `main` and publishes it for shields.io (`scripts/coverage_badge.py`),
+    so no third-party coverage service is needed.
+- Dashboard **Analytics** page, computed only from recorded runs:
+  - score trends across runs, and the score or margin distribution of a run;
+  - per-criterion comparison;
+  - bias signals: the share of rows with each reliability warning, with the
+    caveat that these are heuristics;
+  - operational reliability: failure rate, judge latency, rows answered by
+    a fallback, cache hits.
+- Dashboard **Settings** page:
+  - judge temperature and tie margin for the current session;
+  - providers and their configuration, a provider health check (no
+    inference), and the fallback chain;
+  - limits in effect, including REST API limits;
+  - storage and cache status;
+  - privacy controls: in the public demo, delete your session's runs.
+
+  The About page now focuses on how results stay honest, and its install
+  instructions no longer point at PyPI.
 - The public demo is live at <https://llm-as-judge.streamlit.app/> (Streamlit Community
   Cloud, demo mode). The README, the documentation site and the package
   metadata link to it.
+
+### Deprecated
+- Python 3.10, which reached end of life in October 2026.
+  - The library, CLI and REST API still run on it, and a new CI job audits
+    their dependencies on 3.10.
+  - Importing the package on 3.10 emits a `DeprecationWarning`.
+  - The dashboard should run on Python 3.11 or later, because Pillow's
+    security fixes need it. The Settings page warns when the app runs on
+    3.10.
+
+### Verified
+- The `openai_compatible` provider was tested live against Groq's
+  OpenAI-compatible endpoint: health check, pairwise, reference grading and
+  RAG evaluation. Previously it was only tested against simulated responses.
+
+### Fixed
+- Rate limits on free tiers. Batch runs on Groq's free plan (8,000 tokens per
+  minute) lost rows: retries waited 0.5 to 2 s when Groq asked for 5 to 12 s,
+  and concurrent workers retried in lockstep. Retries now follow the provider's
+  own hint: the `Retry-After` header, or Groq's "try again in 6.48s" message
+  (`ProviderError.retry_after`), capped at 60 s and with jitter. A rate-limit
+  pause also applies to every worker sharing the judge. In a live stress test
+  of back-to-back benchmarks, 11 of 11 rows now succeed, against 8 of 11
+  before.
+- The CLI's log handler kept the `stderr` stream that existed when logging was
+  set up. After a host or test runner replaced and closed that stream, log
+  calls failed with "I/O operation on closed file". It now follows the
+  current `sys.stderr`.
 
 ## [2.0.1] - 2026-11-10
 
@@ -432,6 +550,7 @@ of scripts into an installable, tested, and documented framework.
 - Legacy flat modules (`config.py`, `judge.py`, `prompts.py`) superseded by the
   package.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/tag/v2.0.0

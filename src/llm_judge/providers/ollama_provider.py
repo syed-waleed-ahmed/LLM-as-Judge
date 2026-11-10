@@ -13,7 +13,14 @@ from typing import Any
 import httpx
 
 from ..exceptions import ConfigurationError, ProviderError
-from .base import RETRYABLE_STATUS, ChatMessage, ProviderHealth, UsageTracker, shorten
+from .base import (
+    RETRYABLE_STATUS,
+    ChatMessage,
+    ProviderHealth,
+    UsageTracker,
+    retry_after_seconds,
+    shorten,
+)
 
 
 def _same_model(requested: str, available: str) -> bool:
@@ -75,9 +82,13 @@ class OllamaProvider:
                 retryable=False,
             )
         if response.status_code >= 400:
+            retryable = response.status_code in RETRYABLE_STATUS
             raise ProviderError(
                 f"Ollama returned HTTP {response.status_code}: {shorten(response.text)}",
-                retryable=response.status_code in RETRYABLE_STATUS,
+                retryable=retryable,
+                retry_after=(
+                    retry_after_seconds(response.headers, response.text) if retryable else None
+                ),
             )
 
         try:

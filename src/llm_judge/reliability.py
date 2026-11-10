@@ -91,6 +91,10 @@ def measure_consistency(
     if not 2 <= samples <= 50:
         raise ValidationError("samples must be between 2 and 50.")
 
+    # Independent samples are the point here, so never reuse cached results.
+    if hasattr(judge, "without_cache"):
+        judge = judge.without_cache()
+
     def once(_: int) -> JudgeResult | PointwiseResult | str:
         try:
             if pairwise:

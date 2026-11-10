@@ -6,7 +6,7 @@ import streamlit as st
 
 from dashboard import charts
 from dashboard.common import app_settings, chart_theme, experiment_store
-from llm_judge.experiments import compare_runs
+from llm_judge.experiments import compare_runs, run_report
 
 settings = app_settings()
 store = experiment_store()
@@ -40,8 +40,26 @@ st.dataframe(
     hide_index=True,
 )
 
-st.markdown("#### Compare two runs")
 labels = {r.id: f"{r.name} [{r.kind}] {r.created_at}" for r in runs}
+
+st.markdown("#### Report")
+report_id = st.selectbox(
+    "Run", [r.id for r in runs], format_func=labels.__getitem__, key="ex:report"
+)
+if report_id is not None:
+    st.download_button(
+        "Download report (Markdown)",
+        run_report(store, report_id),
+        file_name=f"report-{report_id}.md",
+        mime="text/markdown",
+        key="ex:report-dl",
+        on_click="ignore",
+        icon=":material/description:",
+        help="A shareable summary: how the run was judged, results, failures and "
+        "reproducibility details.",
+    )
+
+st.markdown("#### Compare two runs")
 left, right = st.columns(2)
 baseline_id = left.selectbox(
     "Baseline", [r.id for r in runs][::-1], format_func=labels.__getitem__, key="ex:base"
@@ -94,6 +112,15 @@ if comparison.mean_delta is not None:
     )
 for warning in comparison.warnings:
     st.warning(warning, icon=":material/info:")
+st.download_button(
+    "Download comparison report (Markdown)",
+    run_report(store, candidate_id, baseline_id=baseline_id, min_effect=min_effect),
+    file_name=f"report-{candidate_id}-vs-{baseline_id}.md",
+    mime="text/markdown",
+    key="ex:compare-dl",
+    on_click="ignore",
+    icon=":material/description:",
+)
 
 base_rows = {r.row_id: r for r in store.get_rows(baseline_id)}
 cand_rows = {r.row_id: r for r in store.get_rows(candidate_id)}

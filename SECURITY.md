@@ -24,10 +24,18 @@ changelog.
 
 | Version | Supported |
 |---|---|
-| 2.0.x | yes |
+| 2.x | yes |
 | earlier than 2.0 | no |
 
 Security fixes go into the latest release.
+
+**Python versions.** Python 3.11 to 3.13 are fully supported. Python 3.10
+reached end of life in October 2026 and is deprecated:
+- **Library, CLI and REST API on 3.10:** they still run there, and CI audits
+  their dependencies on 3.10 (`audit-py310`); no advisories are known.
+- **Dashboard on 3.10:** don't run it there. Streamlit depends on Pillow, and
+  the releases that fix Pillow's current advisories need Python 3.11 or later.
+  The public demo runs on Python 3.12.
 
 ## Threat model
 

@@ -51,7 +51,9 @@ def record_dataset_run(
 
     records = [o.record for o in report.outcomes]
     config: dict[str, Any] = reproducibility_config(
-        judge.settings, report.criteria_details or [{"name": c} for c in report.criteria]
+        judge.settings,
+        report.criteria_details or [{"name": c} for c in report.criteria],
+        report.instructions,
     )
     return store.record_run(
         report,
@@ -68,6 +70,8 @@ def record_dataset_run(
     )
 
 
+from .report import run_report  # noqa: E402  (needs compare and store above)
+
 __all__ = [
     "Experiment",
     "ExperimentError",
@@ -80,4 +84,5 @@ __all__ = [
     "confidence_interval",
     "record_dataset_run",
     "reproducibility_config",
+    "run_report",
 ]

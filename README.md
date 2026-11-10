@@ -11,6 +11,7 @@ labelled mock judge.
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://llm-as-judge.streamlit.app/)
 [![CI](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fsyed-waleed-ahmed.github.io%2FLLM-as-Judge%2Fbadges%2Fcoverage.json)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/docs.yml)
 [![CodeQL](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/codeql.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/codeql.yml)
 [![Docs](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/docs.yml/badge.svg)](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)
 [![Release](https://img.shields.io/github/v/release/syed-waleed-ahmed/LLM-as-Judge)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases)
@@ -29,6 +30,7 @@ labelled mock judge.
 
 - [Why this exists](#why-this-exists)
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Reliability safeguards](#reliability-safeguards)
@@ -37,9 +39,11 @@ labelled mock judge.
 - [Configuration](#configuration)
 - [Providers](#providers)
 - [Architecture](#architecture)
+- [Technology stack](#technology-stack)
 - [Development](#development)
 - [Security](#security)
 - [Contributing](#contributing)
+- [Limitations](#limitations)
 - [Roadmap](#roadmap)
 - [Citing](#citing)
 - [License](#license)
@@ -102,8 +106,26 @@ this project handles the parts that usually get skipped:
 <!-- --8<-- [end:features] -->
 ---
 
+## Screenshots
+
+The dashboard with the live Groq judge (`openai/gpt-oss-120b`). Try it in the
+[live demo](https://llm-as-judge.streamlit.app/).
+
+| | |
+|---|---|
+| ![Playground: a pairwise verdict](docs/assets/screenshots/playground.png) | ![RAG evaluation results](docs/assets/screenshots/rag.png) |
+| **Playground.** A pairwise verdict with per-criterion scores, explanations and a verbosity-bias warning. | **RAG evaluation.** Faithfulness, relevance and context metrics, with a verdict for every claim. |
+| ![Experiments: comparing two runs](docs/assets/screenshots/experiments.png) | ![Analytics: trends across runs](docs/assets/screenshots/analytics.png) |
+| **Experiments.** A regression check between two recorded runs, with a confidence interval and a caveat that their judge instructions differ. | **Analytics.** Score trends across recorded runs, computed only from stored results. |
+
+---
+
 <!-- --8<-- [start:install] -->
 ## Installation
+
+Python 3.11 or later is recommended. Python 3.10 reached end of life in October
+2026: the library, CLI and REST API still run on it but support is deprecated, and
+the dashboard needs 3.11+ for Pillow's security fixes.
 
 ```bash
 git clone https://github.com/syed-waleed-ahmed/LLM-as-Judge.git
@@ -125,11 +147,11 @@ release tag or from the wheel attached to a
 [GitHub Release](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases):
 
 ```bash
-# From the v2.0.1 tag (extras: ui, api, yaml, all)
-pip install "llm-as-judge[all] @ git+https://github.com/syed-waleed-ahmed/LLM-as-Judge@v2.0.1"
+# From the v2.1.0 tag (extras: ui, api, yaml, all)
+pip install "llm-as-judge[all] @ git+https://github.com/syed-waleed-ahmed/LLM-as-Judge@v2.1.0"
 
 # Or from the release wheel
-pip install "llm-as-judge[all] @ https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/download/v2.0.1/llm_as_judge-2.0.1-py3-none-any.whl"
+pip install "llm-as-judge[all] @ https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/download/v2.1.0/llm_as_judge-2.1.0-py3-none-any.whl"
 ```
 
 Either way you get the `llm-judge` command. To run the dashboard, clone the
@@ -162,14 +184,16 @@ A multi-page dashboard over the same engine:
 | Page | What it does |
 |---|---|
 | **Overview** | Which judge is active, session and stored-run statistics, recent runs |
-| **Playground** | Compare two outputs, grade one, check against a reference, or rank candidates, with charts, explanations and warnings |
+| **Playground** | Compare two outputs, grade one, check against a reference, or rank candidates, with optional judge instructions, charts, explanations and warnings |
 | **Datasets** | Upload CSV/JSON/JSONL/YAML (or pick a sample), validate, evaluate, chart and download results |
 | **Benchmarks** | Run a bundled sample and see per-system statistics |
 | **RAG evaluation** | Faithfulness, answer relevance, context precision and recall, with claim-level verdicts |
 | **Agent evaluation** | Paste or upload a trace: deterministic checks plus a judged grade |
-| **Experiments** | Compare two recorded runs: verdict, confidence interval, per-row changes |
+| **Experiments** | Compare two recorded runs: verdict, confidence interval, per-row changes; download Markdown reports |
+| **Analytics** | Across recorded runs: score trends, score distributions, per-criterion comparison, bias signals and operational reliability |
 | **Reliability** | Repeated-judgment consistency and agreement between judges |
-| **About** | Providers, limits in effect, privacy, how to run it yourself |
+| **Settings** | Judge temperature and tie margin for your session, provider status and health checks, limits in effect, storage, cache and privacy controls |
+| **About** | How the results stay honest, privacy, how to run it yourself |
 
 The sidebar switches between the **live judge** (when a key is configured) and
 the **offline mock judge**. The mock judge works without any key, and its
@@ -204,6 +228,11 @@ llm-judge evaluate --task-file task.txt \
 # Read long inputs from files and emit raw JSON
 llm-judge evaluate --task-file task.txt \
   --output-a-file a.txt --output-b-file b.txt --json
+
+# Give the judge your own guidance (also: grade, rank, batch, benchmark)
+llm-judge evaluate --task-file task.txt \
+  --output-a-file a.txt --output-b-file b.txt \
+  --instructions "Penalise answers that state facts without a source."
 
 # Grade a whole dataset concurrently (checkpointed; resumable with --resume)
 llm-judge batch --input examples/sample_batch.csv \
@@ -249,6 +278,16 @@ coverage = Criterion(
     name="Coverage", description="Covers every key point.", scale_min=0, scale_max=100, weight=2
 )
 judge.evaluate("...", "...", "...", [resolve_criterion("Helpfulness"), coverage])
+
+# Optional guidance for the judge: how strictly to score, what to penalise.
+# It's recorded in result.metadata["instructions"] and in experiment runs.
+judge.evaluate(
+    "...",
+    "...",
+    "...",
+    "Accuracy",
+    instructions="Penalise answers that state facts without a source.",
+)
 ```
 
 The same `Judge` also grades single outputs and ranks candidates:
@@ -262,7 +301,7 @@ print(grade.overall_score, grade.feedback)
 check = judge.evaluate_reference("When did Apollo 11 land?", "In 1968.", reference="20 July 1969.")
 print(check.unsupported_claims)  # hallucination indicators
 print(check.missing_information)  # key points the output omits
-print(check.reference_metrics)  # exact_match and token_f1 (no LLM involved)
+print(check.reference_metrics)  # exact_match, token_f1, optional semantic_similarity
 
 # Ranking: round robin (every pair head to head) or pointwise (cheaper).
 ranking = judge.rank("Write a tagline", {"v1": "...", "v2": "...", "v3": "..."})
@@ -270,11 +309,31 @@ for row in ranking.leaderboard:
     print(row.rank, row.candidate, row.score, (row.wins, row.losses, row.ties))
 ```
 
+Every method has an async twin (`aevaluate`, `aevaluate_pointwise`,
+`aevaluate_reference`, `arank`, `aevaluate_rag`, `aevaluate_agent`). Each one
+runs the evaluation in a worker thread, so you can await it from async code
+without blocking the event loop, and run several concurrently:
+
+```python
+import asyncio
+
+results = await asyncio.gather(
+    judge.aevaluate(task, a, b, "Helpfulness"),
+    judge.aevaluate_pointwise(task, a, "Conciseness"),
+)
+```
+
+Set `JUDGE_CACHE_SIZE` (for example `256`) to reuse results of identical
+evaluations: same inputs, criteria, instructions, judge and settings. The cache
+is opt-in, in memory only, and used only at temperature 0. Hits are marked
+`metadata["cache_hit"]`, and they don't spend provider quota. Consistency
+analysis never uses it.
+
 Every pairwise evaluation returns a validated, versioned result:
 
 ```json
 {
-  "schema_version": "1.2",
+  "schema_version": "1.3",
   "criteria": [
     {
       "criterion": "Helpfulness",
@@ -367,6 +426,7 @@ Results also carry **warnings** (they never change scores):
 | `position_inconsistent` | The verdict changed when the outputs were swapped. |
 | `score_out_of_range` | The judge scored outside the scale; the score was clamped. |
 | `input_truncated` | An input exceeded `JUDGE_MAX_INPUT_CHARS` and was truncated. |
+| `provider_fallback` | The primary provider failed and a configured fallback (`JUDGE_FALLBACK_PROVIDERS`) answered instead. |
 
 These signals are heuristics. A clean result doesn't prove the absence of bias
 or manipulation, and a warning doesn't prove its presence.
@@ -509,6 +569,10 @@ llm-judge batch --input qa_v1.jsonl --output v1.csv --experiment qa --run-name v
 llm-judge batch --input qa_v2.jsonl --output v2.csv --experiment qa --run-name v2
 llm-judge experiments runs --experiment qa
 llm-judge experiments compare <v1-run-id> <v2-run-id> --fail-on-regression
+
+# A shareable Markdown report: how the run was judged, results, failures,
+# reproducibility details, and (with --baseline) the comparison
+llm-judge experiments report <v2-run-id> --baseline <v1-run-id> --output report.md
 ```
 
 ```text
@@ -549,6 +613,7 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_OPENAI_MODEL` | — | Model name on that endpoint. |
 | `JUDGE_OPENAI_API_KEY` | — | Optional bearer token for that endpoint. |
 | `JUDGE_OPENAI_JSON_MODE` | `true` | Send `response_format: json_object` (disable for servers that reject it). |
+| `JUDGE_FALLBACK_PROVIDERS` | *(empty)* | Opt-in fallback providers, comma-separated and tried in order when the primary fails (not `mock`). |
 | `JUDGE_TEMPERATURE` | `0.0` | Sampling temperature (0 = deterministic). |
 | `JUDGE_REQUEST_TIMEOUT` | `60` | Per-request timeout in seconds. |
 | `JUDGE_MAX_RETRIES` | `3` | Retries for transient failures. |
@@ -560,6 +625,11 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_MAX_CRITERIA` | `20` | Maximum criteria per evaluation. |
 | `JUDGE_MAX_CANDIDATES` | `8` | Maximum candidates per ranking (round robin makes n(n-1)/2 comparisons). |
 | `JUDGE_MAX_INPUT_CHARS` | `50000` | Longer inputs are truncated (with a warning). |
+| `JUDGE_MAX_INSTRUCTIONS_CHARS` | `2000` | Longest judge guidance (`instructions`); longer text is truncated with a warning. |
+| `JUDGE_CACHE_SIZE` | `0` (off) | Opt-in in-memory cache of identical temperature-0 results; hits are marked `cache_hit`. |
+| `JUDGE_EMBEDDINGS_PROVIDER` | *(empty)* | `ollama` or `openai_compatible`: adds embedding-based `semantic_similarity` to reference grading. |
+| `JUDGE_EMBEDDINGS_MODEL` | *(empty)* | Embedding model, e.g. `nomic-embed-text` on Ollama. |
+| `JUDGE_EMBEDDINGS_BASE_URL` / `JUDGE_EMBEDDINGS_API_KEY` | *(provider defaults)* | Override the embeddings endpoint and key (default: the Ollama or OpenAI-compatible settings). |
 | `JUDGE_API_KEYS` | — | Comma-separated keys required by `/api/v1` (open if unset). |
 | `JUDGE_API_ADMIN_KEY` | — | Enables admin routes (they're disabled if unset). |
 | `JUDGE_API_RATE_LIMIT` | `60` | Requests per minute per client (0 disables). |
@@ -590,7 +660,7 @@ The judge runs on any of these backends. Pick one with `JUDGE_PROVIDER` or the
 |---|---|---|---|
 | `groq` (default) | yes ([free](https://console.groq.com/keys)) | cloud | Free plan, rate-limited per model. Default judge `openai/gpt-oss-120b`. |
 | `ollama` | no | your machine | Free local models via [Ollama](https://ollama.com): `ollama pull llama3.2`. |
-| `openai_compatible` | optional | either | Any `/chat/completions` server: LM Studio, vLLM, llama.cpp, or hosted free models. |
+| `openai_compatible` | optional | either | Any `/chat/completions` server: LM Studio, vLLM, llama.cpp, or hosted free models. Verified live against Groq's OpenAI-compatible endpoint (`https://api.groq.com/openai/v1`). |
 | `mock` | no | offline | Deterministic heuristic, **not an LLM**. For demos, tests and trying the tool without a key. |
 
 ```bash
@@ -609,7 +679,19 @@ judge = Judge(provider=OpenAICompatibleProvider("http://localhost:1234/v1", "loc
 
 Every result records which provider and model produced it (`metadata.judge`),
 and the library never switches provider or model silently. Mock results say so
-in every explanation. Third-party packages can add providers through the
+in every explanation.
+
+**Fallback (opt-in).** Set `JUDGE_FALLBACK_PROVIDERS` (for example `ollama`) to
+try other providers, in order, when a call to the primary one fails. It is off
+by default and never silent:
+- a result answered by a fallback carries a `provider_fallback` warning;
+- it also carries `metadata.fallback` entries naming the provider that failed,
+  the one that answered, and the error;
+- `metadata.judge` keeps naming the configured judge.
+
+Two things never trigger a fallback: an exhausted demo budget, and a reply
+that fails validation (the repair retry handles that). The mock judge can't be
+a fallback, because its scores aren't LLM judgments. Third-party packages can add providers through the
 `llm_judge.providers` entry-point group (see `llm_judge/providers/registry.py`).
 
 Small local models are weaker judges than large hosted ones. Expect noisier
@@ -620,6 +702,28 @@ family than the candidates (the `self_preference_risk` warning flags this).
 ---
 
 ## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Interfaces
+        LIB[Python library]
+        CLI[CLI]
+        API[REST API]
+        UI[Streamlit dashboard]
+    end
+    CORE[Evaluation core<br/>pairwise · pointwise · reference<br/>ranking · RAG · agents]
+    SAFE[Safeguards<br/>fenced prompts · strict parsing<br/>bias and injection checks]
+    DATA[Datasets and experiments<br/>resumable batches · SQLite runs<br/>comparisons · reports]
+    PROV[Providers<br/>Groq · Ollama · OpenAI-compatible · mock<br/>opt-in fallback · cache · quotas]
+    LIB & CLI & API & UI --> CORE
+    CLI & API & UI --> DATA
+    DATA --> CORE
+    CORE --> SAFE
+    CORE --> PROV
+```
+
+[`ARCHITECTURE.md`](ARCHITECTURE.md) has the detailed diagram, the request flow
+and the design principles.
 
 ```text
 src/llm_judge/           # Installable package (src layout)
@@ -648,6 +752,7 @@ src/llm_judge/           # Installable package (src layout)
 └─ providers/            # Pluggable LLM backends
    ├─ base.py            #   LLMProvider protocol, health, usage counters
    ├─ registry.py        #   Name -> provider factory, plugin discovery
+   ├─ fallback.py        #   Opt-in fallback chain, recorded on every result
    ├─ groq_provider.py   #   Groq (default cloud judge)
    ├─ ollama_provider.py #   Local models via Ollama
    ├─ openai_compatible.py # Any /chat/completions endpoint
@@ -660,6 +765,26 @@ tests/                   # Offline unit + property tests (fake providers)
 The judge depends only on the `LLMProvider` protocol, so supporting a new backend
 means implementing a single `complete_json` method, with no changes to the
 judging logic.
+
+---
+
+<!-- --8<-- [start:stack] -->
+## Technology stack
+
+| Area | Tools |
+|---|---|
+| Language and models | Python 3.10 to 3.13, fully typed (mypy); Pydantic v2 and pydantic-settings |
+| LLM providers | Groq SDK; httpx for Ollama and OpenAI-compatible servers; an offline mock judge |
+| Resilience | tenacity retries that follow provider rate-limit hints; opt-in fallback and result cache |
+| REST API | FastAPI and Uvicorn |
+| Dashboard | Streamlit and Plotly |
+| Storage and data | SQLite (standard library); CSV, JSON, JSONL and YAML (PyYAML) |
+| Quality | pytest, Hypothesis, ruff, mypy, Bandit, pip-audit, CodeQL, pre-commit |
+| Delivery | GitHub Actions, Docker, MkDocs Material on GitHub Pages, Streamlit Community Cloud |
+
+Every runtime dependency is open source, and every hosted service has a free tier.
+
+<!-- --8<-- [end:stack] -->
 
 ---
 
@@ -707,9 +832,41 @@ benchmark samples.
 
 ---
 
+<!-- --8<-- [start:limitations] -->
+## Limitations
+
+- **LLM judges are imperfect.** Position, verbosity and self-preference bias are
+  mitigated and flagged, not eliminated. Scores are judgments, not ground truth.
+  The bias warnings are heuristics.
+- **Free tiers have limits.** Groq's free plan caps tokens per minute and per day.
+  Batches slow down when they hit the cap (retries follow Groq's own wait hints).
+  The public demo caps live calls, and its app sleeps when idle.
+- **The mock judge isn't an LLM.** It's a text heuristic for demos and tests,
+  and it ignores judge instructions. Its results are always labelled.
+- **Semantic similarity is optional.** Reference grading always combines the
+  judge's correctness and completeness scores with exact match and token F1,
+  which are lexical. Embedding-based semantic similarity needs an embedding
+  backend (`JUDGE_EMBEDDINGS_PROVIDER`). It has been tested against simulated
+  responses only, because Groq offers no embeddings API.
+- **Single-node storage and jobs.** Runs live in SQLite, and API jobs run in an
+  in-process queue that doesn't survive a restart. There's no Supabase/Postgres
+  adapter and no horizontal scaling.
+- **Python 3.10 is deprecated.** It's past end of life. The fixed versions of
+  Pillow, which Streamlit needs, require Python 3.11+, so run the dashboard on
+  3.11 or later. The library, CLI and API still run on 3.10, and CI audits their
+  dependencies there.
+- **Not externally verified everywhere.** The Ollama provider is tested against
+  simulated responses only. The REST API isn't hosted publicly; run it locally
+  or on your own server. The package isn't on PyPI yet.
+
+<!-- --8<-- [end:limitations] -->
+
+---
+
 ## Roadmap
 
-Version 2.0.0 completed the planned phases: evaluation modes, providers,
+Version 2.0.0 completed the planned phases, and 2.1.0 closed the gaps a
+line-by-line review of the plan found: evaluation modes, providers,
 datasets, experiment tracking, the REST API, the dashboard, RAG and agent
 evaluation, security hardening, and documentation. Open items include a
 Supabase/Postgres experiment store and publishing to PyPI. See

@@ -53,6 +53,8 @@ from . import charts
 T = TypeVar("T")
 
 MOCK_NOTICE = "Mock judge: a deterministic text heuristic, not an LLM. Use it to explore the UI."
+#: Judging settings a visitor may change for their own session (Settings page).
+SESSION_SETTINGS = ("temperature", "tie_margin")
 
 
 # --- configuration -------------------------------------------------------------------
@@ -109,6 +111,11 @@ def _session_budget(settings: Settings) -> CallBudget:
     return budget
 
 
+def demo_budgets(settings: Settings) -> tuple[CallBudget, CallBudget]:
+    """This session's live-call budget and the shared daily one (public demo)."""
+    return _session_budget(settings), _daily_budget(settings.demo_daily_calls)
+
+
 def judge_mode() -> str:
     return str(st.session_state.get("judge_mode", "mock"))
 
@@ -116,6 +123,14 @@ def judge_mode() -> str:
 def current_judge(*, mitigate: bool | None = None, temperature: float | None = None) -> Judge:
     """The judge for this session, with demo safeguards applied when enabled."""
     settings = app_settings()
+    # Per-session choices from the Settings page; an explicit argument still wins.
+    overrides = {
+        name: st.session_state[f"set:{name}"]
+        for name in SESSION_SETTINGS
+        if st.session_state.get(f"set:{name}") is not None
+    }
+    if overrides:
+        settings = settings.model_copy(update=overrides)
     if temperature is not None:
         settings = settings.model_copy(update={"temperature": temperature})
     if mitigate is None:
@@ -228,6 +243,11 @@ def render_judge_badge(metadata: dict[str, Any]) -> None:
         st.caption(MOCK_NOTICE)
     else:
         st.badge(f"{provider} · {model}", icon=":material/gavel:", color="blue")
+    if metadata.get("instructions"):
+        if provider == "mock":
+            st.caption("The mock judge ignores instructions; they apply to live judges only.")
+        else:
+            st.caption("Judged with your instructions.")
 
 
 def run_safely(action: Callable[[], T]) -> T | None:
@@ -268,6 +288,25 @@ def criteria_picker(
             base = resolve_criterion(name)
             criteria.append(Criterion(**{**base.model_dump(), "weight": weight}))
     return criteria
+
+
+def instructions_input(key: str) -> str | None:
+    """Optional free-text guidance for the judge. Returns None when left blank."""
+    settings = app_settings()
+    limit = min(settings.max_instructions_chars, 1_000 if settings.demo_mode else 20_000)
+    with st.expander("Judge instructions (optional)"):
+        text = st.text_area(
+            "Guidance for the judge",
+            key=f"{key}:instructions",
+            height=90,
+            max_chars=limit,
+            placeholder="e.g. Penalise answers that state facts without a source.",
+            help=(
+                "Added to the judge's prompt as evaluator guidance. It can change how "
+                "outputs are scored, but not the response format."
+            ),
+        )
+    return text.strip() or None
 
 
 # --- results -------------------------------------------------------------------------
@@ -354,9 +393,14 @@ def render_pointwise(result: PointwiseResult, key: str) -> None:
                 st.markdown(f"- {item}")
         if result.reference_metrics:
             m = result.reference_metrics
+            semantic = (
+                f", semantic similarity {m.semantic_similarity:.3f} ({m.embedding_model})"
+                if m.semantic_similarity is not None
+                else ""
+            )
             st.caption(
-                f"Deterministic overlap with the reference (no LLM): token F1 {m.token_f1:.3f}, "
-                f"exact match {'yes' if m.exact_match else 'no'}."
+                f"Similarity to the reference (no LLM): token F1 {m.token_f1:.3f}, "
+                f"exact match {'yes' if m.exact_match else 'no'}{semantic}."
             )
     render_warnings(result.warnings)
     for score in result.criteria:

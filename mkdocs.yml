@@ -106,3 +106,4 @@ nav:
       - Changelog: project/changelog.md
       - Contributing: project/contributing.md
       - Phase 0 audit: design/phase-0-audit.md
+      - Delivery report: design/delivery-report.md

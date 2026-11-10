@@ -25,7 +25,6 @@ navigation = st.navigation(
             st.Page(
                 f"{VIEWS}/overview.py", title="Overview", icon=":material/dashboard:", default=True
             ),
-            st.Page(f"{VIEWS}/about.py", title="About", icon=":material/info:"),
         ],
         "Evaluate": [
             st.Page(f"{VIEWS}/playground.py", title="Playground", icon=":material/compare:"),
@@ -36,7 +35,12 @@ navigation = st.navigation(
         ],
         "Analyze": [
             st.Page(f"{VIEWS}/experiments.py", title="Experiments", icon=":material/history:"),
+            st.Page(f"{VIEWS}/analytics.py", title="Analytics", icon=":material/insights:"),
             st.Page(f"{VIEWS}/reliability.py", title="Reliability", icon=":material/verified:"),
+        ],
+        "App": [
+            st.Page(f"{VIEWS}/settings.py", title="Settings", icon=":material/settings:"),
+            st.Page(f"{VIEWS}/about.py", title="About", icon=":material/info:"),
         ],
     }
 )

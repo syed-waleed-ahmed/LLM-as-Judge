@@ -99,7 +99,13 @@ with sync_playwright() as p:
     nav(page, "Playground")
     page.get_by_text("Summary", exact=True).first.click()
     idle(page)
-    task_value = page.get_by_label("Task").first.input_value()
+    task_box = page.get_by_label("Task").first
+    task_value = ""
+    for _ in range(40):  # the rerun that fills the example can lag on a cold start
+        task_value = task_box.input_value()
+        if "Summarise" in task_value:
+            break
+        page.wait_for_timeout(250)
     check("playground: example loads", "Summarise" in task_value, task_value[:40])
     page.get_by_role("button", name="Compare", exact=True).click()
     idle(page, 120)
@@ -234,9 +240,22 @@ with sync_playwright() as p:
     no_exceptions(page, "reliability")
     shot(page, "09_reliability")
 
+    # --- Analytics ---------------------------------------------------------------------
+    nav(page, "Analytics")
+    check("analytics: tabs", text_visible(page, r"^Score distribution$"))
+    check("analytics: charts render", page.locator(".js-plotly-plot").count() >= 1)
+    no_exceptions(page, "analytics")
+    shot(page, "09a_analytics")
+
+    # --- Settings ----------------------------------------------------------------------
+    nav(page, "Settings")
+    check("settings: limits section", text_visible(page, r"^Limits in effect$"))
+    check("settings: session budget shown", text_visible(page, r"left this session"))
+    no_exceptions(page, "settings")
+    shot(page, "09b_settings")
+
     # --- About -------------------------------------------------------------------------
     nav(page, "About")
-    check("about: limits section", text_visible(page, r"^Limits in effect$"))
     check("about: public-demo privacy note", text_visible(page, r"This is a public demo"))
     no_exceptions(page, "about")
 

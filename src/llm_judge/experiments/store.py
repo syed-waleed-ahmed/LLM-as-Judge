@@ -153,7 +153,9 @@ def _hash(text: str) -> str:
 
 
 def reproducibility_config(
-    settings: Settings, criteria: Sequence[Criterion | str | dict[str, Any]] | None
+    settings: Settings,
+    criteria: Sequence[Criterion | str | dict[str, Any]] | None,
+    instructions: str | None = None,
 ) -> dict[str, Any]:
     """Everything needed to understand (and repeat) how a run was judged."""
     from .. import __version__
@@ -173,6 +175,7 @@ def reproducibility_config(
         "python": platform.python_version(),
         "platform": sys.platform,
         "criteria": criteria_info,
+        "instructions": instructions,
         "settings": settings.model_dump(
             include={
                 "provider",

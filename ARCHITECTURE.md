@@ -15,7 +15,7 @@ flowchart TB
     end
     subgraph Application
         DS[datasets<br/>readers · validation · runner]
-        EXP[experiments<br/>SQLite store · comparison]
+        EXP[experiments<br/>SQLite store · comparison · reports]
         REL[reliability<br/>consistency · agreement]
         JOBS[api.jobs<br/>bounded job queue]
     end
@@ -23,6 +23,7 @@ flowchart TB
         J[judge.py<br/>pairwise engine]
         PW[pointwise.py · ranking.py<br/>rag.py · agents.py]
         SAFE[prompts · parsing · scoring<br/>diagnostics · metrics]
+        CACHE[cache<br/>opt-in result cache]
     end
     subgraph Providers
         REG[registry]
@@ -31,6 +32,7 @@ flowchart TB
         OAI[OpenAI-compatible]
         M[Mock]
         Q[QuotaProvider]
+        F[FallbackProvider<br/>opt-in]
     end
     LIB --> J
     CLI --> J & DS & EXP & REL
@@ -46,6 +48,8 @@ flowchart TB
     J --> REG
     REG --> G & O & OAI & M
     Q -.wraps.-> G
+    F -.tries in order.-> G & O & OAI
+    J --> CACHE
 ```
 
 ## Module map
@@ -103,6 +107,10 @@ sequenceDiagram
    the end of its own block.
 6. **No silent fallback.** The configured provider and model are what run,
    or the call fails with a clear error. Results always name the judge.
+   Fallback to other providers exists only when explicitly configured
+   (`JUDGE_FALLBACK_PROVIDERS`). Each result it touches records the provider
+   that failed and the one that answered, and carries a `provider_fallback`
+   warning.
 7. **Free-tier first.** SQLite (standard library) for storage, an in-process
    job queue, and an offline mock judge. Every external service is optional,
    and the queue and store sit behind narrow interfaces so they can be swapped
@@ -119,6 +127,12 @@ outcome to a JSONL checkpoint so that interrupted runs resume safely.
 `experiments.record_dataset_run` persists the outcomes with reproducibility
 metadata, and `compare_runs` pairs rows by id to detect regressions with
 confidence intervals.
+
+Async callers use `Judge.aevaluate` and its siblings, which run the same
+synchronous engine in worker threads (`asyncio.to_thread`). An opt-in
+in-memory LRU cache (`llm_judge.cache`, `JUDGE_CACHE_SIZE`) reuses identical
+temperature-0 judgments; keys cover every input and setting that can change a
+result.
 
 ## Extending
 

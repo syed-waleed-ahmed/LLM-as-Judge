@@ -21,7 +21,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 #: Version of the JSON result schema produced by this library.
-RESULT_SCHEMA_VERSION = "1.2"
+RESULT_SCHEMA_VERSION = "1.3"
 
 # "Output A" / "Response B" / "Candidates A and B" style references. The prefix is
 # case-insensitive but letters must be uppercase, so ordinary prose such as
@@ -256,15 +256,20 @@ class PointwiseScore(BaseModel):
 
 
 class ReferenceMetrics(BaseModel):
-    """Deterministic, LLM-free similarity between an output and its reference.
+    """LLM-free similarity between an output and its reference.
 
     ``token_f1`` is the SQuAD-style bag-of-words F1 over lower-cased word tokens.
     It measures lexical overlap, not meaning: a correct paraphrase can score
-    low. Read it alongside the judge's criteria, not instead of them.
+    low. ``semantic_similarity`` is the cosine similarity of the two texts'
+    embeddings; it's filled only when an embedding backend is configured
+    (``JUDGE_EMBEDDINGS_PROVIDER``). Read both alongside the judge's criteria,
+    not instead of them.
     """
 
     exact_match: bool
     token_f1: float = Field(ge=0, le=1)
+    semantic_similarity: float | None = Field(default=None, ge=-1, le=1)
+    embedding_model: str | None = None
 
 
 class PointwiseResult(BaseModel):

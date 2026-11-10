@@ -201,9 +201,44 @@ def configuration_status(name: str, settings: Settings) -> tuple[bool, str]:
     return True, "plugin provider"
 
 
+def fallback_names(settings: Settings) -> list[str]:
+    """The configured fallback providers (``JUDGE_FALLBACK_PROVIDERS``), validated."""
+    names = [n.strip() for n in settings.fallback_providers.split(",") if n.strip()]
+    if not names:
+        return []
+    if len(set(names)) != len(names):
+        raise ConfigurationError(f"JUDGE_FALLBACK_PROVIDERS lists a provider twice: {names}")
+    if settings.provider in names:
+        raise ConfigurationError(
+            f"JUDGE_FALLBACK_PROVIDERS can't include the primary provider '{settings.provider}'."
+        )
+    if "mock" in names:
+        raise ConfigurationError(
+            "The mock judge can't be a fallback: its scores are not LLM judgments and must "
+            "not be mixed into live results. Choose another provider, or use "
+            "JUDGE_PROVIDER=mock explicitly."
+        )
+    for fallback in names:
+        provider_info(fallback)  # unknown names raise a helpful error
+    return names
+
+
 def build_provider(settings: Settings, name: str | None = None) -> LLMProvider:
-    """Build the provider named ``name`` (default: ``settings.provider``)."""
+    """Build the provider named ``name`` (default: ``settings.provider``).
+
+    When ``JUDGE_FALLBACK_PROVIDERS`` is set and the configured primary provider
+    is being built, the result is a
+    :class:`~llm_judge.providers.fallback.FallbackProvider` that tries the
+    fallbacks in order when the primary fails.
+    """
     chosen = name or settings.provider
     provider_info(chosen)  # raises a helpful ConfigurationError for unknown names
-    factory = _REGISTRY[chosen][1]
-    return factory(settings)
+    primary = _REGISTRY[chosen][1](settings)
+    if chosen != settings.provider:
+        return primary
+    names = fallback_names(settings)
+    if not names:
+        return primary
+    from .fallback import FallbackProvider
+
+    return FallbackProvider(primary, [_REGISTRY[n][1](settings) for n in names])

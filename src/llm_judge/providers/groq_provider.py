@@ -5,7 +5,13 @@ from __future__ import annotations
 import logging
 
 from ..exceptions import ConfigurationError, ProviderError, ResponseParsingError
-from .base import RETRYABLE_STATUS, ChatMessage, ProviderHealth, UsageTracker
+from .base import (
+    RETRYABLE_STATUS,
+    ChatMessage,
+    ProviderHealth,
+    UsageTracker,
+    retry_after_seconds,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,4 +133,10 @@ class GroqProvider:
                 "https://console.groq.com/docs/models).",
                 retryable=False,
             )
-        return ProviderError(f"Groq API error: {exc}", retryable=retryable)
+        response = getattr(exc, "response", None)
+        headers = getattr(response, "headers", None)
+        return ProviderError(
+            f"Groq API error: {exc}",
+            retryable=retryable,
+            retry_after=retry_after_seconds(headers, str(exc)) if retryable else None,
+        )

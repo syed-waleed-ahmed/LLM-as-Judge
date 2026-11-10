@@ -16,18 +16,30 @@
    merge keeps explanations consistent with the averaged verdict.
 6. Attach reliability warnings (prompt injection, verbosity, self-preference,
    position inconsistency) and judge/candidate metadata.
+
+Every evaluation method has an ``a``-prefixed async counterpart (``aevaluate``,
+``arank`` and so on) that runs it in a worker thread, so it can be awaited
+without blocking an event loop. An opt-in result cache (``JUDGE_CACHE_SIZE``)
+reuses identical temperature-0 judgments; see :mod:`llm_judge.cache`.
 """
 
 from __future__ import annotations
 
+import asyncio
+import contextvars
+import copy
+import functools
 import logging
+import random
+import threading
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Coroutine, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Concatenate, Literal, ParamSpec, TypeVar
 
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
+from .cache import ResultCache, cache_key, shared_cache
 from .config import Settings, get_settings
 from .criteria import DEFAULT_REFERENCE_CRITERIA, resolve_criterion
 from .diagnostics import injection_warnings, self_preference_warnings, verbosity_warning
@@ -50,6 +62,8 @@ from .prompts import (
     new_boundary,
 )
 from .providers.base import ChatMessage, LLMProvider
+from .providers.embeddings import EmbeddingProvider, build_embedder
+from .providers.fallback import fallback_warnings, track_fallbacks
 from .scoring import criterion_key, decide_winner, match_criteria, weighted_mean
 
 if TYPE_CHECKING:
@@ -59,11 +73,67 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 CriteriaInput = Sequence[Criterion | str] | Criterion | str
 
 # How much of a rejected reply is echoed back to the judge in a repair retry.
 _MAX_ECHO_CHARS = 4_000
+
+#: Longest single wait between retries, even when a provider asks for more.
+MAX_RETRY_WAIT_SECONDS = 60.0
+
+_backoff = wait_exponential(multiplier=0.5, max=8)
+
+
+def _retry_wait(state: Any) -> float:
+    """Exponential backoff, stretched to the provider's own retry-after hint if longer.
+
+    Free-tier rate limits (e.g. Groq's tokens per minute) often need several
+    seconds; retrying sooner than the provider asked just fails again. Up to
+    10% random jitter keeps concurrent workers from retrying in lockstep.
+    """
+    wait = float(_backoff(state))
+    exc = state.outcome.exception() if state.outcome else None
+    hint = getattr(exc, "retry_after", None)
+    if isinstance(hint, (int, float)) and hint > 0:
+        wait = max(wait, float(hint) + 0.25)
+    wait *= 1 + random.uniform(0, 0.1)  # nosec B311 - jitter, not security
+    return min(wait, MAX_RETRY_WAIT_SECONDS)
+
+
+def _sleep(seconds: float) -> None:
+    """Indirection so tests can observe retry waits without sleeping."""
+    time.sleep(seconds)
+
+
+def _now() -> float:
+    """Monotonic clock, patchable in tests together with :func:`_sleep`."""
+    return time.monotonic()
+
+
+class _Cooldown:
+    """A shared "don't call before" time for all threads using one judge."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._until = 0.0
+
+    def extend(self, seconds: float) -> None:
+        with self._lock:
+            target = _now() + min(float(seconds), MAX_RETRY_WAIT_SECONDS)
+            self._until = max(self._until, target)
+
+    def remaining(self) -> float:
+        with self._lock:
+            return max(0.0, self._until - _now())
+
+    def wait(self) -> None:
+        remaining = self.remaining()
+        if remaining > 0:
+            logger.info("Waiting %.1fs for the provider's rate limit to reset.", remaining)
+            _sleep(remaining)
 
 
 def _is_retryable(exc: BaseException) -> bool:
@@ -76,6 +146,23 @@ def provider_name(provider: LLMProvider) -> str:
     return name if isinstance(name, str) and name else type(provider).__name__
 
 
+def _async_method(
+    method: Callable[Concatenate[Judge, _P], _R],
+) -> Callable[Concatenate[Judge, _P], Coroutine[Any, Any, _R]]:
+    """Make an awaitable twin of a :class:`Judge` method that runs it in a worker thread."""
+
+    @functools.wraps(method)
+    async def wrapper(self: Judge, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+        return await asyncio.to_thread(method, self, *args, **kwargs)
+
+    wrapper.__doc__ = (
+        f"Async version of :meth:`Judge.{method.__name__}`: same arguments and result. "
+        "It runs the evaluation in a worker thread, so awaiting it doesn't block the "
+        "event loop, and several can run concurrently."
+    )
+    return wrapper
+
+
 class Judge:
     """Evaluate and compare pairs of model outputs with an LLM judge."""
 
@@ -83,9 +170,29 @@ class Judge:
         self,
         provider: LLMProvider | None = None,
         settings: Settings | None = None,
+        *,
+        cache: ResultCache[Any] | None = None,
+        embedder: EmbeddingProvider | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.provider = provider or self._build_default_provider(self.settings)
+        #: Optional embeddings for reference grading's semantic similarity.
+        self.embedder: EmbeddingProvider | None = (
+            embedder if embedder is not None else build_embedder(self.settings)
+        )
+        #: Optional result cache. Defaults to the shared cache when JUDGE_CACHE_SIZE > 0.
+        self.cache: ResultCache[Any] | None = cache
+        if cache is None and self.settings.cache_size > 0:
+            self.cache = shared_cache(self.settings.cache_size)
+        # When the provider asks for a pause (a rate-limit retry-after hint), every
+        # worker using this judge waits it out, so they don't keep re-triggering it.
+        self._cooldown = _Cooldown()
+
+    def without_cache(self) -> Judge:
+        """A copy of this judge that never reads or writes the result cache."""
+        clone = copy.copy(self)
+        clone.cache = None
+        return clone
 
     @staticmethod
     def _build_default_provider(settings: Settings) -> LLMProvider:
@@ -104,35 +211,78 @@ class Judge:
         *,
         candidate_a_model: str | None = None,
         candidate_b_model: str | None = None,
+        instructions: str | None = None,
     ) -> JudgeResult:
         """Judge ``output_a`` against ``output_b`` for ``task_description``.
 
         ``criteria`` may be a single name, a :class:`Criterion`, or a list of
         either. ``candidate_a_model`` and ``candidate_b_model`` optionally name
         the models that produced each output. They're recorded in the metadata
-        and used to detect self-preference risk.
+        and used to detect self-preference risk. ``instructions`` is optional
+        guidance for the judge, such as how strictly to score or what to
+        penalise; it is recorded in the metadata.
 
         Returns a validated :class:`JudgeResult`.
         """
+        key = self._cache_key(
+            "pairwise",
+            criteria,
+            {
+                "task": task_description,
+                "a": output_a,
+                "b": output_b,
+                "models": [candidate_a_model, candidate_b_model],
+                "instructions": instructions,
+            },
+        )
+        return self._cached(
+            key,
+            lambda: self._evaluate_pairwise(
+                task_description,
+                output_a,
+                output_b,
+                criteria,
+                candidate_a_model=candidate_a_model,
+                candidate_b_model=candidate_b_model,
+                instructions=instructions,
+            ),
+        )
+
+    def _evaluate_pairwise(
+        self,
+        task_description: str,
+        output_a: str,
+        output_b: str,
+        criteria: CriteriaInput,
+        *,
+        candidate_a_model: str | None,
+        candidate_b_model: str | None,
+        instructions: str | None,
+    ) -> JudgeResult:
         resolved = self.resolve_criteria(criteria)
         warnings: list[EvaluationWarning] = []
         task_description = self.validate_text("task_description", task_description, warnings)
         output_a = self.validate_text("output_a", output_a, warnings)
         output_b = self.validate_text("output_b", output_b, warnings)
         warnings.extend(injection_warnings({"A": output_a, "B": output_b}))
+        instructions = self.validate_instructions(instructions, warnings)
 
         started = time.perf_counter()
         runs: dict[str, object] = {}
-        if self.settings.mitigate_position_bias:
-            original, swapped_raw = self._run_both_orders(
-                task_description, output_a, output_b, resolved
-            )
-            swapped = swapped_raw.swapped()
-            result = self._merge(resolved, original, swapped, warnings)
-            runs = {"original": _run_summary(original), "swapped": _run_summary(swapped)}
-        else:
-            result = self._evaluate_once(task_description, output_a, output_b, resolved)
+        with track_fallbacks() as fallbacks:
+            if self.settings.mitigate_position_bias:
+                original, swapped_raw = self._run_both_orders(
+                    task_description, output_a, output_b, resolved, instructions
+                )
+                swapped = swapped_raw.swapped()
+                result = self._merge(resolved, original, swapped, warnings)
+                runs = {"original": _run_summary(original), "swapped": _run_summary(swapped)}
+            else:
+                result = self._evaluate_once(
+                    task_description, output_a, output_b, resolved, instructions
+                )
         latency = round(time.perf_counter() - started, 3)
+        warnings.extend(fallback_warnings(fallbacks))
         warnings.extend(result.warnings)
 
         verbosity = verbosity_warning(
@@ -156,6 +306,10 @@ class Judge:
         }
         if runs:
             metadata["runs"] = runs
+        if instructions:
+            metadata["instructions"] = instructions
+        if fallbacks:
+            metadata["fallback"] = [event.as_dict() for event in fallbacks]
         return result.model_copy(update={"warnings": warnings, "metadata": metadata})
 
     def evaluate_pointwise(
@@ -166,22 +320,39 @@ class Judge:
         *,
         reference: str | None = None,
         candidate_model: str | None = None,
+        instructions: str | None = None,
     ) -> PointwiseResult:
         """Grade a single ``output`` on its own merits.
 
         With ``reference``, the output is also judged against that expected
         answer. Prefer :meth:`evaluate_reference` for that, since it defaults
-        to reference-oriented criteria.
+        to reference-oriented criteria. ``instructions`` is optional judge
+        guidance, as in :meth:`evaluate`.
         """
         from .pointwise import run_pointwise
 
-        return run_pointwise(
-            self,
-            task_description,
-            output,
+        key = self._cache_key(
+            "pointwise",
             criteria,
-            reference=reference,
-            candidate_model=candidate_model,
+            {
+                "task": task_description,
+                "output": output,
+                "reference": reference,
+                "model": candidate_model,
+                "instructions": instructions,
+            },
+        )
+        return self._cached(
+            key,
+            lambda: run_pointwise(
+                self,
+                task_description,
+                output,
+                criteria,
+                reference=reference,
+                candidate_model=candidate_model,
+                instructions=instructions,
+            ),
         )
 
     def evaluate_reference(
@@ -192,22 +363,22 @@ class Judge:
         criteria: CriteriaInput | None = None,
         *,
         candidate_model: str | None = None,
+        instructions: str | None = None,
     ) -> PointwiseResult:
         """Grade ``output`` against an expected ``reference`` answer.
 
         Defaults to the "Correctness" and "Completeness" criteria. The result
         lists ``missing_information`` and ``unsupported_claims``, and includes
-        deterministic ``reference_metrics`` (exact match and token F1).
+        ``reference_metrics``: exact match and token F1, plus semantic similarity
+        when an embedding backend is configured.
         """
-        from .pointwise import run_pointwise
-
-        return run_pointwise(
-            self,
+        return self.evaluate_pointwise(
             task_description,
             output,
             list(DEFAULT_REFERENCE_CRITERIA) if criteria is None else criteria,
             reference=reference,
             candidate_model=candidate_model,
+            instructions=instructions,
         )
 
     def rank(
@@ -219,6 +390,7 @@ class Judge:
         strategy: Literal["round_robin", "pointwise"] = "round_robin",
         candidate_models: Mapping[str, str | None] | None = None,
         max_workers: int | None = None,
+        instructions: str | None = None,
     ) -> RankingResult:
         """Rank two or more candidate outputs and return a leaderboard.
 
@@ -236,6 +408,7 @@ class Judge:
             strategy=strategy,
             candidate_models=candidate_models,
             max_workers=max_workers,
+            instructions=instructions,
         )
 
     def evaluate_rag(
@@ -272,6 +445,57 @@ class Judge:
         if criteria is not None:
             items = [criteria] if isinstance(criteria, (str, Criterion)) else list(criteria)
         return run_agent_evaluation(self, trace, items, candidate_model=candidate_model)
+
+    # -- async counterparts (each runs the method above in a worker thread) ----
+
+    aevaluate = _async_method(evaluate)
+    aevaluate_pointwise = _async_method(evaluate_pointwise)
+    aevaluate_reference = _async_method(evaluate_reference)
+    arank = _async_method(rank)
+    aevaluate_rag = _async_method(evaluate_rag)
+    aevaluate_agent = _async_method(evaluate_agent)
+
+    # -- result cache ---------------------------------------------------------
+
+    def _cache_key(
+        self, kind: str, criteria: CriteriaInput, inputs: dict[str, object]
+    ) -> str | None:
+        """The cache key for an evaluation, or None when caching doesn't apply."""
+        if self.cache is None or self.settings.temperature != 0:
+            return None
+        from . import __version__  # lazy: the package imports this module first
+
+        s = self.settings
+        return cache_key(
+            kind,
+            {
+                **inputs,
+                "criteria": [c.model_dump() for c in self.resolve_criteria(criteria)],
+                "judge": [provider_name(self.provider), self.provider.model],
+                "embedder": getattr(self.embedder, "model", None),
+                "prompt_version": PROMPT_VERSION,
+                "version": __version__,
+                "settings": [
+                    s.mitigate_position_bias,
+                    s.tie_margin,
+                    s.verbosity_ratio_threshold,
+                    s.max_input_chars,
+                    s.max_instructions_chars,
+                ],
+            },
+        )
+
+    def _cached(self, key: str | None, compute: Callable[[], _T]) -> _T:
+        """Return a cached result for ``key``, or compute (and cache) a fresh one."""
+        if key is None or self.cache is None:
+            return compute()
+        hit = self.cache.get(key)
+        if hit is not None:
+            return hit.model_copy(update={"metadata": {**hit.metadata, "cache_hit": True}})
+        result = compute()
+        if not getattr(result, "metadata", {}).get("fallback"):
+            self.cache.put(key, result)
+        return result
 
     # -- shared helpers (also used by other evaluators) -----------------------
 
@@ -313,6 +537,31 @@ class Judge:
             return value[:limit]
         return value
 
+    def validate_instructions(
+        self, instructions: str | None, warnings: list[EvaluationWarning]
+    ) -> str | None:
+        """Normalise optional judge guidance: blank becomes None, oversized is truncated."""
+        if instructions is None:
+            return None
+        if not isinstance(instructions, str):
+            raise ValidationError("'instructions' must be a string.")
+        instructions = instructions.strip()
+        if not instructions:
+            return None
+        limit = self.settings.max_instructions_chars
+        if len(instructions) > limit:
+            warnings.append(
+                EvaluationWarning(
+                    code="input_truncated",
+                    message=(
+                        f"'instructions' was truncated from {len(instructions)} to "
+                        f"{limit} characters."
+                    ),
+                )
+            )
+            instructions = instructions[:limit]
+        return instructions
+
     def complete_and_parse(self, messages: list[ChatMessage], parse: Callable[[str], _T]) -> _T:
         """Call the provider and parse the reply, with repair retries.
 
@@ -348,17 +597,40 @@ class Judge:
     # -- internals ----------------------------------------------------------
 
     def _run_both_orders(
-        self, task: str, output_a: str, output_b: str, criteria: list[Criterion]
+        self,
+        task: str,
+        output_a: str,
+        output_b: str,
+        criteria: list[Criterion],
+        instructions: str | None = None,
     ) -> tuple[JudgeResult, JudgeResult]:
         """Judge (A, B) and (B, A). Returns the raw results of both orderings."""
         if not self.settings.parallel_bias_runs:
             return (
-                self._evaluate_once(task, output_a, output_b, criteria),
-                self._evaluate_once(task, output_b, output_a, criteria),
+                self._evaluate_once(task, output_a, output_b, criteria, instructions),
+                self._evaluate_once(task, output_b, output_a, criteria, instructions),
             )
+        # Each worker runs in a copy of this context, so per-evaluation state
+        # (such as the fallback log) is shared with the calling thread.
         with ThreadPoolExecutor(max_workers=2, thread_name_prefix="llm-judge-swap") as pool:
-            first = pool.submit(self._evaluate_once, task, output_a, output_b, criteria)
-            second = pool.submit(self._evaluate_once, task, output_b, output_a, criteria)
+            first = pool.submit(
+                contextvars.copy_context().run,
+                self._evaluate_once,
+                task,
+                output_a,
+                output_b,
+                criteria,
+                instructions,
+            )
+            second = pool.submit(
+                contextvars.copy_context().run,
+                self._evaluate_once,
+                task,
+                output_b,
+                output_a,
+                criteria,
+                instructions,
+            )
             return first.result(), second.result()
 
     def _evaluate_once(
@@ -367,10 +639,12 @@ class Judge:
         output_a: str,
         output_b: str,
         criteria: list[Criterion],
+        instructions: str | None = None,
     ) -> JudgeResult:
         boundary = new_boundary(task_description, output_a, output_b)
+        system = build_system_prompt(criteria, boundary=boundary, instructions=instructions)
         messages: list[ChatMessage] = [
-            {"role": "system", "content": build_system_prompt(criteria, boundary=boundary)},
+            {"role": "system", "content": system},
             {
                 "role": "user",
                 "content": build_user_prompt(
@@ -389,15 +663,23 @@ class Judge:
             reraise=True,
             retry=retry_if_exception(_is_retryable),
             stop=stop_after_attempt(self.settings.max_retries + 1),
-            wait=wait_exponential(multiplier=0.5, max=8),
+            wait=_retry_wait,
+            sleep=lambda seconds: _sleep(seconds),
             before_sleep=lambda state: logger.warning(
-                "Retrying judge call (attempt %s) after error: %s",
+                "Retrying judge call (attempt %s) in %.1fs after error: %s",
                 state.attempt_number,
+                state.next_action.sleep if state.next_action else 0.0,
                 state.outcome.exception() if state.outcome else "unknown",
             ),
         )
         def _do_call() -> str:
-            return self.provider.complete_json(messages)
+            self._cooldown.wait()
+            try:
+                return self.provider.complete_json(messages)
+            except ProviderError as exc:
+                if exc.retryable and exc.retry_after:
+                    self._cooldown.extend(exc.retry_after)
+                raise
 
         return _do_call()
 

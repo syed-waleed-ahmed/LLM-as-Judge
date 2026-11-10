@@ -299,3 +299,87 @@ def score_histogram(values: Sequence[float], *, theme: Theme, x_title: str) -> g
         title_text="Rows", showgrid=True, dtick=step, tickformat="d", ticksuffix="", automargin=True
     )
     return fig
+
+
+def trend_lines(
+    x_labels: Sequence[str],
+    series: Sequence[tuple[str, Sequence[float | None]]],
+    *,
+    theme: Theme,
+    y_title: str,
+    value_range: tuple[float, float] = (0.0, 1.0),
+) -> go.Figure:
+    """One or two metrics across runs, in run order, on a single 0-1 axis.
+
+    Colors follow the entity: the first series is Output A's (or the only
+    series'), the second Output B's. Missing values leave a gap.
+    """
+    if not 1 <= len(series) <= 2:
+        raise ValueError("trend_lines draws one or two series")
+    colors = (theme.series_a, theme.series_b)
+    fig = go.Figure()
+    for (name, values), color in zip(series, colors, strict=False):
+        fig.add_trace(
+            go.Scatter(
+                x=list(x_labels),
+                y=list(values),
+                name=name,
+                mode="lines+markers",
+                line={"color": color, "width": 2},
+                marker={"color": color, "size": 8, "line": {"color": theme.hover_bg, "width": 2}},
+                connectgaps=False,
+                hovertemplate=f"{name}<br>%{{x}}: %{{y:.3f}}<extra></extra>",
+            )
+        )
+    _layout(fig, theme, height=280, legend=len(series) > 1)
+    fig.update_xaxes(type="category", showgrid=False, title_text="")
+    low, high = value_range
+    fig.update_yaxes(
+        range=[low, high],
+        showgrid=True,
+        title_text=y_title,
+        ticksuffix="",
+        automargin=True,
+    )
+    fig.update_layout(margin={"l": 56})
+    return fig
+
+
+def margin_histogram(
+    values: Sequence[float], *, theme: Theme, x_title: str, tie_margin: float = 0.05
+) -> go.Figure:
+    """Distribution of pairwise score margins (A minus B, from -1 to 1) in 0.1 bins.
+
+    The margin is a polarity, so bins are colored by side: Output B's color
+    where B scored higher, Output A's where A did, neutral around zero.
+    """
+    edges = [round(-1 + 0.1 * i, 1) for i in range(21)]
+    counts = [0] * 20
+    for v in values:
+        counts[min(19, max(0, int((max(-1.0, min(1.0, v)) + 1) * 10)))] += 1
+    centers = [round(lo + 0.05, 2) for lo in edges[:-1]]
+
+    def color(center: float) -> str:
+        if center > tie_margin:
+            return theme.series_a
+        if center < -tie_margin:
+            return theme.series_b
+        return theme.neutral
+
+    fig = go.Figure(
+        go.Bar(
+            x=centers,
+            y=counts,
+            width=0.092,
+            marker={"color": [color(c) for c in centers]},
+            customdata=[f"{lo:+.1f} to {lo + 0.1:+.1f}" for lo in edges[:-1]],
+            hovertemplate="%{customdata}: %{y} row(s)<extra></extra>",
+        )
+    )
+    _layout(fig, theme, height=240, x_title=x_title, legend=False)
+    step = max(1, math.ceil(max(counts, default=1) / 4))
+    fig.update_xaxes(range=[-1, 1], tickvals=[-1, -0.5, 0, 0.5, 1], tickformat="+.1f")
+    fig.update_yaxes(
+        title_text="Rows", showgrid=True, dtick=step, tickformat="d", ticksuffix="", automargin=True
+    )
+    return fig

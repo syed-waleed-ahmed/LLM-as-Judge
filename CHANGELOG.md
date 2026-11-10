@@ -6,6 +6,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-10
+
+Published on PyPI, with one-click releases. Python 3.10 support ends.
+
+### Added
+- The package is on PyPI as `llm-as-judge-platform`: `pip install
+  llm-as-judge-platform`, or `pip install "llm-as-judge-platform[all]"`.
+  `llm-as-judge` itself is blocked on PyPI, because it's too similar to an
+  existing project. The import name (`llm_judge`), the `llm-judge` command
+  and the repository are unchanged.
+- **Actions → Release → Run workflow.** Releases can be made from the GitHub
+  UI: enter the version and, optionally, a commit SHA. The workflow builds and
+  checks the package, creates the tag and the GitHub Release with the
+  changelog notes, and publishes to PyPI with trusted publishing. Tag pushes
+  still work. Re-running a release updates it instead of failing.
+- The Live Ollama workflow also verifies the `openai_compatible` provider and
+  OpenAI-compatible embeddings, through Ollama's OpenAI-compatible `/v1` API.
+- CI tests Python 3.14.
+
+### Removed
+- Python 3.10 support. Python 3.10 reached end of life in October 2026, and
+  the fixed releases of dependencies such as Pillow need 3.11+. The package
+  now requires Python 3.11 or later. The `audit-py310` CI job, the import-time
+  deprecation warning and the dashboard's Python 3.10 notice are gone.
+
 ## [2.2.0] - 2026-11-10
 
 The next phases from the roadmap:
@@ -592,7 +617,8 @@ of scripts into an installable, tested, and documented framework.
 - Legacy flat modules (`config.py`, `judge.py`, `prompts.py`) superseded by the
   package.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.0...v2.0.1

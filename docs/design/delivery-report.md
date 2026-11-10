@@ -1,4 +1,4 @@
-# Delivery report: LLM-as-Judge 2.2
+# Delivery report: LLM-as-Judge 2.3
 
 This report closes the platform plan that started with the
 [Phase 0 audit](phase-0-audit.md). Version 2.1 completed the plan, and 2.2 took
@@ -34,6 +34,7 @@ design principles are in
 |---|---|
 | 2.0.0 | Phases 0 to 11 of the plan: hardened core, new evaluation modes, providers, datasets, experiments, REST API, dashboard, RAG and agent evaluation, security hardening, public demo, docs site and release automation. Two independent code reviews and browser end-to-end tests found 32 defects, all fixed. |
 | 2.0.1 | Open-source readiness (community files, CodeQL, Dependabot), docs-site link fixes, and a Streamlit 1.67 dashboard fix found in browser testing. |
+| 2.3.0 | Published on PyPI as `llm-as-judge-platform`, with one-click releases from the Actions tab. Python 3.10 support ended. OpenAI-compatible chat and embeddings are verified live in CI. |
 | 2.2.0 | The next phases: a PostgreSQL/Supabase experiment store tested in CI against a real server, live CI checks of the Ollama provider and embeddings, and three more benchmark samples. |
 | 2.1.0 | The gaps a line-by-line review against the plan found: judge instructions, provider fallback, async methods, a result cache, evaluation reports, the Analytics and Settings pages, semantic similarity, a free-tier rate-limit fix, screenshots, a coverage badge and Python 3.10 deprecation. |
 
@@ -95,11 +96,11 @@ weekly against a real Ollama server:
 
 The PostgreSQL store runs its tests against a real PostgreSQL 16 server in CI.
 
+Since 2.3, the same workflow also verifies the `openai_compatible` provider and
+OpenAI-compatible embeddings, through Ollama's OpenAI-compatible `/v1` API.
+
 **Implemented, not externally verified**
 
-- **OpenAI-compatible embeddings** (`JUDGE_EMBEDDINGS_PROVIDER=openai_compatible`):
-  tested against simulated responses, because the free endpoint available
-  (Groq) has no embeddings API.
 - **Supabase specifically:** the PostgreSQL store is tested against PostgreSQL
   16, which Supabase runs, but not against a Supabase project or its pooler.
 
@@ -107,9 +108,6 @@ The PostgreSQL store runs its tests against a real PostgreSQL 16 server in CI.
 
 **Planned, not implemented**
 
-- **Publishing to PyPI.** The workflow is ready and opt-in. It needs the
-  maintainer's PyPI account; until then, installs work from Git tags and
-  release wheels.
 - **Public hosting for the REST API.** No verified always-free host exists,
   so it's documented for local or self-hosted use, as the plan allows.
 - **Distributed job execution and horizontal scaling.** The job queue is
@@ -151,8 +149,8 @@ All are open source, and none needs a paid service.
 
 621 offline tests pass, with no API key or network access. They include unit
 and property-based tests (Hypothesis), and CLI, REST API, Streamlit AppTest,
-concurrency, docs-sync and security tests. CI runs them on Python 3.10, 3.11,
-3.12 and 3.13.
+concurrency, docs-sync and security tests. CI runs them on Python 3.11, 3.12,
+3.13 and 3.14.
 
 Live and browser checks, run during development:
 
@@ -183,10 +181,8 @@ every deploy from `main`, so it always shows the current figure.
   documented). CodeQL scans Python and the workflows and has no open alerts.
 - **Dependencies:**
   - `pip-audit` is clean on Python 3.12 with the dashboard extra.
-  - It's also clean on Python 3.10 for the library, CLI and API (new
-    `audit-py310` job).
-  - On Python 3.10 the dashboard's Pillow can't be patched (the fixes need
-    3.11+), so Python 3.10 is deprecated and the dashboard needs 3.11+.
+  - Python 3.10 support ended in 2.3.0, because the fixed releases of
+    Pillow and others need 3.11+.
 - **Repository:** secret scanning and push protection are on, as are private
   vulnerability reporting, Dependabot alerts and security updates, and a
   protected `main` (pull requests with passing checks).
@@ -211,11 +207,11 @@ expires. Back-to-back benchmarks went from 8 of 11 to 11 of 11 rows.
 
 | Workflow | Runs on | Jobs |
 |---|---|---|
-| CI | every pull request and push to `main` | tests on 3.10 to 3.13, audit, audit-py310, the PostgreSQL store against a service container, Bandit, Docker build and smoke tests, strict docs build, package build and smoke test |
+| CI | every pull request and push to `main` | tests on 3.11 to 3.14, audit, the PostgreSQL store against a service container, Bandit, Docker build and smoke tests, strict docs build, package build and smoke test |
 | CodeQL | pull requests, `main`, weekly | Python and Actions analysis |
 | Live Ollama | weekly, on demand, and pull requests touching those backends | the Ollama provider and embeddings against the official `ollama/ollama` image |
 | Docs | push to `main` | site build, coverage badge, GitHub Pages deploy |
-| Release | version tags | build, GitHub Release with changelog notes, opt-in PyPI |
+| Release | Run workflow button, or version tags | build, tag, GitHub Release with changelog notes, PyPI |
 | Dependabot | monthly | grouped pip and Actions updates |
 
 `main` only accepts changes whose CI and CodeQL checks pass.
@@ -227,7 +223,7 @@ expires. Back-to-back benchmarks went from 8 of 11 to 11 of 11 rows.
 | Public demo | Live on Streamlit Community Cloud (Python 3.12, demo mode, live Groq judging) |
 | Documentation | Live on GitHub Pages, deployed from `main` |
 | Releases | GitHub Releases with the wheel and sdist; release notes come from the changelog |
-| PyPI | Not published (opt-in, needs the maintainer's account) |
+| PyPI | Published as [`llm-as-judge-platform`](https://pypi.org/project/llm-as-judge-platform/) |
 | REST API | Local or self-hosted only (`llm-judge serve`, or the Docker image) |
 
 ## 13. Public demo URL
@@ -271,8 +267,6 @@ step by step in
   position, verbosity and self-preference effects; they don't remove them.
 - **The mock judge** is a heuristic for demos and tests. It ignores judge
   instructions and is always labelled.
-- **OpenAI-compatible embeddings** aren't verified against a live server.
-- **Python 3.10** is deprecated. Run the dashboard on 3.11 or later.
 - **In-memory and in-process state.** The result cache lives in memory, and
   REST API jobs don't survive a restart.
 
@@ -280,6 +274,5 @@ step by step in
 
 Open items, which contributions are welcome on, are in
 [ROADMAP.md](https://github.com/syed-waleed-ahmed/LLM-as-Judge/blob/main/ROADMAP.md):
-- PyPI publishing;
 - more providers and benchmark samples;
-- removing Python 3.10.
+- verifying the PostgreSQL store against a live Supabase project.

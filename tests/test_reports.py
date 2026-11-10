@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -19,7 +19,7 @@ from llm_judge.providers import MockProvider
 
 from .conftest import FnProvider, make_pointwise_payload
 
-WHEN = datetime(2026, 11, 10, 12, 0, tzinfo=timezone.utc)
+WHEN = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
 
 
 def _judge() -> Judge:

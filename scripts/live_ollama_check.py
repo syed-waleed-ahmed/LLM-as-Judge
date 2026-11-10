@@ -1,4 +1,7 @@
-"""Live check of the Ollama provider and Ollama embeddings against a real server.
+"""Live check of the Ollama and OpenAI-compatible backends against a real server.
+
+Ollama also serves an OpenAI-compatible API under ``/v1``, so the same server
+verifies the ``openai_compatible`` provider and OpenAI-compatible embeddings.
 
 Run by the "Live Ollama" workflow, which starts the official ``ollama/ollama``
 image and pulls a small judge model and an embedding model. To run it locally:
@@ -20,8 +23,12 @@ from collections.abc import Callable
 
 from llm_judge.config import Settings
 from llm_judge.judge import Judge
-from llm_judge.providers import OllamaProvider
-from llm_judge.providers.embeddings import OllamaEmbeddings, cosine_similarity
+from llm_judge.providers import OllamaProvider, OpenAICompatibleProvider
+from llm_judge.providers.embeddings import (
+    OllamaEmbeddings,
+    OpenAICompatibleEmbeddings,
+    cosine_similarity,
+)
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:11434"
 JUDGE_MODEL = sys.argv[2] if len(sys.argv) > 2 else "qwen2.5:1.5b"
@@ -112,12 +119,41 @@ def reference_with_semantic_similarity() -> str:
     return f"semantic similarity {metrics.semantic_similarity:.3f}, token F1 {metrics.token_f1:.3f}"
 
 
+def openai_compatible_judgment() -> str:
+    compatible = OpenAICompatibleProvider(f"{BASE}/v1", JUDGE_MODEL, timeout=600)
+    result = Judge(compatible, settings).evaluate(
+        "What is the capital of France? Answer in one sentence.",
+        "The capital of France is Paris.",
+        "France does not have a capital city.",
+        "Accuracy",
+    )
+    assert result.metadata["judge"] == {"provider": "openai_compatible", "model": JUDGE_MODEL}
+    return f"winner {result.overall_winner.value}"
+
+
+def openai_compatible_embeddings() -> str:
+    compatible = OpenAICompatibleEmbeddings(f"{BASE}/v1", EMBED_MODEL, timeout=300)
+    close, related, unrelated = compatible.embed(
+        [
+            "The cat sat on the mat.",
+            "A cat was sitting on the rug.",
+            "Quarterly revenue grew by twelve percent.",
+        ]
+    )
+    near = cosine_similarity(close, related)
+    far = cosine_similarity(close, unrelated)
+    assert near > far, f"paraphrase {near:.3f} should beat unrelated {far:.3f}"
+    return f"paraphrase {near:.3f} > unrelated {far:.3f}"
+
+
 print(f"Ollama at {BASE}: judge {JUDGE_MODEL}, embeddings {EMBED_MODEL}", flush=True)
 check("provider health", health, attempts=1)
 check("pairwise judgment", pairwise)
 check("pointwise grade", pointwise)
 check("embeddings rank a paraphrase above unrelated text", embeddings, attempts=1)
 check("reference grading with semantic similarity", reference_with_semantic_similarity)
+check("openai_compatible provider (Ollama /v1)", openai_compatible_judgment)
+check("OpenAI-compatible embeddings (Ollama /v1)", openai_compatible_embeddings, attempts=1)
 
 print("\nALL PASSED" if not failures else f"\n{len(failures)} FAILED: {failures}")
 sys.exit(1 if failures else 0)

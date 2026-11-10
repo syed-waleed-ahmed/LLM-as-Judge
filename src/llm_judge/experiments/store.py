@@ -4,7 +4,7 @@ The default backend is SQLite, which ships with Python, so persistence needs no
 server, account or extra dependency: one file (default ``.llm_judge/experiments.db``,
 see ``JUDGE_DB_PATH``). Set ``JUDGE_DB_PATH`` to a PostgreSQL URL instead, for
 example a free Supabase project's connection string, to share runs across machines
-(``pip install "llm-as-judge[postgres]"``). Both backends store the same data.
+(``pip install "llm-as-judge-platform[postgres]"``). Both backends store the same data.
 
 Privacy: raw task text, outputs and references are **not** stored, only their
 content hashes (which match rows across runs) plus the judge's results.
@@ -23,7 +23,7 @@ import sys
 import threading
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit, urlunsplit
@@ -143,11 +143,11 @@ class StoredRow(BaseModel):
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _new_run_id() -> str:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     return f"{stamp}-{secrets.token_hex(3)}"
 
 
@@ -311,7 +311,7 @@ class _PostgresBackend:
             from psycopg.rows import dict_row
         except ImportError as exc:  # pragma: no cover - depends on the environment
             raise ExperimentError(
-                'A PostgreSQL store needs psycopg: pip install "llm-as-judge[postgres]".'
+                'A PostgreSQL store needs psycopg: pip install "llm-as-judge-platform[postgres]".'
             ) from exc
         try:
             # prepare_threshold=None: no server-side prepared statements, which

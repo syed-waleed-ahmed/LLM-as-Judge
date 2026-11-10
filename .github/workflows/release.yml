@@ -1,33 +1,86 @@
 name: Release
 
-# Push a tag like v2.0.0 to build and create a GitHub Release (with the wheel and
-# sdist attached). Publishing to PyPI is opt-in: add a "trusted publisher" for this
-# repository on PyPI (workflow "release.yml", environment "pypi"; no API token is
-# stored anywhere), then set the repository variable PUBLISH_TO_PYPI to "true".
+# Builds the package, attaches the wheel and sdist to a GitHub Release, and uses
+# the version's CHANGELOG.md section as the release notes. Two ways to run it:
+#
+# * Actions > Release > Run workflow: enter the version (for example 2.3.0) and,
+#   to release an earlier commit, its SHA. The workflow creates the tag.
+# * Push a tag such as v2.3.0.
+#
+# PyPI uses trusted publishing (environment "pypi", no stored token). A manual
+# run publishes when "Publish to PyPI" is ticked; a tag push publishes when the
+# repository variable PUBLISH_TO_PYPI is "true". Re-running a release updates
+# it instead of failing.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 2.3.0 (must match src/llm_judge/__init__.py)"
+        required: true
+      target:
+        description: "Commit SHA to release (leave empty for the selected branch)"
+        required: false
+        default: ""
+      pypi:
+        description: "Publish to PyPI"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      sha: ${{ steps.meta.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target || github.sha }}
 
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
+      - name: Resolve the tag and commit
+        id: meta
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="v${INPUT_VERSION#v}"
+          else
+            TAG="$GITHUB_REF_NAME"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG from $(git rev-parse --short HEAD)"
+
       - name: Check that the tag matches the package version
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
         run: |
           VERSION=$(python -c "import re, pathlib; print(re.search(r'__version__ = \"(.+?)\"', pathlib.Path('src/llm_judge/__init__.py').read_text()).group(1))")
-          test "v$VERSION" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME != version v$VERSION"; exit 1; }
+          test "v$VERSION" = "$TAG" || { echo "Tag $TAG != package version v$VERSION"; exit 1; }
 
-      - name: Check that CHANGELOG.md has notes for this version
-        run: python scripts/release_notes.py "$GITHUB_REF_NAME" > /dev/null
+      - name: Write the release notes from CHANGELOG.md
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          mkdir -p notes
+          {
+            python scripts/release_notes.py "$TAG"
+            echo
+            echo "Full changelog: https://github.com/$GITHUB_REPOSITORY/blob/$TAG/CHANGELOG.md"
+          } > notes/release-notes.md
 
       - name: Build and check
         run: |
@@ -40,11 +93,20 @@ jobs:
           name: dist
           path: dist/
 
+      - uses: actions/upload-artifact@v7
+        with:
+          name: notes
+          path: notes/
+
   publish-pypi:
     needs: build
-    if: vars.PUBLISH_TO_PYPI == 'true'
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.pypi) ||
+      (github.event_name == 'push' && vars.PUBLISH_TO_PYPI == 'true')
     runs-on: ubuntu-latest
-    environment: pypi
+    environment:
+      name: pypi
+      url: https://pypi.org/project/llm-as-judge-platform/
     permissions:
       id-token: write
     steps:
@@ -61,22 +123,29 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
-
       - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
 
-      # The release notes are this version's section of CHANGELOG.md.
-      - name: Create the GitHub Release
+      - uses: actions/download-artifact@v8
+        with:
+          name: notes
+          path: notes/
+
+      - name: Create or update the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+          SHA: ${{ needs.build.outputs.sha }}
         run: |
-          {
-            python3 scripts/release_notes.py "$GITHUB_REF_NAME"
-            echo
-            echo "Full changelog: https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/CHANGELOG.md"
-          } > release-notes.md
-          gh release create "$GITHUB_REF_NAME" dist/* \
-            --title "LLM-as-Judge ${GITHUB_REF_NAME#v}" --notes-file release-notes.md
+          title="LLM-as-Judge ${TAG#v}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --title "$title" --notes-file notes/release-notes.md \
+              --repo "$GITHUB_REPOSITORY"
+          else
+            # Creates the tag at SHA when it doesn't exist yet (manual runs).
+            gh release create "$TAG" dist/* --target "$SHA" --title "$title" \
+              --notes-file notes/release-notes.md --repo "$GITHUB_REPOSITORY"
+          fi

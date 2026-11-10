@@ -1,7 +1,8 @@
 name: Live Ollama
 
-# Verifies the Ollama provider and Ollama embeddings against a real server (the
-# official ollama/ollama image) with small models. Free on GitHub-hosted runners.
+# Verifies the Ollama and OpenAI-compatible providers and embeddings against a real
+# server (the official ollama/ollama image, whose /v1 API is OpenAI-compatible)
+# with small models. Free on GitHub-hosted runners.
 # It runs weekly, on demand, and on pull requests that touch these backends.
 on:
   workflow_dispatch:
@@ -12,6 +13,7 @@ on:
     paths:
       - "src/llm_judge/providers/ollama_provider.py"
       - "src/llm_judge/providers/embeddings.py"
+      - "src/llm_judge/providers/openai_compatible.py"
       - "src/llm_judge/judge.py"
       - "src/llm_judge/pointwise.py"
       - "scripts/live_ollama_check.py"

@@ -16,7 +16,8 @@ labelled mock judge.
 [![Live Ollama](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/live-ollama.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/live-ollama.yml)
 [![Docs](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/docs.yml/badge.svg)](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)
 [![Release](https://img.shields.io/github/v/release/syed-waleed-ahmed/LLM-as-Judge)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases)
-![Python 3.10 to 3.13](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
+[![PyPI](https://img.shields.io/pypi/v/llm-as-judge-platform)](https://pypi.org/project/llm-as-judge-platform/)
+![Python 3.11 to 3.14](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **[Live demo](https://llm-as-judge.streamlit.app/)** ·
@@ -124,9 +125,16 @@ The dashboard with the live Groq judge (`openai/gpt-oss-120b`). Try it in the
 <!-- --8<-- [start:install] -->
 ## Installation
 
-Python 3.11 or later is recommended. Python 3.10 reached end of life in October
-2026: the library, CLI and REST API still run on it but support is deprecated, and
-the dashboard needs 3.11+ for Pillow's security fixes.
+Python 3.11 or later is required. The package is on PyPI as
+[`llm-as-judge-platform`](https://pypi.org/project/llm-as-judge-platform/); it
+installs the `llm_judge` library and the `llm-judge` command:
+
+```bash
+pip install llm-as-judge-platform              # library and CLI
+pip install "llm-as-judge-platform[all]"       # plus dashboard, REST API, YAML, PostgreSQL
+```
+
+To run the dashboard or work on the code, clone the repository:
 
 ```bash
 git clone https://github.com/syed-waleed-ahmed/LLM-as-Judge.git
@@ -143,20 +151,9 @@ pip install -e ".[ui,dev]"
 pip install -e ".[all]"
 ```
 
-**Without cloning.** The package isn't on PyPI yet, so install it from a
-release tag or from the wheel attached to a
-[GitHub Release](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases):
-
-```bash
-# From the v2.2.0 tag (extras: ui, api, yaml, postgres, all)
-pip install "llm-as-judge[all] @ git+https://github.com/syed-waleed-ahmed/LLM-as-Judge@v2.2.0"
-
-# Or from the release wheel
-pip install "llm-as-judge[all] @ https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/download/v2.2.0/llm_as_judge-2.2.0-py3-none-any.whl"
-```
-
-Either way you get the `llm-judge` command. To run the dashboard, clone the
-repository (it lives in `app.py` and `dashboard/`).
+Every [GitHub Release](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases)
+also has the wheel and sdist attached. The dashboard lives in `app.py` and
+`dashboard/`, so it runs from a clone.
 
 Then configure your key:
 
@@ -784,7 +781,7 @@ judging logic.
 
 | Area | Tools |
 |---|---|
-| Language and models | Python 3.10 to 3.13, fully typed (mypy); Pydantic v2 and pydantic-settings |
+| Language and models | Python 3.11 to 3.14, fully typed (mypy); Pydantic v2 and pydantic-settings |
 | LLM providers | Groq SDK; httpx for Ollama and OpenAI-compatible servers; an offline mock judge |
 | Resilience | tenacity retries that follow provider rate-limit hints; opt-in fallback and result cache |
 | REST API | FastAPI and Uvicorn |
@@ -857,17 +854,13 @@ benchmark samples.
 - **Semantic similarity is optional.** Reference grading always combines the
   judge's correctness and completeness scores with exact match and token F1,
   which are lexical. Embedding-based semantic similarity needs an embedding
-  backend (`JUDGE_EMBEDDINGS_PROVIDER`). Ollama embeddings are verified live in
-  CI; Groq offers no embeddings API.
+  backend (`JUDGE_EMBEDDINGS_PROVIDER`). Both embedding backends are verified
+  live in CI against Ollama; Groq offers no embeddings API.
 - **Single-node jobs.** REST API jobs run in an in-process queue that doesn't
   survive a restart, and nothing scales horizontally. Recorded runs can live in
   PostgreSQL or Supabase, so they can outlive a single machine.
-- **Python 3.10 is deprecated.** It's past end of life. The fixed versions of
-  Pillow, which Streamlit needs, require Python 3.11+, so run the dashboard on
-  3.11 or later. The library, CLI and API still run on 3.10, and CI audits their
-  dependencies there.
-- **Not hosted everywhere.** The REST API isn't hosted publicly; run it locally
-  or on your own server. The package isn't on PyPI yet.
+- **The REST API isn't hosted publicly.** Run it locally or on your own
+  server.
 
 <!-- --8<-- [end:limitations] -->
 

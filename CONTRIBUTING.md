@@ -36,7 +36,7 @@ The pre-commit hooks run `ruff`, fix trailing whitespace and line endings,
 check YAML and TOML syntax, and block merge-conflict markers and private keys,
 on every commit.
 
-Python 3.10 to 3.13 are supported. No API key is needed for development: the
+Python 3.11 to 3.14 are supported. No API key is needed for development: the
 test suite runs fully offline against an in-memory fake provider, and every
 command works with `--provider mock`.
 
@@ -54,7 +54,7 @@ mkdocs build --strict                         # docs, if you changed them
 ```
 
 With `make`, `make check` runs all of these except the docs build, and
-`make docs` builds the site. CI also runs the tests on Python 3.10 to 3.13,
+`make docs` builds the site. CI also runs the tests on Python 3.11 to 3.14,
 audits dependencies with `pip-audit`, builds the Docker image and the wheel,
 and runs CodeQL.
 
@@ -114,9 +114,11 @@ These keep the project usable by anyone, at no cost:
 
 1. Move the **Unreleased** changelog entries under a new version heading, and
    bump `__version__` in `src/llm_judge/__init__.py`.
-2. Merge to `main`, then push a tag such as `v2.1.0`.
+2. Merge to `main`.
+3. Open **Actions → Release → Run workflow**, enter the version (for example
+   `2.3.0`), and run it. Pushing a tag such as `v2.3.0` works too.
 
-The release workflow builds the package and creates a GitHub Release, using
-that version's changelog section as the notes. If PyPI publishing is enabled,
-it also publishes there. See
+The release workflow builds the package and creates the tag and the GitHub
+Release, using that version's changelog section as the notes. It also
+publishes to PyPI (`llm-as-judge-platform`) when "Publish to PyPI" is ticked. See
 [`DEPLOYMENT.md`](https://github.com/syed-waleed-ahmed/LLM-as-Judge/blob/main/DEPLOYMENT.md).

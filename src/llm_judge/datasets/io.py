@@ -125,7 +125,7 @@ def _document_rows(path: Path, suffix: str) -> Iterator[dict[str, Any]]:
             import yaml
         except ImportError:  # pragma: no cover - depends on the environment
             raise DatasetError(
-                "Reading YAML datasets needs PyYAML: pip install 'llm-as-judge[yaml]'."
+                "Reading YAML datasets needs PyYAML: pip install 'llm-as-judge-platform[yaml]'."
             ) from None
         try:
             # A SafeLoader that also forbids aliases: anchors and aliases let a tiny

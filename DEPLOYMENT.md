@@ -172,21 +172,26 @@ Preview it locally with `pip install -e ".[docs]"` and then `mkdocs serve`.
 
 ## 5. Releases (GitHub and PyPI)
 
-Releases are tag-driven and need no stored API token:
+Releases need no stored API token. PyPI uses trusted publishing, and the package
+is published as [`llm-as-judge-platform`](https://pypi.org/project/llm-as-judge-platform/).
 
 1. **One-time setup on PyPI.** Under *Publishing*, add a **trusted publisher**
-   for this GitHub repository, with workflow `release.yml` and environment
-   `pypi`. Then set the repository variable `PUBLISH_TO_PYPI` to `true`
-   (Settings → Secrets and variables → Actions → Variables). Without it, tags
-   still create GitHub Releases, but nothing is published to PyPI.
+   for this repository, with workflow `release.yml` and environment `pypi`.
+   Before the first upload, use a *pending* publisher for the project name
+   `llm-as-judge-platform`.
 2. **Bump the version.** Update `__version__` in `src/llm_judge/__init__.py`,
    and move the changelog's **Unreleased** entries under the new version's
    heading. Then merge to `main`.
-3. **Tag and push:** `git tag -a v2.1.0 -m "LLM-as-Judge 2.1.0" && git push origin v2.1.0`.
-   The `Release` workflow checks that the tag matches the version and that the
-   changelog has a section for it. It then builds and checks the distribution
-   and creates a GitHub Release, using that changelog section as the release
-   notes. If PyPI publishing is enabled, it also publishes there.
+3. **Release.** Open **Actions → Release → Run workflow**, enter the version
+   (for example `2.3.0`), and keep "Publish to PyPI" ticked. To release an
+   earlier commit, enter its SHA as the target.
+
+The workflow checks that the version and the changelog match. It then builds and
+checks the distribution, creates the tag and the GitHub Release (using the
+changelog section as the notes), and publishes to PyPI. Pushing a tag such as
+`v2.3.0` also releases; that path publishes to PyPI only when the repository
+variable `PUBLISH_TO_PYPI` is `true`. Re-running a release updates it rather
+than failing.
 
 CI's `package` job already builds the wheel on every push and smoke-tests it
 in a clean environment, so a release only runs steps that are already checked

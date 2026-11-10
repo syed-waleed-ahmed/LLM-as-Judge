@@ -6,7 +6,7 @@ import re
 import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Protocol, TypedDict, runtime_checkable
 
@@ -119,8 +119,8 @@ def retry_after_seconds(
                     when = None
                 if when is not None:
                     if when.tzinfo is None:
-                        when = when.replace(tzinfo=timezone.utc)
-                    return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
+                        when = when.replace(tzinfo=UTC)
+                    return max(0.0, (when - datetime.now(UTC)).total_seconds())
     match = _TRY_AGAIN.search(message or "")
     if match and (match.group("min") or match.group("num")):
         seconds = float(match.group("min") or 0) * 60

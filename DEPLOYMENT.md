@@ -14,6 +14,9 @@ own machine for the REST API and local models. No step needs a credit card.
 
 ## 1. Public dashboard on Streamlit Community Cloud
 
+This project's demo runs at <https://llm-as-judge.streamlit.app/>, deployed exactly as described here.
+To run your own copy:
+
 **Prerequisites:** the repository on GitHub, and a free Streamlit Community
 Cloud account (sign in with GitHub at <https://share.streamlit.io>).
 

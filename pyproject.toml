@@ -76,6 +76,7 @@ llm-judge = "llm_judge.cli:main"
 [project.urls]
 Homepage = "https://github.com/syed-waleed-ahmed/LLM-as-Judge"
 Documentation = "https://syed-waleed-ahmed.github.io/LLM-as-Judge/"
+Demo = "https://llm-as-judge.streamlit.app/"
 Repository = "https://github.com/syed-waleed-ahmed/LLM-as-Judge"
 Issues = "https://github.com/syed-waleed-ahmed/LLM-as-Judge/issues"
 Changelog = "https://github.com/syed-waleed-ahmed/LLM-as-Judge/blob/main/CHANGELOG.md"

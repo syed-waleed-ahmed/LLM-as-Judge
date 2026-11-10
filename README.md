@@ -9,6 +9,7 @@ reliability analytics. One engine powers a **Python library**, a **CLI**, a
 models with [Ollama](https://ollama.com), or entirely offline with a clearly
 labelled mock judge.
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://llm-as-judge.streamlit.app/)
 [![CI](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/codeql.yml/badge.svg)](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/codeql.yml)
 [![Docs](https://github.com/syed-waleed-ahmed/LLM-as-Judge/actions/workflows/docs.yml/badge.svg)](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)
@@ -16,6 +17,7 @@ labelled mock judge.
 ![Python 3.10 to 3.13](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+**[Live demo](https://llm-as-judge.streamlit.app/)** ·
 **[Documentation](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)** ·
 [Getting started](https://syed-waleed-ahmed.github.io/LLM-as-Judge/getting-started/) ·
 [Changelog](CHANGELOG.md) ·

@@ -27,7 +27,7 @@ tested, waiting for an account-specific step.
 | 7 | Multi-page Streamlit dashboard with demo mode and quotas | done |
 | 8 | RAG and agent evaluation, reliability analytics (repeat-sampling confidence intervals) | done |
 | 9 | Security and performance hardening (upload limits, dependency audit, concurrency tests) | done |
-| 10 | Free-tier public demo on Streamlit Community Cloud ([guide](DEPLOYMENT.md)), tested in a browser in the same configuration | ready: publishing needs the maintainer's Streamlit account |
+| 10 | Free-tier public demo on Streamlit Community Cloud ([live](https://llm-as-judge.streamlit.app/), [guide](DEPLOYMENT.md)), tested in a browser | done |
 | 11 | Documentation site (MkDocs Material, [published](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)) and release automation ([v2.0.0](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/tag/v2.0.0)) | done; PyPI publishing is opt-in (see DEPLOYMENT.md) |
 
 ## What's next

@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- The public demo is live at <https://llm-as-judge.streamlit.app/> (Streamlit Community
+  Cloud, demo mode). The README, the documentation site and the package
+  metadata link to it.
+
 ## [2.0.1] - 2026-11-10
 
 A maintenance release: a dashboard fix, documentation-site fixes and

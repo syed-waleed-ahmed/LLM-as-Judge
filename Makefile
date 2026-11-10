@@ -1,4 +1,4 @@
-.PHONY: install test lint type check format format-check run cli clean
+.PHONY: install test lint type check format format-check run serve cli clean
 
 install:  ## Install the package with UI + dev extras (editable)
 	pip install -e ".[ui,dev]"
@@ -23,6 +23,9 @@ check: lint format-check type test  ## Run lint, format check, type-check, and t
 
 run:  ## Launch the Streamlit app
 	streamlit run app.py
+
+serve:  ## Launch the REST API on http://127.0.0.1:8000 (docs at /docs)
+	llm-judge serve
 
 cli:  ## Show the CLI help
 	llm-judge --help

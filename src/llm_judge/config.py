@@ -78,6 +78,17 @@ class Settings(BaseSettings):
     # Batch behaviour.
     batch_max_workers: int = Field(default=4, ge=1, le=64, alias="JUDGE_BATCH_MAX_WORKERS")
 
+    # REST API (llm-judge serve). Secrets use repr=False.
+    api_keys: str | None = Field(default=None, alias="JUDGE_API_KEYS", repr=False)
+    api_admin_key: str | None = Field(default=None, alias="JUDGE_API_ADMIN_KEY", repr=False)
+    api_rate_limit_per_minute: int = Field(default=60, ge=0, alias="JUDGE_API_RATE_LIMIT")
+    api_max_body_bytes: int = Field(default=1_000_000, gt=0, alias="JUDGE_API_MAX_BODY_BYTES")
+    api_max_concurrent: int = Field(default=4, ge=1, le=64, alias="JUDGE_API_MAX_CONCURRENT")
+    api_max_batch_rows: int = Field(default=50, ge=1, alias="JUDGE_API_MAX_BATCH_ROWS")
+    api_max_job_rows: int = Field(default=1_000, ge=1, alias="JUDGE_API_MAX_JOB_ROWS")
+    api_max_queued_jobs: int = Field(default=10, ge=1, alias="JUDGE_API_MAX_QUEUED_JOBS")
+    api_cors_origins: str = Field(default="", alias="JUDGE_API_CORS_ORIGINS")
+
     # Experiment tracking database (SQLite file).
     db_path: str = Field(default=".llm_judge/experiments.db", alias="JUDGE_DB_PATH")
 

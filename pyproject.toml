@@ -35,12 +35,16 @@ dependencies = [
 [project.optional-dependencies]
 ui = ["streamlit>=1.35.0"]
 yaml = ["pyyaml>=6.0"]
+api = ["fastapi>=0.110", "uvicorn>=0.29"]
+all = ["llm-as-judge[ui,api,yaml]"]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "hypothesis>=6.100.0",
     "pyyaml>=6.0",
     "types-PyYAML>=6.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
     "ruff>=0.17,<0.18",  # pinned: formatter output differs between minor versions
     "mypy>=1.10.0",
 ]

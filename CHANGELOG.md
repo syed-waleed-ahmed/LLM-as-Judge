@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - Unreleased
+
+Phase 6 of the platform roadmap: REST API.
+
+### Added
+- `llm_judge.api` (FastAPI, `[api]` extra) and `llm-judge serve`, which
+  binds to localhost by default and warns when exposed without API keys.
+- Versioned `/api/v1` endpoints for pairwise, pointwise, reference and
+  ranking evaluation, synchronous batches, background dataset jobs, dataset
+  validation, benchmarks, experiments and run comparison, providers,
+  criteria, status and statistics. OpenAPI docs are at `/docs`.
+- Background jobs: a bounded queue, cancellation, `Idempotency-Key` replay
+  with conflict detection, paginated rows, and optional experiment recording.
+- Security and resilience:
+  - optional API keys (constant-time comparison);
+  - admin routes disabled unless `JUDGE_API_ADMIN_KEY` is set;
+  - per-client token-bucket rate limiting;
+  - an ASGI request-size limit that also covers chunked bodies;
+  - a concurrency cap that sheds load with 503.
+- Operations: one JSON error envelope with request ids, and structured JSON
+  access logs (no bodies).
+- `[all]` extra; `make serve`; `JUDGE_API_*` settings.
+
+### Fixed
+- Queued jobs are marked cancelled on shutdown instead of staying "queued".
+
 ## [1.5.0] - Unreleased
 
 Phase 5 of the platform roadmap: experiment tracking.

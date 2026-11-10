@@ -63,7 +63,7 @@ this project handles the parts that usually get skipped:
 
 | Capability | Description |
 |---|---|
-| **Library, CLI & UI** | One evaluation core, three ways to use it. |
+| **Library, CLI, UI & REST API** | One evaluation core, four ways to use it. |
 | **Four evaluation modes** | Pairwise (A vs B), pointwise (one output), reference-based (vs. an expected answer), and multi-candidate ranking. |
 | **Multi-criteria** | Score on several criteria at once (built-in or custom), with optional weights. |
 | **Bias mitigation** | Optional A/B order swapping to reduce position bias. |
@@ -89,6 +89,9 @@ python -m venv .venv
 
 # Library + UI + dev tooling
 pip install -e ".[ui,dev]"
+
+# Or everything (UI, REST API, YAML support)
+pip install -e ".[all]"
 ```
 
 Then configure your key:
@@ -234,6 +237,44 @@ Every pairwise evaluation returns a validated, versioned result:
   }
 }
 ```
+
+### 4. REST API
+
+```bash
+pip install "llm-as-judge[api]"
+llm-judge serve                      # http://127.0.0.1:8000, docs at /docs
+```
+
+```bash
+curl -s http://127.0.0.1:8000/api/v1/evaluate/pairwise \
+  -H "Content-Type: application/json" \
+  -d '{"task_description": "Explain DNS", "output_a": "...", "output_b": "...",
+       "criteria": ["Helpfulness", {"name": "Accuracy", "weight": 2}]}'
+```
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/v1/evaluate/{pairwise,pointwise,reference,rank}` | Single evaluations |
+| `POST /api/v1/evaluate/batch` | Small synchronous batches (`JUDGE_API_MAX_BATCH_ROWS`) |
+| `POST /api/v1/jobs`, `GET /api/v1/jobs/{id}[/rows]`, `DELETE /api/v1/jobs/{id}` | Background dataset jobs (bounded queue, cancellable, idempotent with `Idempotency-Key`) |
+| `POST /api/v1/datasets/validate` | Validate rows or CSV/JSONL/JSON/YAML content |
+| `GET /api/v1/benchmarks`, `POST /api/v1/benchmarks/{name}/jobs` | Bundled sample benchmarks |
+| `GET /api/v1/experiments`, `/runs`, `/runs/{id}[/rows]`, `/runs/compare` | Experiment history and regression checks |
+| `GET /api/v1/system/status`, `/providers`, `/criteria`, `/statistics`, `GET /health` | Service information |
+
+Protections, all configurable:
+- **API keys.** `JUDGE_API_KEYS` (comma-separated), sent as `X-API-Key` or `Authorization: Bearer`.
+- **Admin routes.** Deleting runs and listing all jobs are disabled unless `JUDGE_API_ADMIN_KEY` is set.
+- **Rate limiting.** A per-client limit, with `Retry-After` on 429.
+- **Size limit.** Request bodies over the limit get a 413.
+- **Concurrency cap.** Excess load gets a 503, so free-tier quotas aren't exhausted silently.
+
+Every error uses one JSON envelope with a request id, and request logs are
+structured JSON without bodies. `serve` binds to localhost by default and
+warns when exposed without API keys.
+
+No always-free host is assumed for the API. Run it locally or on your own
+infrastructure. The public demo (Streamlit) doesn't depend on it.
 
 ---
 
@@ -392,6 +433,14 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_MAX_CRITERIA` | `20` | Maximum criteria per evaluation. |
 | `JUDGE_MAX_CANDIDATES` | `8` | Maximum candidates per ranking (round robin makes n(n-1)/2 comparisons). |
 | `JUDGE_MAX_INPUT_CHARS` | `50000` | Longer inputs are truncated (with a warning). |
+| `JUDGE_API_KEYS` | — | Comma-separated keys required by `/api/v1` (open if unset). |
+| `JUDGE_API_ADMIN_KEY` | — | Enables admin routes (they're disabled if unset). |
+| `JUDGE_API_RATE_LIMIT` | `60` | Requests per minute per client (0 disables). |
+| `JUDGE_API_MAX_BODY_BYTES` | `1000000` | Larger request bodies get 413. |
+| `JUDGE_API_MAX_CONCURRENT` | `4` | Concurrent evaluations before 503. |
+| `JUDGE_API_MAX_BATCH_ROWS` / `JUDGE_API_MAX_JOB_ROWS` | `50` / `1000` | Row limits for sync batches and jobs. |
+| `JUDGE_API_MAX_QUEUED_JOBS` | `10` | Waiting jobs before 429. |
+| `JUDGE_API_CORS_ORIGINS` | — | Comma-separated allowed origins (CORS off if unset). |
 | `JUDGE_DB_PATH` | `.llm_judge/experiments.db` | Experiment-tracking database (SQLite). |
 | `JUDGE_MAX_DATASET_BYTES` | `50000000` | Larger dataset files are rejected before parsing. |
 | `JUDGE_MAX_DATASET_ROWS` | `100000` | Maximum rows per dataset. |
@@ -456,6 +505,7 @@ src/llm_judge/           # Installable package (src layout)
 ├─ datasets/             # Readers, validation, checkpointed runner, summaries,
 │                        #   bundled synthetic samples
 ├─ experiments/          # SQLite run store, run comparison, regression detection
+├─ api/                  # FastAPI app: routes, security, job queue (`[api]` extra)
 ├─ cli.py                # `llm-judge` command-line interface
 ├─ logging_config.py     # Opt-in logging setup
 ├─ py.typed              # PEP 561 marker: ships type information

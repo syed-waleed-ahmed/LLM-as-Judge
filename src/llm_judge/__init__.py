@@ -43,7 +43,7 @@ from .models import (
 from .prompts import PROMPT_VERSION
 
 # Single source of truth for the package version (read by setuptools).
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 __all__ = [
     "Judge",

@@ -305,6 +305,11 @@ def _build_parser() -> argparse.ArgumentParser:
     # list-criteria -------------------------------------------------------
     sub.add_parser("list-criteria", help="List built-in criteria presets.")
 
+    # serve ---------------------------------------------------------------
+    sv = sub.add_parser("serve", help="Run the REST API server (needs the [api] extra).")
+    sv.add_argument("--host", default="127.0.0.1", help="Interface to bind (default: localhost).")
+    sv.add_argument("--port", type=int, default=8000)
+
     # providers / health / version -----------------------------------------
     sub.add_parser("providers", help="List judge providers and whether each is configured.")
     sub.add_parser("health", help="Check that the active provider is reachable (no inference).")
@@ -715,6 +720,32 @@ def _cmd_experiments(args: argparse.Namespace) -> int:
     return 2  # pragma: no cover - argparse enforces the choices
 
 
+_LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _cmd_serve(args: argparse.Namespace) -> int:
+    try:
+        import uvicorn
+
+        from .api import create_app
+    except ImportError:
+        raise SystemExit(
+            "error: the API server needs FastAPI and Uvicorn: pip install 'llm-as-judge[api]'"
+        ) from None
+    settings = _settings(args)
+    if args.host not in _LOCAL_HOSTS and not settings.api_keys:
+        print(
+            f"warning: serving on {args.host} without JUDGE_API_KEYS. Anyone who can reach "
+            "this server can use (and exhaust) your provider quota.",
+            file=sys.stderr,
+        )
+    print(f"LLM-as-Judge API on http://{args.host}:{args.port} (docs at /docs)")
+    uvicorn.run(
+        create_app(settings), host=args.host, port=args.port, log_level=settings.log_level.lower()
+    )
+    return 0
+
+
 def _cmd_benchmark(args: argparse.Namespace) -> int:
     from .datasets import SAMPLE_DATASETS, load_sample, summarize, write_outcomes
 
@@ -899,6 +930,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_benchmark(args)
         if args.command in ("experiments", "experiment"):
             return _cmd_experiments(args)
+        if args.command == "serve":
+            return _cmd_serve(args)
         if args.command == "grade":
             return _cmd_grade(args)
         if args.command == "rank":

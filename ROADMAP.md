@@ -22,8 +22,8 @@ Status key: **done** = implemented and tested, **next** = in progress,
 | 3 | Providers: mock (no key), Ollama (local), generic OpenAI-compatible, provider registry | done |
 | 4 | Datasets: validation, streaming reads, checkpointed and resumable batches, bundled synthetic sample sets | done |
 | 5 | Experiment tracking: SQLite store, run comparison, regression detection (Supabase adapter deferred: not verifiable in CI) | done |
-| 6 | REST API (FastAPI, local or self-hosted) and expanded CLI | next |
-| 7 | Multi-page Streamlit dashboard with demo mode and quotas | planned |
+| 6 | REST API (FastAPI, local or self-hosted) and expanded CLI | done |
+| 7 | Multi-page Streamlit dashboard with demo mode and quotas | next |
 | 8 | RAG and agent evaluation, reliability analytics (repeat-sampling confidence intervals) | planned |
 | 9 | Security and performance hardening (upload limits, dependency audit, concurrency tests) | planned |
 | 10 | Free-tier public demo on Streamlit Community Cloud | planned |

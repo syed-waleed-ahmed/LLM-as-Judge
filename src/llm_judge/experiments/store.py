@@ -405,6 +405,31 @@ class ExperimentStore:
             rows = conn.execute(query, params).fetchall()
         return [self._run_from_row(r) for r in rows]
 
+    def count_runs(self, *, experiment: str | None = None) -> int:
+        query = "SELECT COUNT(*) FROM runs r LEFT JOIN experiments e ON e.id = r.experiment_id"
+        params: list[Any] = []
+        if experiment is not None:
+            query += " WHERE e.name = ?"
+            params.append(experiment)
+        with self._tx() as conn:
+            return int(conn.execute(query, params).fetchone()[0])
+
+    def statistics(self) -> dict[str, Any]:
+        """Aggregate counts across the whole store."""
+        with self._tx() as conn:
+            experiments = conn.execute("SELECT COUNT(*) FROM experiments").fetchone()[0]
+            runs = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+            rows = conn.execute("SELECT COUNT(*) FROM run_rows").fetchone()[0]
+            by_kind = conn.execute("SELECT kind, COUNT(*) FROM runs GROUP BY kind").fetchall()
+            by_status = conn.execute("SELECT status, COUNT(*) FROM runs GROUP BY status").fetchall()
+        return {
+            "experiments": int(experiments),
+            "runs": int(runs),
+            "rows_evaluated": int(rows),
+            "runs_by_kind": {k: int(n) for k, n in by_kind},
+            "runs_by_status": {k: int(n) for k, n in by_status},
+        }
+
     def get_rows(self, run_id: str) -> list[StoredRow]:
         run = self.require_run(run_id)
         with self._tx() as conn:

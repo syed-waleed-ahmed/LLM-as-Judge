@@ -1,29 +1,31 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-as-judge"
-version = "1.0.0"
+dynamic = ["version"]
 description = "A production-grade LLM-as-Judge framework for evaluating and comparing model outputs, with position-bias mitigation, multi-criteria scoring, batch evaluation, a CLI, and a Streamlit UI."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Syed Waleed Ahmed", email = "syedwaleedahmed9@gmail.com" }]
 keywords = ["llm", "evaluation", "judge", "groq", "llm-as-judge", "benchmarking", "nlp"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 dependencies = [
     "groq>=0.11.0",
+    "httpx>=0.25.0",
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.0",
     "python-dotenv>=1.0.0",
@@ -31,12 +33,23 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ui = ["streamlit>=1.35.0"]
+ui = ["streamlit>=1.50", "plotly>=5.20"]
+yaml = ["pyyaml>=6.0"]
+api = ["fastapi>=0.110", "uvicorn>=0.29"]
+# MkDocs 2.0 drops the plugin/theme system Material relies on, so stay on 1.x.
+docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5,<10"]
+all = ["llm-as-judge[ui,api,yaml]"]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
-    "ruff>=0.5.0",
-    "mypy>=1.10.0",
+    "hypothesis>=6.100.0",
+    "pyyaml>=6.0",
+    "types-PyYAML>=6.0",
+    "bandit[toml]>=1.7",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "ruff>=0.17,<0.18",  # pinned: formatter output differs between minor versions
+    "mypy>=2.4,<2.5",  # pinned: inference (and so unused-ignore checks) varies by version
 ]
 
 [project.scripts]
@@ -51,8 +64,11 @@ Issues = "https://github.com/syed-waleed-ahmed/LLM-as-Judge/issues"
 where = ["src"]
 include = ["llm_judge*"]
 
+[tool.setuptools.dynamic]
+version = { attr = "llm_judge.__version__" }
+
 [tool.setuptools.package-data]
-llm_judge = ["py.typed"]
+llm_judge = ["py.typed", "datasets/samples/*.jsonl"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -65,9 +81,16 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "W"]
 
+[tool.bandit]
+# Reviewed and suppressed with reasons (see SECURITY.md):
+# B101 assert: internal invariants and type narrowing, not security checks.
+# B311 random: seeded PRNG for reproducible sampling and bootstrap resampling.
+# B615 HF download: false positive; llm_judge.datasets.load_dataset reads local files only.
+skips = ["B101", "B311", "B615"]
+
 [tool.mypy]
 python_version = "3.10"
 mypy_path = "src"
-files = ["src/llm_judge"]
+files = ["src/llm_judge", "app.py", "dashboard"]
 warn_unused_ignores = true
 ignore_missing_imports = true

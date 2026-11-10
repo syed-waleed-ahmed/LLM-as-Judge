@@ -14,8 +14,8 @@ env/
 # Environment variables & secrets
 .env
 
-# Streamlit
-.streamlit/
+# Streamlit: keep config.toml, never commit secrets
+.streamlit/secrets.toml
 
 # Testing / coverage
 .pytest_cache/
@@ -39,3 +39,7 @@ Thumbs.db
 
 # Graphify: ignore only the regenerable cache; the graph artifacts are kept as docs.
 graphify-out/cache/
+
+# Local experiment database and checkpoints
+.llm_judge/
+*.checkpoint.jsonl

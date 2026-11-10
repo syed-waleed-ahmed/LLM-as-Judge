@@ -4,6 +4,344 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - Unreleased (release candidate)
+
+The first platform release. It bundles development versions 1.1.0 to 1.9.0
+(below), which were never published separately. LLM-as-Judge grows from a
+pairwise judging library into an evaluation platform:
+- pointwise, reference, ranking, RAG and agent evaluation;
+- reliability safeguards and analytics;
+- Groq, Ollama, OpenAI-compatible and offline mock providers;
+- datasets, resumable batches and benchmarks;
+- experiment tracking with regression detection;
+- a REST API and a multi-page dashboard with a public demo mode;
+- a security hardening pass, a documentation site and release automation.
+
+### Upgrade notes
+- The Python API is backwards compatible. `Judge.evaluate(...)`, the result
+  fields and the CLI flags from 1.0 still work, and new result fields are
+  additive (`schema_version`).
+- The default Groq model is `openai/gpt-oss-120b`, because Groq retired
+  `llama-3.3-70b-versatile`. Update `GROQ_MODEL` only if you pinned
+  the old model.
+- `llm-judge batch` now writes a checkpoint by default and accepts any dataset
+  kind. JSONL output rows gain a nested `result` object.
+- The overall winner is decided on weighted, scale-normalised scores. On the
+  default 1-10 scale the tie behaviour is unchanged.
+
+### Fixed (independent code review and end-to-end testing)
+
+Two independent code reviews and a real-browser end-to-end run of the
+dashboard, deployed as on Streamlit Community Cloud, found these defects. All
+are fixed, with regression tests.
+
+- Checkpoints: a torn last line (crash mid-write) broke every later resume.
+  Resuming with a different judge, criteria or bias setting silently mixed
+  results; it is now refused.
+- YAML datasets: aliases allowed a ~600-byte "billion laughs" file to exhaust
+  memory. Aliases are now rejected, and so are nested field values.
+- Dataset columns:
+  - padded header names crashed loading;
+  - two aliases for the same field overwrote each other;
+  - encoding and oversized-field CSV errors escaped as raw exceptions;
+  - duplicate-id issues reported the wrong row.
+- The Groq SDK's hidden retries multiplied requests (up to 12 per call) and
+  made the demo quotas undercount. Groq JSON-mode rejections skipped the
+  repair retry.
+- Run comparisons ignored failed and missing rows, so a mostly failed
+  candidate could pass the regression gate. They now warn, and return
+  `insufficient_data` when too few rows succeeded.
+- REST API:
+  - random `X-API-Key` values bypassed the rate limit on open servers;
+  - authentication ran after body parsing;
+  - jobs ignored the concurrency cap;
+  - over-long criterion names returned 500;
+  - `%` and `_` were wildcards in run lookups.
+- CLI:
+  - usage errors exited 1 instead of 2;
+  - an unsupported `--output` failed only after the paid run;
+  - `--json` output mixed progress text into stdout;
+  - `consistency` exited 0 when nothing could be measured;
+  - `LOG_LEVEL` was ignored.
+- Dashboard:
+  - uploaded agent traces were ignored;
+  - switching dataset samples dropped their criteria;
+  - downloads cleared the results;
+  - an exhausted quota during a batch was not explained;
+  - the quota caption lagged one action behind;
+  - numeric-looking ids broke chart order.
+- Long agent traces lost their final answer to truncation.
+- "Output A and B" was relabelled incorrectly in bias-mitigated merges.
+- Criterion presets matched case-sensitively, and invalid criterion names
+  raised the wrong exception type.
+
+### Phase 11: documentation and release
+- A MkDocs Material site (`mkdocs.yml`, `docs/`) that composes the README and
+  the project documents (single source of truth), with a GitHub Pages
+  workflow.
+- `ARCHITECTURE.md`, `API_REFERENCE.md` and `CODE_OF_CONDUCT.md`. A test fails
+  if any CLI command or REST route is missing from the API reference.
+- CI jobs: a strict docs build, plus package build, `twine check` and a
+  clean-environment wheel smoke test.
+- A tag-triggered release workflow: PyPI Trusted Publishing and a GitHub
+  Release.
+- Packaging uses an SPDX license expression (`license = "MIT"`) and requires
+  setuptools 77 or later.
+
+## [1.9.0] - Unreleased
+
+Phase 9 of the platform roadmap: security and performance hardening.
+
+### Added
+- A threat model in `SECURITY.md`, with a tested mitigation for each risk.
+- CSV-injection protection (`llm_judge.csv_safety`) in every CSV writer:
+  batch results, dataset results and experiment exports.
+- A Bandit job in CI, with reviewed and documented suppressions.
+- A `Dockerfile` (non-root; dashboard by default, REST API on demand) and a
+  CI job that builds the image and smoke-tests both services in containers.
+- Hardening tests:
+  - hostile datasets (deep nesting, YAML object tags, oversized files);
+  - secret hygiene in errors, logs and API responses;
+  - exact quotas and rate limits under 32-64 concurrent threads;
+  - a 400-row, 16-worker runner stress test with checkpoint integrity.
+- `scripts/perf_baseline.py` and `BENCHMARKS.md`: measured library overhead,
+  concurrency scaling and the parallel bias-mitigation speed-up.
+
+### Fixed
+- Deeply nested JSON in datasets, checkpoints, candidate files or judge
+  replies raised `RecursionError` (a crash, or a 500 from the API). It is now
+  a clean validation or parsing error.
+
+## [1.8.0] - Unreleased
+
+Phase 8 of the platform roadmap: RAG, agents, and reliability analytics.
+
+### Added
+- `Judge.evaluate_rag()`: claim-level verdicts, from which faithfulness,
+  answer relevance, context precision (average precision) and context recall
+  are computed deterministically. It lists unsupported claims and flags prompt
+  injection in retrieved passages.
+- `Judge.evaluate_agent()`: framework-agnostic `AgentTrace` with
+  deterministic checks (unknown tools, missing arguments, malformed or failed
+  calls, repeats, step budget, expected tools, missing answer), plus a judged
+  grade on new agent criteria presets.
+- `llm_judge.reliability`: `measure_consistency()` (agreement rate, spread,
+  bootstrap CI), `judge_agreement()` across stored runs, `cohen_kappa()`, and
+  tie-aware `spearman()`.
+- The mock judge understands RAG prompts, so everything works offline.
+- CLI: `rag`, `agent`, `consistency`, `experiments agreement`.
+- API: `POST /evaluate/rag`, `/evaluate/agent`, `/analysis/consistency`
+  (capped at 10 samples), and `GET /runs/agreement`.
+- Dashboard pages: RAG evaluation, Agent evaluation, Reliability.
+
+### Changed
+- mypy is pinned to 2.4.x. Its inference changes between versions, which made
+  local and CI results disagree.
+- The dashboard handles `None` from select boxes, which newer Streamlit types
+  allow.
+
+### Verified live
+- RAG and agent prompts were run against Groq `openai/gpt-oss-120b` with
+  schema-valid results.
+
+## [1.7.0] - Unreleased
+
+Phase 7 of the platform roadmap: the dashboard and public demo mode.
+
+### Added
+- Multi-page Streamlit dashboard: Overview, Playground (all four evaluation
+  modes, with example loaders), Datasets (upload, validate, evaluate,
+  download), Benchmarks, Experiments (run comparison with verdict, confidence
+  interval and per-row changes), and About.
+- A sidebar to choose the live or offline mock judge, with every result
+  badged by provider. Mock results are always labelled as not coming from an
+  LLM.
+- Themed Plotly charts. The palette passes the colorblind and contrast checks
+  in both light and dark modes, and every chart has a table view.
+- Public demo mode (`JUDGE_DEMO_MODE`): per-session and daily live-call
+  budgets, input, row, candidate and upload caps, and session-only storage.
+- `QuotaProvider` and `CallBudget`: enforce call budgets on any provider,
+  counting retries and bias runs, and refusing with a non-retryable
+  `QuotaExceededError`.
+- `DEPLOYMENT.md` (free Streamlit Community Cloud steps, secrets, smoke
+  tests), `.streamlit/config.toml` and `.streamlit/secrets.toml.example`.
+
+### Changed
+- `app.py` is now a navigation shell; the pages live in `dashboard/`.
+- The `ui` extra adds Plotly and requires Streamlit 1.50 or later. mypy now
+  also checks the dashboard.
+
+## [1.6.0] - Unreleased
+
+Phase 6 of the platform roadmap: REST API.
+
+### Added
+- `llm_judge.api` (FastAPI, `[api]` extra) and `llm-judge serve`, which
+  binds to localhost by default and warns when exposed without API keys.
+- Versioned `/api/v1` endpoints for pairwise, pointwise, reference and
+  ranking evaluation, synchronous batches, background dataset jobs, dataset
+  validation, benchmarks, experiments and run comparison, providers,
+  criteria, status and statistics. OpenAPI docs are at `/docs`.
+- Background jobs: a bounded queue, cancellation, `Idempotency-Key` replay
+  with conflict detection, paginated rows, and optional experiment recording.
+- Security and resilience:
+  - optional API keys (constant-time comparison);
+  - admin routes disabled unless `JUDGE_API_ADMIN_KEY` is set;
+  - per-client token-bucket rate limiting;
+  - an ASGI request-size limit that also covers chunked bodies;
+  - a concurrency cap that sheds load with 503.
+- Operations: one JSON error envelope with request ids, and structured JSON
+  access logs (no bodies).
+- `[all]` extra; `make serve`; `JUDGE_API_*` settings.
+
+### Fixed
+- Queued jobs are marked cancelled on shutdown instead of staying "queued".
+
+## [1.5.0] - Unreleased
+
+Phase 5 of the platform roadmap: experiment tracking.
+
+### Added
+- `llm_judge.experiments.ExperimentStore`: a SQLite store (standard library,
+  no server) for experiments, runs and per-row results, with reproducibility
+  metadata. Raw inputs are stored only as hashes.
+- `compare_runs()`: rows paired by id, a mean paired difference with a seeded
+  bootstrap (or normal-approximation) 95% CI, a regression/improvement
+  verdict with a minimum effect size, the most-changed rows, winner flips for
+  pairwise runs, per-criterion deltas, and comparability warnings.
+- CLI: `--experiment`, `--run-name` and `--db` on `batch` and `benchmark`;
+  `experiments list|runs|show|compare|export|delete`;
+  `compare --fail-on-regression` for CI gates.
+- Setting `JUDGE_DB_PATH`.
+
+### Deferred
+- A Supabase/PostgreSQL storage adapter. The store has a narrow interface so
+  one can be added, but it can't be verified in this project's CI, so it isn't
+  shipped untested.
+
+## [1.4.0] - Unreleased
+
+Phase 4 of the platform roadmap: datasets, resumable batches and benchmarks.
+
+### Added
+- `llm_judge.datasets`: CSV, JSON, JSONL and YAML (`[yaml]` extra) readers
+  with byte and row limits; typed pairwise, pointwise and reference records
+  with column aliases; validation reports (missing values, duplicate ids and
+  content, unknown columns, oversized fields, preview); content fingerprints
+  for dataset versioning; reproducible sampling and splitting.
+- `DatasetRunner`: bounded-concurrency evaluation with an append-only JSONL
+  checkpoint, graceful Ctrl+C, and safe resume (it refuses changed records and
+  retries failed rows).
+- `summarize()`: winners and per-model win rates (pairwise), and mean scores
+  per model, mean token F1 and the unsupported-claims rate (graded).
+- Six original synthetic sample datasets: general QA, code generation,
+  summarization, RAG, instruction following, safety.
+- Criteria presets: Instruction Following, Safety.
+- CLI: `datasets validate|samples|export` and `benchmark`.
+- Settings: `JUDGE_MAX_DATASET_BYTES`, `JUDGE_MAX_DATASET_ROWS`.
+
+### Changed
+- `llm-judge batch` accepts all three dataset kinds and every format. It
+  checkpoints by default, resumes with `--resume`, supports `--sample`,
+  `--limit` and `--skip-invalid`, prints a summary, and exits with 130 when
+  interrupted. Existing flags and the pairwise CSV columns are unchanged (two
+  model columns were added).
+- ruff is pinned to 0.17.x so local and CI formatting agree.
+
+## [1.3.0] - Unreleased
+
+Phase 3 of the platform roadmap: multi-provider architecture.
+
+### Added
+- `MockProvider`: an offline, deterministic heuristic judge (not an LLM) for
+  demos, tests and keyless use. Every explanation is labelled as mock output.
+- `OllamaProvider`: free local inference through Ollama's native API, with
+  actionable errors for a stopped server or a model that isn't pulled.
+- `OpenAICompatibleProvider`: any `/chat/completions` endpoint, configured via
+  prefixed `JUDGE_OPENAI_*` settings so an unrelated paid key is never used.
+- Provider registry (`build_provider`, `register_provider`, `provider_names`)
+  with plugin discovery through the `llm_judge.providers` entry-point group.
+- Provider health checks that run no inference, and thread-safe per-provider
+  usage counters (requests and tokens, where the backend reports them).
+- CLI: global `--provider` flag, plus `providers`, `health` and `version` commands.
+- Settings: `JUDGE_PROVIDER`, `JUDGE_OLLAMA_*`, `JUDGE_OPENAI_*`.
+
+### Fixed (found by live testing against Groq)
+- The default Groq model `llama-3.3-70b-versatile` has been retired by Groq;
+  the default is now `openai/gpt-oss-120b`. A retired or unknown model now
+  produces an actionable error pointing at `GROQ_MODEL` and `llm-judge health`.
+- The CLI no longer crashes when a judge's reply contains characters the
+  console can't encode (e.g. U+202F on Windows cp1252). `--json` output stays
+  lossless by escaping non-ASCII on non-UTF-8 streams.
+
+### Changed
+- `Judge()` builds its provider from `JUDGE_PROVIDER` (default `groq`, as before).
+- API keys are excluded from the `Settings` repr.
+- The missing-key error suggests `--provider mock`.
+- `httpx` is now an explicit dependency. It was already installed via `groq`.
+
+## [1.2.0] - Unreleased
+
+Phase 2 of the platform roadmap: new evaluation modes. Result schema "1.2"
+adds new result types; existing pairwise results are unchanged.
+
+### Added
+- `Judge.evaluate_pointwise()`: grade a single output on weighted,
+  scale-normalised criteria, with improvement feedback.
+- `Judge.evaluate_reference()`: grade an output against an expected answer.
+  Results list `missing_information` and `unsupported_claims` (hallucination
+  indicators, which also raise an `unsupported_claims` warning) and include
+  deterministic `reference_metrics` (exact match, token F1).
+- Reference criteria presets: Correctness, Completeness, Factual Consistency.
+- `Judge.rank()`: multi-candidate leaderboards. The `round_robin` strategy
+  plays every pair with alternating presentation order; the `pointwise`
+  strategy grades each candidate independently. Competition ranking handles
+  ties, and individual comparison failures are isolated.
+- CLI: `llm-judge grade` (with `--reference`) and `llm-judge rank`
+  (`--candidates-file`, `--strategy`). `list-criteria` shows the reference presets.
+- Setting `JUDGE_MAX_CANDIDATES`.
+
+## [1.1.0] - Unreleased
+
+Phase 1 of the platform roadmap: core reliability hardening. All changes are
+backwards compatible. Existing calls, CLI commands and result fields keep
+working, and new result fields are additive (`schema_version` "1.1").
+
+### Added
+- Criterion `weight`, plus `overall_score_a` and `overall_score_b`: weighted
+  means of scale-normalised (0-1) scores. CLI `--weights`; weight inputs in the UI.
+- Typed `warnings` on every result: `possible_prompt_injection`,
+  `possible_verbosity_bias`, `self_preference_risk`, `position_inconsistent`,
+  `score_out_of_range`, `input_truncated`.
+- Judge and candidate metadata (`metadata.judge`, `metadata.candidates`), with
+  `candidate_a_model` and `candidate_b_model` arguments, CLI `--model-a` and
+  `--model-b`, and optional batch `model_a` and `model_b` columns.
+- Repair retries for malformed or schema-violating replies
+  (`JUDGE_MAX_PARSE_RETRIES`).
+- `schema_version` on results; `PROMPT_VERSION` recorded in metadata.
+- Settings: `JUDGE_PARALLEL_BIAS_RUNS`, `JUDGE_TIE_MARGIN`,
+  `JUDGE_VERBOSITY_RATIO`, `JUDGE_MAX_CRITERIA`, `JUDGE_MAX_PARSE_RETRIES`.
+- Property-based tests (Hypothesis), Streamlit smoke tests, `ruff format`
+  check, Python 3.13 in CI, and a `pip-audit` dependency scan.
+
+### Changed
+- The system prompt shows the output shape with placeholders instead of
+  example values that could anchor the judge.
+- The task and outputs are wrapped in boundary markers that carry a random
+  per-request token, and the judge is told to treat them as untrusted data.
+- Returned criteria must match the requested criteria exactly
+  (case-insensitive). Missing, extra or duplicate entries are rejected instead
+  of being accepted or clamped to 0-100.
+- The overall winner is now decided on weighted, scale-normalised scores. On
+  the default 1-10 scale the tie behaviour is unchanged: whole-point gaps pick
+  a winner and half-point gaps tie.
+- Bias-mitigation runs execute concurrently. Merged explanations and comments
+  come from the ordering that agrees with the averaged verdict, with "Output
+  A/B" references relabelled for the swapped run.
+- JSON recovery uses a real JSON decoder instead of first-`{`-to-last-`}`
+  slicing. Non-finite scores are rejected.
+- The package version is defined once (`llm_judge.__version__`).
+
 ## [1.0.0] — 2026-07-04
 
 First production-ready release. The project was rebuilt from a small collection

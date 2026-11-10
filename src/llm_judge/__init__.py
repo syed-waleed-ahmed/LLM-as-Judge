@@ -16,8 +16,14 @@ Quick start::
 
 from __future__ import annotations
 
+from .agents import AgentResult, AgentStep, AgentTrace, ToolSpec
 from .config import Settings, get_settings
-from .criteria import CRITERIA_PRESETS, resolve_criterion
+from .criteria import (
+    AGENT_CRITERIA_PRESETS,
+    CRITERIA_PRESETS,
+    REFERENCE_CRITERIA_PRESETS,
+    resolve_criterion,
+)
 from .exceptions import (
     ConfigurationError,
     LLMJudgeError,
@@ -26,9 +32,26 @@ from .exceptions import (
     ValidationError,
 )
 from .judge import Judge
-from .models import Criterion, CriterionScore, JudgeResult, Winner
+from .models import (
+    RESULT_SCHEMA_VERSION,
+    Criterion,
+    CriterionScore,
+    EvaluationWarning,
+    JudgeResult,
+    PairwiseMatch,
+    PointwiseResult,
+    PointwiseScore,
+    RankedCandidate,
+    RankingResult,
+    ReferenceMetrics,
+    Winner,
+)
+from .prompts import PROMPT_VERSION
+from .rag import RagResult
+from .reliability import ConsistencyReport, JudgeAgreement
 
-__version__ = "1.0.0"
+# Single source of truth for the package version (read by setuptools).
+__version__ = "2.0.0"
 
 __all__ = [
     "Judge",
@@ -36,6 +59,24 @@ __all__ = [
     "CriterionScore",
     "JudgeResult",
     "Winner",
+    "EvaluationWarning",
+    "PointwiseResult",
+    "PointwiseScore",
+    "ReferenceMetrics",
+    "RankingResult",
+    "RankedCandidate",
+    "PairwiseMatch",
+    "REFERENCE_CRITERIA_PRESETS",
+    "AGENT_CRITERIA_PRESETS",
+    "RagResult",
+    "AgentResult",
+    "AgentStep",
+    "AgentTrace",
+    "ToolSpec",
+    "ConsistencyReport",
+    "JudgeAgreement",
+    "RESULT_SCHEMA_VERSION",
+    "PROMPT_VERSION",
     "Settings",
     "get_settings",
     "CRITERIA_PRESETS",

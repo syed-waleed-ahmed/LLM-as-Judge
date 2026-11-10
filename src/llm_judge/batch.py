@@ -2,8 +2,8 @@
 
 Reads many task/output-A/output-B rows from CSV or JSONL, evaluates them in
 parallel with a bounded thread pool, and writes the results back out. Failures
-are captured per row so a single bad row never aborts the whole run — important
-when grading thousands of items.
+are captured per row, so a single bad row never aborts the whole run. That
+matters when grading thousands of items.
 """
 
 from __future__ import annotations
@@ -13,9 +13,10 @@ import json
 import logging
 from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from .csv_safety import safe_rows
 from .judge import Judge
 from .models import Criterion
 
@@ -32,6 +33,9 @@ class BatchRecord:
     task_description: str
     output_a: str
     output_b: str
+    #: Optional names of the models that produced each output.
+    model_a: str | None = None
+    model_b: str | None = None
 
 
 @dataclass
@@ -42,7 +46,10 @@ class BatchRowResult:
     ok: bool
     overall_winner: str | None = None
     overall_comment: str | None = None
+    overall_score_a: float | None = None
+    overall_score_b: float | None = None
     scores: dict[str, dict[str, float]] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
     error: str | None = None
 
     def to_flat_dict(self) -> dict[str, object]:
@@ -52,6 +59,9 @@ class BatchRowResult:
             "ok": self.ok,
             "overall_winner": self.overall_winner or "",
             "overall_comment": self.overall_comment or "",
+            "overall_score_a": "" if self.overall_score_a is None else self.overall_score_a,
+            "overall_score_b": "" if self.overall_score_b is None else self.overall_score_b,
+            "warnings": ";".join(self.warnings),
             "error": self.error or "",
         }
         for criterion, pair in self.scores.items():
@@ -61,7 +71,11 @@ class BatchRowResult:
 
 
 def read_records(path: str | Path) -> list[BatchRecord]:
-    """Read :class:`BatchRecord`s from a ``.csv`` or ``.jsonl`` file."""
+    """Read :class:`BatchRecord`s from a ``.csv`` or ``.jsonl`` file.
+
+    Optional ``model_a`` and ``model_b`` columns name the models that produced
+    each output.
+    """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Input file not found: {path}")
@@ -85,9 +99,16 @@ def read_records(path: str | Path) -> list[BatchRecord]:
                 task_description=str(row["task_description"]),
                 output_a=str(row["output_a"]),
                 output_b=str(row["output_b"]),
+                model_a=_optional_str(row.get("model_a")),
+                model_b=_optional_str(row.get("model_b")),
             )
         )
     return records
+
+
+def _optional_str(value: object) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    return text or None
 
 
 def _read_csv(path: Path) -> list[dict[str, object]]:
@@ -106,7 +127,12 @@ def _read_jsonl(path: Path) -> list[dict[str, object]]:
 
 
 class BatchEvaluator:
-    """Evaluate many records concurrently against a shared :class:`Judge`."""
+    """Evaluate many records concurrently against a shared :class:`Judge`.
+
+    With position-bias mitigation and parallel bias runs both enabled, each
+    worker issues two requests at once, so peak concurrency is
+    ``2 * max_workers``. Size ``max_workers`` to your provider's rate limit.
+    """
 
     def __init__(self, judge: Judge, max_workers: int | None = None) -> None:
         self.judge = judge
@@ -115,7 +141,7 @@ class BatchEvaluator:
     def run(
         self,
         records: Sequence[BatchRecord],
-        criteria: list[Criterion] | list[str],
+        criteria: Sequence[Criterion | str],
         *,
         progress: Callable[[int, int], None] | None = None,
     ) -> list[BatchRowResult]:
@@ -143,7 +169,7 @@ class BatchEvaluator:
         return [r for r in results if r is not None]
 
     def _evaluate_one(
-        self, record: BatchRecord, criteria: list[Criterion] | list[str]
+        self, record: BatchRecord, criteria: Sequence[Criterion | str]
     ) -> BatchRowResult:
         try:
             result = self.judge.evaluate(
@@ -151,21 +177,25 @@ class BatchEvaluator:
                 output_a=record.output_a,
                 output_b=record.output_b,
                 criteria=criteria,
+                candidate_a_model=record.model_a,
+                candidate_b_model=record.model_b,
             )
         except Exception as exc:  # isolate per-row failures so one bad row never aborts the batch
             logger.error("Failed to judge record %s: %s", record.id, exc)
             return BatchRowResult(id=record.id, ok=False, error=str(exc))
 
         scores = {
-            c.criterion: {"A": c.output_a_score, "B": c.output_b_score}
-            for c in result.criteria
+            c.criterion: {"A": c.output_a_score, "B": c.output_b_score} for c in result.criteria
         }
         return BatchRowResult(
             id=record.id,
             ok=True,
             overall_winner=result.overall_winner.value,
             overall_comment=result.overall_comment,
+            overall_score_a=result.overall_score_a,
+            overall_score_b=result.overall_score_b,
             scores=scores,
+            warnings=[w.code for w in result.warnings],
         )
 
 
@@ -186,10 +216,10 @@ def write_results(results: Iterable[BatchRowResult], path: str | Path) -> None:
         with path.open("w", encoding="utf-8", newline="") as fh:
             writer = csv.DictWriter(fh, fieldnames=fieldnames)
             writer.writeheader()
-            writer.writerows(rows)
+            writer.writerows(safe_rows(rows))
     elif suffix in (".jsonl", ".ndjson"):
         with path.open("w", encoding="utf-8") as fh:
             for r in results:
-                fh.write(json.dumps(r.__dict__, ensure_ascii=False) + "\n")
+                fh.write(json.dumps(asdict(r), ensure_ascii=False) + "\n")
     else:
         raise ValueError(f"Unsupported output format '{suffix}'. Use .csv or .jsonl.")

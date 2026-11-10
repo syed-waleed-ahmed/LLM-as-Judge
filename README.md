@@ -123,11 +123,11 @@ release tag or from the wheel attached to a
 [GitHub Release](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases):
 
 ```bash
-# From the v2.0.0 tag (extras: ui, api, yaml, all)
-pip install "llm-as-judge[all] @ git+https://github.com/syed-waleed-ahmed/LLM-as-Judge@v2.0.0"
+# From the v2.0.1 tag (extras: ui, api, yaml, all)
+pip install "llm-as-judge[all] @ git+https://github.com/syed-waleed-ahmed/LLM-as-Judge@v2.0.1"
 
 # Or from the release wheel
-pip install "llm-as-judge[all] @ https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/download/v2.0.0/llm_as_judge-2.0.0-py3-none-any.whl"
+pip install "llm-as-judge[all] @ https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/download/v2.0.1/llm_as_judge-2.0.1-py3-none-any.whl"
 ```
 
 Either way you get the `llm-judge` command. To run the dashboard, clone the

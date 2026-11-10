@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-10
+
+A maintenance release: a dashboard fix, documentation-site fixes and
+improvements, and project files for contributors. The library's Python API,
+CLI and REST API are unchanged.
+
 ### Added
 - Community files for the public repository: issue forms, a pull request
   template, `CODEOWNERS`, `CITATION.cff` and a Dependabot configuration.
@@ -421,5 +427,6 @@ of scripts into an installable, tested, and documented framework.
 - Legacy flat modules (`config.py`, `judge.py`, `prompts.py`) superseded by the
   package.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/tag/v2.0.0

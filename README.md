@@ -62,6 +62,7 @@ this project handles the parts that usually get skipped:
 | Capability | Description |
 |---|---|
 | **Library, CLI & UI** | One evaluation core, three ways to use it. |
+| **Four evaluation modes** | Pairwise (A vs B), pointwise (one output), reference-based (vs. an expected answer), and multi-candidate ranking. |
 | **Multi-criteria** | Score on several criteria at once (built-in or custom), with optional weights. |
 | **Bias mitigation** | Optional A/B order swapping to reduce position bias. |
 | **Reliability warnings** | Flags prompt injection, verbosity bias, self-preference and order sensitivity. |
@@ -136,7 +137,18 @@ llm-judge evaluate --task-file task.txt \
 # Grade a whole dataset concurrently
 llm-judge batch --input examples/sample_batch.csv \
   --output results.csv --criteria Helpfulness --workers 8
+
+# Grade one output on its own, or against an expected answer
+llm-judge grade --task "Explain DNS" --output-file answer.txt
+llm-judge grade --task "When did Apollo 11 land?" \
+  --output "In 1969." --reference "Apollo 11 landed on the Moon on 20 July 1969."
+
+# Rank several candidates (round robin, or --strategy pointwise for fewer calls)
+llm-judge rank --task "Write a tagline" --candidates-file candidates.json
 ```
+
+`candidates.json` is either `{"id": "text", ...}` or a list of
+`{"id": ..., "output": ..., "model": ...}` objects.
 
 ### 3. Python library
 
@@ -164,11 +176,31 @@ coverage = Criterion(name="Coverage", description="Covers every key point.",
 judge.evaluate("...", "...", "...", [resolve_criterion("Helpfulness"), coverage])
 ```
 
-Every evaluation returns a validated, versioned result:
+The same `Judge` also grades single outputs and ranks candidates:
+
+```python
+# Pointwise: grade one output on its own merits.
+grade = judge.evaluate_pointwise("Explain DNS.", answer, ["Helpfulness", "Conciseness"])
+print(grade.overall_score, grade.feedback)
+
+# Reference-based: compare with an expected answer (defaults to Correctness + Completeness).
+check = judge.evaluate_reference("When did Apollo 11 land?", "In 1968.",
+                                 reference="20 July 1969.")
+print(check.unsupported_claims)        # hallucination indicators
+print(check.missing_information)       # key points the output omits
+print(check.reference_metrics)         # exact_match and token_f1 (no LLM involved)
+
+# Ranking: round robin (every pair head to head) or pointwise (cheaper).
+ranking = judge.rank("Write a tagline", {"v1": "...", "v2": "...", "v3": "..."})
+for row in ranking.leaderboard:
+    print(row.rank, row.candidate, row.score, (row.wins, row.losses, row.ties))
+```
+
+Every pairwise evaluation returns a validated, versioned result:
 
 ```json
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "criteria": [
     {
       "criterion": "Helpfulness",
@@ -261,6 +293,7 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_TIE_MARGIN` | `0.06` | Normalised (0-1) score gap treated as a tie (just over half a point on a 1-10 scale). |
 | `JUDGE_VERBOSITY_RATIO` | `2.0` | Length ratio at which a long winner is flagged. |
 | `JUDGE_MAX_CRITERIA` | `20` | Maximum criteria per evaluation. |
+| `JUDGE_MAX_CANDIDATES` | `8` | Maximum candidates per ranking (round robin makes n(n-1)/2 comparisons). |
 | `JUDGE_MAX_INPUT_CHARS` | `50000` | Longer inputs are truncated (with a warning). |
 | `JUDGE_BATCH_MAX_WORKERS` | `4` | Concurrency for batch mode (doubled when parallel bias runs are on). |
 | `LOG_LEVEL` | `INFO` | Logging verbosity. |
@@ -279,6 +312,9 @@ src/llm_judge/           # Installable package (src layout)
 ├─ scoring.py            # Pure helpers: criteria matching, normalisation, winners
 ├─ diagnostics.py        # Injection, verbosity and self-preference signals
 ├─ judge.py              # Core engine: retries, repair, bias mitigation, merging
+├─ pointwise.py          # Single-output and reference-based grading
+├─ ranking.py            # Multi-candidate round-robin / pointwise leaderboards
+├─ metrics.py            # Deterministic reference metrics (exact match, token F1)
 ├─ batch.py              # Concurrent CSV/JSONL batch evaluation
 ├─ cli.py                # `llm-judge` command-line interface
 ├─ logging_config.py     # Opt-in logging setup

@@ -22,17 +22,25 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from .config import Settings, get_settings
-from .criteria import resolve_criterion
+from .criteria import DEFAULT_REFERENCE_CRITERIA, resolve_criterion
 from .diagnostics import injection_warnings, self_preference_warnings, verbosity_warning
 from .exceptions import ProviderError, ResponseParsingError, ValidationError
-from .models import Criterion, CriterionScore, EvaluationWarning, JudgeResult, Winner
+from .models import (
+    Criterion,
+    CriterionScore,
+    EvaluationWarning,
+    JudgeResult,
+    PointwiseResult,
+    RankingResult,
+    Winner,
+)
 from .parsing import parse_judge_result
 from .prompts import (
     PROMPT_VERSION,
@@ -149,6 +157,86 @@ class Judge:
         if runs:
             metadata["runs"] = runs
         return result.model_copy(update={"warnings": warnings, "metadata": metadata})
+
+    def evaluate_pointwise(
+        self,
+        task_description: str,
+        output: str,
+        criteria: CriteriaInput = "Helpfulness",
+        *,
+        reference: str | None = None,
+        candidate_model: str | None = None,
+    ) -> PointwiseResult:
+        """Grade a single ``output`` on its own merits.
+
+        With ``reference``, the output is also judged against that expected
+        answer. Prefer :meth:`evaluate_reference` for that, since it defaults
+        to reference-oriented criteria.
+        """
+        from .pointwise import run_pointwise
+
+        return run_pointwise(
+            self,
+            task_description,
+            output,
+            criteria,
+            reference=reference,
+            candidate_model=candidate_model,
+        )
+
+    def evaluate_reference(
+        self,
+        task_description: str,
+        output: str,
+        reference: str,
+        criteria: CriteriaInput | None = None,
+        *,
+        candidate_model: str | None = None,
+    ) -> PointwiseResult:
+        """Grade ``output`` against an expected ``reference`` answer.
+
+        Defaults to the "Correctness" and "Completeness" criteria. The result
+        lists ``missing_information`` and ``unsupported_claims``, and includes
+        deterministic ``reference_metrics`` (exact match and token F1).
+        """
+        from .pointwise import run_pointwise
+
+        return run_pointwise(
+            self,
+            task_description,
+            output,
+            list(DEFAULT_REFERENCE_CRITERIA) if criteria is None else criteria,
+            reference=reference,
+            candidate_model=candidate_model,
+        )
+
+    def rank(
+        self,
+        task_description: str,
+        candidates: Mapping[str, str] | Sequence[str],
+        criteria: CriteriaInput = "Helpfulness",
+        *,
+        strategy: Literal["round_robin", "pointwise"] = "round_robin",
+        candidate_models: Mapping[str, str | None] | None = None,
+        max_workers: int | None = None,
+    ) -> RankingResult:
+        """Rank two or more candidate outputs and return a leaderboard.
+
+        ``candidates`` is a ``{id: text}`` mapping or a list of texts (ids
+        "1", "2", ...). ``"round_robin"`` compares every pair head to head.
+        ``"pointwise"`` grades each candidate independently, which is cheaper.
+        """
+        from .ranking import run_ranking
+
+        return run_ranking(
+            self,
+            task_description,
+            candidates,
+            criteria,
+            strategy=strategy,
+            candidate_models=candidate_models,
+            max_workers=max_workers,
+        )
 
     # -- shared helpers (also used by other evaluators) -----------------------
 

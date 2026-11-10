@@ -187,3 +187,46 @@ def single_criterion_payload() -> dict:
         make_entry("Helpfulness", 8, 4, "A answers the task.", "B is vague."),
         comment="A is more helpful.",
     )
+
+
+class FnProvider(_Recorder):
+    """Builds each reply by calling ``fn(messages)``; the most flexible fake."""
+
+    model = "fn-model"
+
+    def __init__(self, fn: Callable[[list[dict[str, str]]], dict]) -> None:
+        super().__init__()
+        self._fn = fn
+
+    def complete_json(self, messages: list[dict[str, str]]) -> str:
+        self._record(messages)
+        return json.dumps(self._fn(messages))
+
+
+_SINGLE_OUTPUT_RE = re.compile(r"<<<OUTPUT (\w+)>>>\n(.*?)\n<<<END OUTPUT \1>>>", re.S)
+
+
+def single_output(messages: list[dict[str, str]]) -> str:
+    """Extract the output text from a pointwise (single-output) user message."""
+    match = _SINGLE_OUTPUT_RE.search(messages[1]["content"])
+    assert match, "OUTPUT block not found in pointwise prompt"
+    return match.group(2)
+
+
+def make_pointwise_payload(
+    *entries: tuple[str, float],
+    feedback: str = "",
+    missing: list | None = None,
+    unsupported: list | None = None,
+) -> dict:
+    payload: dict = {
+        "criteria": [
+            {"criterion": c, "score": s, "explanation": f"{c} reason"} for c, s in entries
+        ],
+        "feedback": feedback,
+    }
+    if missing is not None:
+        payload["missing_information"] = missing
+    if unsupported is not None:
+        payload["unsupported_claims"] = unsupported
+    return payload

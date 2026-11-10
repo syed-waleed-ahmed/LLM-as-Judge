@@ -32,6 +32,31 @@ CRITERIA_PRESETS: dict[str, Criterion] = {
     ),
 }
 
+# Criteria for reference-based grading. They judge an output against an
+# expected answer, so they're only meaningful when a reference is supplied.
+REFERENCE_CRITERIA_PRESETS: dict[str, Criterion] = {
+    "Correctness": Criterion(
+        name="Correctness",
+        description=(
+            "Whether the output's answer agrees with the reference answer. Meaning "
+            "matters, wording does not."
+        ),
+    ),
+    "Completeness": Criterion(
+        name="Completeness",
+        description="How fully the output covers the key points of the reference answer.",
+    ),
+    "Factual Consistency": Criterion(
+        name="Factual Consistency",
+        description=(
+            "Absence of claims that contradict the reference answer or that it does not support."
+        ),
+    ),
+}
+
+#: Default criteria for :meth:`Judge.evaluate_reference`.
+DEFAULT_REFERENCE_CRITERIA = ("Correctness", "Completeness")
+
 
 def resolve_criterion(name: str, description: str | None = None) -> Criterion:
     """Return a :class:`Criterion` for ``name``.
@@ -42,6 +67,8 @@ def resolve_criterion(name: str, description: str | None = None) -> Criterion:
     """
     if name in CRITERIA_PRESETS:
         return CRITERIA_PRESETS[name]
+    if name in REFERENCE_CRITERIA_PRESETS:
+        return REFERENCE_CRITERIA_PRESETS[name]
     return Criterion(
         name=name,
         description=description or f"User-defined criterion: evaluate outputs on '{name}'.",

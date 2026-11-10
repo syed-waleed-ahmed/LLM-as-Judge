@@ -20,10 +20,15 @@ from pathlib import Path
 from pydantic import ValidationError as PydanticValidationError
 
 from . import __version__
-from .criteria import CRITERIA_PRESETS, resolve_criterion
+from .criteria import (
+    CRITERIA_PRESETS,
+    DEFAULT_REFERENCE_CRITERIA,
+    REFERENCE_CRITERIA_PRESETS,
+    resolve_criterion,
+)
 from .exceptions import LLMJudgeError
 from .logging_config import configure_logging
-from .models import Criterion, JudgeResult
+from .models import Criterion, EvaluationWarning, JudgeResult, PointwiseResult, RankingResult
 
 
 def _read_text_arg(value: str | None, file_value: str | None, name: str) -> str:
@@ -133,6 +138,51 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Run each pair in both orders and average to reduce position bias.",
     )
 
+    # grade ---------------------------------------------------------------
+    gr = sub.add_parser(
+        "grade", help="Grade a single output, optionally against a reference answer."
+    )
+    gr.add_argument("--task", help="Task description (inline).")
+    gr.add_argument("--task-file", help="Path to a file with the task description.")
+    gr.add_argument("--output", help="Output text (inline).")
+    gr.add_argument("--output-file", help="Path to the output.")
+    gr.add_argument("--reference", help="Expected answer (inline); enables reference grading.")
+    gr.add_argument("--reference-file", help="Path to the expected answer.")
+    gr.add_argument(
+        "--criteria",
+        default=None,
+        help="Comma-separated criteria. Default: Helpfulness, or Correctness,Completeness "
+        "with a reference.",
+    )
+    gr.add_argument("--weights", default=None, help='Relative weights, e.g. "Correctness=2".')
+    gr.add_argument("--model", default=None, help="Name of the model that produced the output.")
+    gr.add_argument("--json", action="store_true", help="Print raw JSON instead of a summary.")
+
+    # rank ----------------------------------------------------------------
+    rk = sub.add_parser("rank", help="Rank several candidate outputs for one task.")
+    rk.add_argument("--task", help="Task description (inline).")
+    rk.add_argument("--task-file", help="Path to a file with the task description.")
+    rk.add_argument(
+        "--candidates-file",
+        required=True,
+        help='JSON file: {"id": "text", ...}, or a list of {"id", "output", "model"} objects.',
+    )
+    rk.add_argument(
+        "--strategy",
+        choices=["round_robin", "pointwise"],
+        default="round_robin",
+        help="round_robin compares every pair; pointwise grades each candidate (cheaper).",
+    )
+    rk.add_argument("--criteria", default="Helpfulness", help="Comma-separated criteria names.")
+    rk.add_argument("--weights", default=None, help='Relative weights, e.g. "Helpfulness=2".')
+    rk.add_argument("--workers", type=int, default=None, help="Max concurrent requests.")
+    rk.add_argument(
+        "--mitigate-bias",
+        action="store_true",
+        help="Judge every pair in both orders (round_robin only; doubles the calls).",
+    )
+    rk.add_argument("--json", action="store_true", help="Print raw JSON instead of a summary.")
+
     # list-criteria -------------------------------------------------------
     sub.add_parser("list-criteria", help="List built-in criteria presets.")
 
@@ -143,6 +193,86 @@ def _cmd_list_criteria() -> int:
     print("Available criteria presets:\n")
     for name, crit in CRITERIA_PRESETS.items():
         print(f"  {name}\n    {crit.description}\n")
+    print("Reference criteria (for `grade --reference`):\n")
+    for name, crit in REFERENCE_CRITERIA_PRESETS.items():
+        print(f"  {name}\n    {crit.description}\n")
+    return 0
+
+
+def _optional_text_arg(value: str | None, file_value: str | None) -> str | None:
+    if file_value:
+        return Path(file_value).read_text(encoding="utf-8")
+    return value
+
+
+def _load_candidates(path: str) -> tuple[dict[str, str], dict[str, str | None]]:
+    """Read candidates (and optional models) from a JSON file."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"error: {path} is not valid JSON: {exc}") from None
+    if isinstance(data, dict) and all(isinstance(v, str) for v in data.values()):
+        return {str(k): v for k, v in data.items()}, {}
+    if isinstance(data, list) and all(isinstance(item, dict) for item in data):
+        texts: dict[str, str] = {}
+        models: dict[str, str | None] = {}
+        for i, item in enumerate(data, start=1):
+            cid = str(item.get("id") or i)
+            if cid in texts:
+                raise SystemExit(f"error: duplicate candidate id '{cid}' in {path}")
+            texts[cid] = str(item.get("output", ""))
+            models[cid] = item.get("model")
+        return texts, models
+    raise SystemExit(
+        f'error: {path} must hold {{"id": "text"}} or a list of {{"id", "output"}} objects'
+    )
+
+
+def _cmd_grade(args: argparse.Namespace) -> int:
+    from .config import get_settings
+    from .judge import Judge
+
+    task = _read_text_arg(args.task, args.task_file, "task")
+    output = _read_text_arg(args.output, args.output_file, "output")
+    reference = _optional_text_arg(args.reference, args.reference_file)
+    default = ",".join(DEFAULT_REFERENCE_CRITERIA) if reference is not None else "Helpfulness"
+    criteria = _build_criteria(args.criteria or default, args.weights)
+
+    judge = Judge(settings=get_settings())
+    result = judge.evaluate_pointwise(
+        task, output, criteria, reference=reference, candidate_model=args.model
+    )
+    if args.json:
+        print(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
+    else:
+        _print_grade(result)
+    return 0
+
+
+def _cmd_rank(args: argparse.Namespace) -> int:
+    from .config import get_settings
+    from .judge import Judge
+
+    task = _read_text_arg(args.task, args.task_file, "task")
+    texts, models = _load_candidates(args.candidates_file)
+    criteria = _build_criteria(args.criteria, args.weights)
+    settings = get_settings()
+    if args.mitigate_bias:
+        settings = settings.model_copy(update={"mitigate_position_bias": True})
+
+    judge = Judge(settings=settings)
+    result = judge.rank(
+        task,
+        texts,
+        criteria,
+        strategy=args.strategy,
+        candidate_models={k: v for k, v in models.items() if v},
+        max_workers=args.workers,
+    )
+    if args.json:
+        print(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
+    else:
+        _print_ranking(result)
     return 0
 
 
@@ -205,6 +335,45 @@ def _cmd_batch(args: argparse.Namespace) -> int:
     return 0 if ok == len(results) else 1
 
 
+def _print_warnings(warnings: list[EvaluationWarning]) -> None:
+    if warnings:
+        print("\nWarnings:")
+        for warning in warnings:
+            print(f"  - {warning.code}: {warning.message}")
+
+
+def _print_grade(result: PointwiseResult) -> None:
+    label = "Reference grading" if result.mode == "reference" else "Pointwise grading"
+    overall = "n/a" if result.overall_score is None else f"{result.overall_score:.3f}"
+    print(f"\n{label}: overall score {overall} (weighted, 0-1)")
+    for score in result.criteria:
+        print(f"  [{score.criterion}] {score.score:g} - {score.explanation}")
+    if result.feedback:
+        print(f"\nFeedback: {result.feedback}")
+    for title, items in (
+        ("Missing information", result.missing_information),
+        ("Unsupported claims", result.unsupported_claims),
+    ):
+        if items:
+            print(f"\n{title}:")
+            for item in items:
+                print(f"  - {item}")
+    if result.reference_metrics:
+        m = result.reference_metrics
+        print(f"\nReference metrics: token F1 {m.token_f1:.3f}, exact match {m.exact_match}")
+    _print_warnings(result.warnings)
+
+
+def _print_ranking(result: RankingResult) -> None:
+    print(f"\nLeaderboard ({result.strategy}, criteria: {', '.join(result.criteria)}):")
+    for row in result.leaderboard:
+        record = ""
+        if result.strategy == "round_robin":
+            record = f"  W-L-T {row.wins}-{row.losses}-{row.ties}"
+        print(f"  {row.rank}. {row.candidate}  score {row.score:.3f}{record}")
+    _print_warnings(result.warnings)
+
+
 def _print_summary(result: JudgeResult) -> None:
     print(f"\nOverall winner: {result.overall_winner.value.upper()}")
     if result.overall_comment:
@@ -219,10 +388,7 @@ def _print_summary(result: JudgeResult) -> None:
             f"  [{score.criterion}] A={score.output_a_score} "
             f"B={score.output_b_score} -> winner {score.winner.value}"
         )
-    if result.warnings:
-        print("\nWarnings:")
-        for warning in result.warnings:
-            print(f"  - {warning.code}: {warning.message}")
+    _print_warnings(result.warnings)
     model = result.metadata.get("model")
     if model:
         print(f"\n(model: {model}, latency: {result.metadata.get('latency_seconds')}s)")
@@ -241,6 +407,10 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_evaluate(args)
         if args.command == "batch":
             return _cmd_batch(args)
+        if args.command == "grade":
+            return _cmd_grade(args)
+        if args.command == "rank":
+            return _cmd_rank(args)
     except LLMJudgeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

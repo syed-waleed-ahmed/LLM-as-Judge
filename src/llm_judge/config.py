@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     # Warn when the winner is at least this many times longer (in words).
     verbosity_ratio_threshold: float = Field(default=2.0, ge=1.0, alias="JUDGE_VERBOSITY_RATIO")
     max_criteria: int = Field(default=20, ge=1, le=100, alias="JUDGE_MAX_CRITERIA")
+    # Round-robin ranking makes n(n-1)/2 comparisons, so keep n modest on free tiers.
+    max_candidates: int = Field(default=8, ge=2, le=32, alias="JUDGE_MAX_CANDIDATES")
 
     # Batch behaviour.
     batch_max_workers: int = Field(default=4, ge=1, le=64, alias="JUDGE_BATCH_MAX_WORKERS")

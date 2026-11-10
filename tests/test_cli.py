@@ -166,3 +166,118 @@ def test_batch_command(patched_judge, tmp_path, capsys):
     assert code == 0
     assert out.exists()
     assert "overall_winner" in out.read_text(encoding="utf-8")
+
+
+# --- grade and rank (real Judge, fake provider) -----------------------------------
+
+
+@pytest.fixture
+def real_judge_with(monkeypatch):
+    """Run the CLI against the real Judge, with ``provider`` injected as the backend."""
+
+    def install(provider):
+        monkeypatch.setattr(
+            config_module, "get_settings", lambda: Settings(_env_file=None, groq_api_key="k")
+        )
+        monkeypatch.setattr(
+            judge_module.Judge, "_build_default_provider", staticmethod(lambda _s: provider)
+        )
+        return provider
+
+    return install
+
+
+def test_list_criteria_includes_reference_presets(capsys):
+    main(["list-criteria"])
+    out = capsys.readouterr().out
+    assert "Reference criteria" in out
+    assert "Correctness" in out
+
+
+def test_grade_command_pointwise(real_judge_with, capsys):
+    from .conftest import FakeProvider, make_pointwise_payload
+
+    real_judge_with(FakeProvider(make_pointwise_payload(("Helpfulness", 8), feedback="Shorter.")))
+    code = main(["grade", "--task", "t", "--output", "o"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "Pointwise grading: overall score 0.778" in out
+    assert "Feedback: Shorter." in out
+
+
+def test_grade_command_with_reference_uses_reference_criteria(real_judge_with, capsys, tmp_path):
+    from .conftest import FakeProvider, make_pointwise_payload
+
+    provider = real_judge_with(
+        FakeProvider(
+            make_pointwise_payload(
+                ("Correctness", 9), ("Completeness", 4), missing=["the year"], unsupported=[]
+            )
+        )
+    )
+    ref = tmp_path / "ref.txt"
+    ref.write_text("It happened in 1969.", encoding="utf-8")
+    code = main(["grade", "--task", "t", "--output", "It happened.", "--reference-file", str(ref)])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "Reference grading" in out
+    assert "Missing information:\n  - the year" in out
+    assert "token F1" in out
+    assert "Correctness" in provider.messages[0][0]["content"]
+
+
+def test_grade_command_json(real_judge_with, capsys):
+    from .conftest import FakeProvider, make_pointwise_payload
+
+    real_judge_with(FakeProvider(make_pointwise_payload(("Helpfulness", 8))))
+    main(["grade", "--task", "t", "--output", "o", "--json"])
+    assert json.loads(capsys.readouterr().out)["mode"] == "pointwise"
+
+
+def test_rank_command(real_judge_with, capsys, tmp_path):
+    from .conftest import SlotAwareProvider
+    from .test_ranking import by_quality
+
+    real_judge_with(SlotAwareProvider(by_quality))
+    candidates = tmp_path / "c.json"
+    candidates.write_text(
+        json.dumps(
+            [
+                {"id": "small", "output": "weak", "model": "llama3.2:1b"},
+                {"id": "large", "output": "best"},
+                {"id": "mid", "output": "good"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    code = main(["rank", "--task", "t", "--candidates-file", str(candidates)])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert out.index("1. large") < out.index("2. mid") < out.index("3. small")
+    assert "W-L-T 2-0-0" in out
+
+
+def test_rank_command_accepts_a_mapping_and_json_output(real_judge_with, capsys, tmp_path):
+    from .conftest import SlotAwareProvider
+    from .test_ranking import by_quality
+
+    real_judge_with(SlotAwareProvider(by_quality))
+    candidates = tmp_path / "c.json"
+    candidates.write_text(json.dumps({"a": "best", "b": "weak"}), encoding="utf-8")
+    main(["rank", "--task", "t", "--candidates-file", str(candidates), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["leaderboard"][0]["candidate"] == "a"
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["not json", json.dumps([1, 2]), json.dumps([{"id": "x"}, {"id": "x"}])],
+)
+def test_rank_command_rejects_bad_candidate_files(real_judge_with, tmp_path, content):
+    from .conftest import FakeProvider
+
+    real_judge_with(FakeProvider("{}"))
+    path = tmp_path / "c.json"
+    path.write_text(content, encoding="utf-8")
+    with pytest.raises(SystemExit):
+        main(["rank", "--task", "t", "--candidates-file", str(path)])

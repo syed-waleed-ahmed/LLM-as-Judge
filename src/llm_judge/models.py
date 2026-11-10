@@ -16,11 +16,12 @@ from __future__ import annotations
 
 import re
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 #: Version of the JSON result schema produced by this library.
-RESULT_SCHEMA_VERSION = "1.1"
+RESULT_SCHEMA_VERSION = "1.2"
 
 # "Output A" / "Response B" / "Candidate A" style references. The prefix is
 # case-insensitive but the letter must be uppercase, so ordinary prose such as
@@ -213,3 +214,123 @@ class JudgeResult(BaseModel):
                 "overall_score_b": self.overall_score_a,
             }
         )
+
+
+# --- pointwise and reference-based grading ----------------------------------------
+
+# Bounds on judge-supplied lists, so a runaway reply can't bloat a result.
+_MAX_LIST_ITEMS = 25
+_MAX_ITEM_CHARS = 500
+
+
+def clean_str_list(value: object) -> object:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        items = [v.strip() for v in value if isinstance(v, str) and v.strip()]
+        return [v[:_MAX_ITEM_CHARS] for v in items[:_MAX_LIST_ITEMS]]
+    return value
+
+
+class PointwiseScore(BaseModel):
+    """The judge's score for a single output on one criterion."""
+
+    criterion: str
+    score: float = Field(allow_inf_nan=False)
+    explanation: str = ""
+
+    @field_validator("explanation", mode="before")
+    @classmethod
+    def _none_to_empty(cls, value: object) -> object:
+        return "" if value is None else value
+
+
+class ReferenceMetrics(BaseModel):
+    """Deterministic, LLM-free similarity between an output and its reference.
+
+    ``token_f1`` is the SQuAD-style bag-of-words F1 over lower-cased word tokens.
+    It measures lexical overlap, not meaning: a correct paraphrase can score
+    low. Read it alongside the judge's criteria, not instead of them.
+    """
+
+    exact_match: bool
+    token_f1: float = Field(ge=0, le=1)
+
+
+class PointwiseResult(BaseModel):
+    """The result of grading a single output, optionally against a reference."""
+
+    schema_version: str = RESULT_SCHEMA_VERSION
+    mode: Literal["pointwise", "reference"] = "pointwise"
+    criteria: list[PointwiseScore] = Field(..., min_length=1)
+    #: Weighted mean of the scale-normalised criterion scores (0-1).
+    overall_score: float | None = Field(default=None, ge=0, le=1)
+    #: Actionable suggestions for improving the output.
+    feedback: str = ""
+    #: Reference mode: key points from the reference that the output omits.
+    missing_information: list[str] = Field(default_factory=list)
+    #: Reference mode: claims in the output that the reference contradicts or
+    #: doesn't support (hallucination indicators).
+    unsupported_claims: list[str] = Field(default_factory=list)
+    reference_metrics: ReferenceMetrics | None = None
+    warnings: list[EvaluationWarning] = Field(default_factory=list)
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+    @field_validator("feedback", mode="before")
+    @classmethod
+    def _none_to_empty(cls, value: object) -> object:
+        return "" if value is None else value
+
+    @field_validator("missing_information", "unsupported_claims", mode="before")
+    @classmethod
+    def _clean_lists(cls, value: object) -> object:
+        return clean_str_list(value)
+
+
+# --- multi-candidate ranking ----------------------------------------------------------
+
+
+class PairwiseMatch(BaseModel):
+    """One head-to-head comparison inside a round-robin ranking.
+
+    ``candidate_a`` and ``candidate_b`` keep the order in which the candidates
+    were supplied. ``presented_first`` records which one the judge actually saw
+    in position A.
+    """
+
+    candidate_a: str
+    candidate_b: str
+    presented_first: str
+    winner: str | None = None  # a candidate id, "tie", or None when the match failed
+    overall_score_a: float | None = None
+    overall_score_b: float | None = None
+    warnings: list[str] = Field(default_factory=list)
+    error: str | None = None
+
+
+class RankedCandidate(BaseModel):
+    """A candidate's position on the leaderboard."""
+
+    candidate: str
+    rank: int = Field(ge=1)
+    #: Round robin: (wins + 0.5 * ties) / matches played. Pointwise: overall score.
+    score: float = Field(ge=0, le=1)
+    #: Mean normalised overall score across the candidate's matches (or its grade).
+    mean_overall_score: float | None = Field(default=None, ge=0, le=1)
+    wins: int = 0
+    losses: int = 0
+    ties: int = 0
+    model: str | None = None
+
+
+class RankingResult(BaseModel):
+    """The result of ranking two or more candidate outputs."""
+
+    schema_version: str = RESULT_SCHEMA_VERSION
+    strategy: Literal["round_robin", "pointwise"]
+    criteria: list[str]
+    leaderboard: list[RankedCandidate]
+    matches: list[PairwiseMatch] = Field(default_factory=list)
+    grades: dict[str, PointwiseResult] = Field(default_factory=dict)
+    warnings: list[EvaluationWarning] = Field(default_factory=list)
+    metadata: dict[str, object] = Field(default_factory=dict)

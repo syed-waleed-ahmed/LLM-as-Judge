@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - Unreleased
+
+Phase 2 of the platform roadmap: new evaluation modes. Result schema "1.2"
+adds new result types; existing pairwise results are unchanged.
+
+### Added
+- `Judge.evaluate_pointwise()`: grade a single output on weighted,
+  scale-normalised criteria, with improvement feedback.
+- `Judge.evaluate_reference()`: grade an output against an expected answer.
+  Results list `missing_information` and `unsupported_claims` (hallucination
+  indicators, which also raise an `unsupported_claims` warning) and include
+  deterministic `reference_metrics` (exact match, token F1).
+- Reference criteria presets: Correctness, Completeness, Factual Consistency.
+- `Judge.rank()`: multi-candidate leaderboards. The `round_robin` strategy
+  plays every pair with alternating presentation order; the `pointwise`
+  strategy grades each candidate independently. Competition ranking handles
+  ties, and individual comparison failures are isolated.
+- CLI: `llm-judge grade` (with `--reference`) and `llm-judge rank`
+  (`--candidates-file`, `--strategy`). `list-criteria` shows the reference presets.
+- Setting `JUDGE_MAX_CANDIDATES`.
+
 ## [1.1.0] - Unreleased
 
 Phase 1 of the platform roadmap: core reliability hardening. All changes are

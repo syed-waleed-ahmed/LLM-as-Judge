@@ -54,6 +54,15 @@ _INJECTION_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+def describe_candidate(label: str) -> str:
+    """Human-readable name for a candidate label used in warning messages."""
+    if label in ("A", "B"):
+        return f"Output {label}"
+    if label == "output":
+        return "The output"
+    return f"Candidate '{label}'"
+
+
 def detect_prompt_injection(text: str) -> list[str]:
     """Return human-readable reasons why ``text`` looks like a prompt injection."""
     return [reason for pattern, reason in _INJECTION_PATTERNS if pattern.search(text)]
@@ -70,8 +79,9 @@ def injection_warnings(outputs: dict[str, str]) -> list[EvaluationWarning]:
                     code="possible_prompt_injection",
                     candidate=label,
                     message=(
-                        f"Output {label} {', '.join(reasons)}. It was passed to the judge "
-                        "as untrusted data, but review this judgment manually."
+                        f"{describe_candidate(label)} {', '.join(reasons)}. It was "
+                        "passed to the judge as untrusted data, but review this "
+                        "judgment manually."
                     ),
                 )
             )
@@ -142,9 +152,10 @@ def self_preference_warnings(
                     code="self_preference_risk",
                     candidate=label,
                     message=(
-                        f"Candidate {label} ({candidate}) is from the same model family as "
-                        f"the judge ({judge_model}). LLM judges tend to favour outputs "
-                        "from their own family; consider an independent judge model."
+                        f"{describe_candidate(label)} ({candidate}) comes from the same "
+                        f"model family as the judge ({judge_model}). LLM judges tend to "
+                        "favour outputs from their own family; consider an independent "
+                        "judge model."
                     ),
                 )
             )

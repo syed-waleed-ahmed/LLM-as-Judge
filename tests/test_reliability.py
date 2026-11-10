@@ -15,7 +15,7 @@ from llm_judge.config import Settings
 from llm_judge.criteria import resolve_criterion
 from llm_judge.exceptions import ResponseParsingError, ValidationError
 from llm_judge.judge import Judge
-from llm_judge.models import Criterion, Winner
+from llm_judge.models import RESULT_SCHEMA_VERSION, Criterion, Winner
 from llm_judge.prompts import build_system_prompt, build_user_prompt, new_boundary
 
 from .conftest import (
@@ -319,7 +319,7 @@ def test_metadata_separates_judge_and_candidates(hermetic_settings, single_crite
     assert result.metadata["judge"] == {"provider": "fake", "model": "fake-model"}
     assert result.metadata["candidates"] == {"A": {"model": "gpt-4o"}, "B": {"model": None}}
     assert result.metadata["prompt_version"] == prompts_module.PROMPT_VERSION
-    assert result.schema_version == "1.1"
+    assert result.schema_version == RESULT_SCHEMA_VERSION
 
 
 def test_self_preference_risk_is_flagged(hermetic_settings, single_criterion_payload):

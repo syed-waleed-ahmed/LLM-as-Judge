@@ -124,6 +124,12 @@ outcome to a JSONL checkpoint so that interrupted runs resume safely.
 metadata, and `compare_runs` pairs rows by id to detect regressions with
 confidence intervals.
 
+Async callers use `Judge.aevaluate` and its siblings, which run the same
+synchronous engine in worker threads (`asyncio.to_thread`). An opt-in
+in-memory LRU cache (`llm_judge.cache`, `JUDGE_CACHE_SIZE`) reuses identical
+temperature-0 judgments; keys cover every input and setting that can change a
+result.
+
 ## Extending
 
 - **New provider:** implement the protocol, then register it with

@@ -26,6 +26,17 @@ judge = Judge(provider=..., settings=...)
 Criteria may be preset names, custom names, or `Criterion(name, description,
 scale_min=1, scale_max=10, weight=1.0)` objects.
 
+Each method has an async twin with the same arguments and result:
+`aevaluate`, `aevaluate_pointwise`, `aevaluate_reference`, `arank`,
+`aevaluate_rag` and `aevaluate_agent`. Each runs the method in a worker thread
+(`asyncio.to_thread`), so it doesn't block the event loop.
+
+`Judge(provider=None, settings=None, *, cache=None)`: `cache` is an optional
+`llm_judge.cache.ResultCache`. With `JUDGE_CACHE_SIZE > 0`, judges share a
+process-wide cache of that size. Only temperature-0 results are cached, hits
+carry `metadata["cache_hit"] = True`, and `judge.without_cache()` returns an
+uncached copy.
+
 `instructions` is optional guidance for the judge (for example "Penalise answers
 that state facts without a source"). It goes into the system prompt as evaluator
 guidance, outside the untrusted-content markers, and can't change the response

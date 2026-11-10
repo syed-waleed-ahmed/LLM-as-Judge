@@ -28,6 +28,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `llm-judge health` and `/api/v1/system/status` report every provider in
     the chain.
   - Verified live, with Ollama down and Groq answering.
+- Async evaluation methods: `aevaluate`, `aevaluate_pointwise`,
+  `aevaluate_reference`, `arank`, `aevaluate_rag` and `aevaluate_agent`.
+  They run the synchronous engine in worker threads, so they can be awaited
+  and gathered without blocking an event loop, and they're fully typed.
+- Opt-in result cache (`JUDGE_CACHE_SIZE`, `llm_judge.cache`).
+  - An in-memory LRU cache of identical temperature-0 evaluations; the key
+    covers inputs, criteria, instructions, judge, prompt version and scoring
+    settings.
+  - Hits are marked `metadata["cache_hit"]` and don't spend provider quota.
+  - Answers from a fallback provider are never cached, and consistency
+    analysis always bypasses the cache.
 - The public demo is live at <https://llm-as-judge.streamlit.app/> (Streamlit Community
   Cloud, demo mode). The README, the documentation site and the package
   metadata link to it.

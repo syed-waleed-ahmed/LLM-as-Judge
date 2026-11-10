@@ -16,19 +16,28 @@
    merge keeps explanations consistent with the averaged verdict.
 6. Attach reliability warnings (prompt injection, verbosity, self-preference,
    position inconsistency) and judge/candidate metadata.
+
+Every evaluation method has an ``a``-prefixed async counterpart (``aevaluate``,
+``arank`` and so on) that runs it in a worker thread, so it can be awaited
+without blocking an event loop. An opt-in result cache (``JUDGE_CACHE_SIZE``)
+reuses identical temperature-0 judgments; see :mod:`llm_judge.cache`.
 """
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
+import copy
+import functools
 import logging
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Coroutine, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Concatenate, Literal, ParamSpec, TypeVar
 
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
+from .cache import ResultCache, cache_key, shared_cache
 from .config import Settings, get_settings
 from .criteria import DEFAULT_REFERENCE_CRITERIA, resolve_criterion
 from .diagnostics import injection_warnings, self_preference_warnings, verbosity_warning
@@ -61,6 +70,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 CriteriaInput = Sequence[Criterion | str] | Criterion | str
 
@@ -78,6 +89,23 @@ def provider_name(provider: LLMProvider) -> str:
     return name if isinstance(name, str) and name else type(provider).__name__
 
 
+def _async_method(
+    method: Callable[Concatenate[Judge, _P], _R],
+) -> Callable[Concatenate[Judge, _P], Coroutine[Any, Any, _R]]:
+    """Make an awaitable twin of a :class:`Judge` method that runs it in a worker thread."""
+
+    @functools.wraps(method)
+    async def wrapper(self: Judge, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+        return await asyncio.to_thread(method, self, *args, **kwargs)
+
+    wrapper.__doc__ = (
+        f"Async version of :meth:`Judge.{method.__name__}`: same arguments and result. "
+        "It runs the evaluation in a worker thread, so awaiting it doesn't block the "
+        "event loop, and several can run concurrently."
+    )
+    return wrapper
+
+
 class Judge:
     """Evaluate and compare pairs of model outputs with an LLM judge."""
 
@@ -85,9 +113,21 @@ class Judge:
         self,
         provider: LLMProvider | None = None,
         settings: Settings | None = None,
+        *,
+        cache: ResultCache[Any] | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.provider = provider or self._build_default_provider(self.settings)
+        #: Optional result cache. Defaults to the shared cache when JUDGE_CACHE_SIZE > 0.
+        self.cache: ResultCache[Any] | None = cache
+        if cache is None and self.settings.cache_size > 0:
+            self.cache = shared_cache(self.settings.cache_size)
+
+    def without_cache(self) -> Judge:
+        """A copy of this judge that never reads or writes the result cache."""
+        clone = copy.copy(self)
+        clone.cache = None
+        return clone
 
     @staticmethod
     def _build_default_provider(settings: Settings) -> LLMProvider:
@@ -119,6 +159,41 @@ class Judge:
 
         Returns a validated :class:`JudgeResult`.
         """
+        key = self._cache_key(
+            "pairwise",
+            criteria,
+            {
+                "task": task_description,
+                "a": output_a,
+                "b": output_b,
+                "models": [candidate_a_model, candidate_b_model],
+                "instructions": instructions,
+            },
+        )
+        return self._cached(
+            key,
+            lambda: self._evaluate_pairwise(
+                task_description,
+                output_a,
+                output_b,
+                criteria,
+                candidate_a_model=candidate_a_model,
+                candidate_b_model=candidate_b_model,
+                instructions=instructions,
+            ),
+        )
+
+    def _evaluate_pairwise(
+        self,
+        task_description: str,
+        output_a: str,
+        output_b: str,
+        criteria: CriteriaInput,
+        *,
+        candidate_a_model: str | None,
+        candidate_b_model: str | None,
+        instructions: str | None,
+    ) -> JudgeResult:
         resolved = self.resolve_criteria(criteria)
         warnings: list[EvaluationWarning] = []
         task_description = self.validate_text("task_description", task_description, warnings)
@@ -191,14 +266,28 @@ class Judge:
         """
         from .pointwise import run_pointwise
 
-        return run_pointwise(
-            self,
-            task_description,
-            output,
+        key = self._cache_key(
+            "pointwise",
             criteria,
-            reference=reference,
-            candidate_model=candidate_model,
-            instructions=instructions,
+            {
+                "task": task_description,
+                "output": output,
+                "reference": reference,
+                "model": candidate_model,
+                "instructions": instructions,
+            },
+        )
+        return self._cached(
+            key,
+            lambda: run_pointwise(
+                self,
+                task_description,
+                output,
+                criteria,
+                reference=reference,
+                candidate_model=candidate_model,
+                instructions=instructions,
+            ),
         )
 
     def evaluate_reference(
@@ -217,10 +306,7 @@ class Judge:
         lists ``missing_information`` and ``unsupported_claims``, and includes
         deterministic ``reference_metrics`` (exact match and token F1).
         """
-        from .pointwise import run_pointwise
-
-        return run_pointwise(
-            self,
+        return self.evaluate_pointwise(
             task_description,
             output,
             list(DEFAULT_REFERENCE_CRITERIA) if criteria is None else criteria,
@@ -293,6 +379,56 @@ class Judge:
         if criteria is not None:
             items = [criteria] if isinstance(criteria, (str, Criterion)) else list(criteria)
         return run_agent_evaluation(self, trace, items, candidate_model=candidate_model)
+
+    # -- async counterparts (each runs the method above in a worker thread) ----
+
+    aevaluate = _async_method(evaluate)
+    aevaluate_pointwise = _async_method(evaluate_pointwise)
+    aevaluate_reference = _async_method(evaluate_reference)
+    arank = _async_method(rank)
+    aevaluate_rag = _async_method(evaluate_rag)
+    aevaluate_agent = _async_method(evaluate_agent)
+
+    # -- result cache ---------------------------------------------------------
+
+    def _cache_key(
+        self, kind: str, criteria: CriteriaInput, inputs: dict[str, object]
+    ) -> str | None:
+        """The cache key for an evaluation, or None when caching doesn't apply."""
+        if self.cache is None or self.settings.temperature != 0:
+            return None
+        from . import __version__  # lazy: the package imports this module first
+
+        s = self.settings
+        return cache_key(
+            kind,
+            {
+                **inputs,
+                "criteria": [c.model_dump() for c in self.resolve_criteria(criteria)],
+                "judge": [provider_name(self.provider), self.provider.model],
+                "prompt_version": PROMPT_VERSION,
+                "version": __version__,
+                "settings": [
+                    s.mitigate_position_bias,
+                    s.tie_margin,
+                    s.verbosity_ratio_threshold,
+                    s.max_input_chars,
+                    s.max_instructions_chars,
+                ],
+            },
+        )
+
+    def _cached(self, key: str | None, compute: Callable[[], _T]) -> _T:
+        """Return a cached result for ``key``, or compute (and cache) a fresh one."""
+        if key is None or self.cache is None:
+            return compute()
+        hit = self.cache.get(key)
+        if hit is not None:
+            return hit.model_copy(update={"metadata": {**hit.metadata, "cache_hit": True}})
+        result = compute()
+        if not getattr(result, "metadata", {}).get("fallback"):
+            self.cache.put(key, result)
+        return result
 
     # -- shared helpers (also used by other evaluators) -----------------------
 

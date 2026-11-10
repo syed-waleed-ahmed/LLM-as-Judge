@@ -112,6 +112,9 @@ class Settings(BaseSettings):
     # Safety limit to avoid sending pathologically large prompts. Longer inputs
     # are truncated and the result carries an "input_truncated" warning.
     max_input_chars: int = Field(default=50_000, gt=0, alias="JUDGE_MAX_INPUT_CHARS")
+    #: Opt-in in-memory result cache: how many results to keep (0 disables it).
+    #: Only used at temperature 0; see llm_judge.cache.
+    cache_size: int = Field(default=0, ge=0, le=100_000, alias="JUDGE_CACHE_SIZE")
     #: Longest evaluator guidance (``instructions``) accepted; longer text is truncated.
     max_instructions_chars: int = Field(
         default=2_000, gt=0, le=20_000, alias="JUDGE_MAX_INSTRUCTIONS_CHARS"

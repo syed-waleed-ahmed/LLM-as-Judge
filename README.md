@@ -285,6 +285,26 @@ for row in ranking.leaderboard:
     print(row.rank, row.candidate, row.score, (row.wins, row.losses, row.ties))
 ```
 
+Every method has an async twin (`aevaluate`, `aevaluate_pointwise`,
+`aevaluate_reference`, `arank`, `aevaluate_rag`, `aevaluate_agent`). Each one
+runs the evaluation in a worker thread, so you can await it from async code
+without blocking the event loop, and run several concurrently:
+
+```python
+import asyncio
+
+results = await asyncio.gather(
+    judge.aevaluate(task, a, b, "Helpfulness"),
+    judge.aevaluate_pointwise(task, a, "Conciseness"),
+)
+```
+
+Set `JUDGE_CACHE_SIZE` (for example `256`) to reuse results of identical
+evaluations: same inputs, criteria, instructions, judge and settings. The cache
+is opt-in, in memory only, and used only at temperature 0. Hits are marked
+`metadata["cache_hit"]`, and they don't spend provider quota. Consistency
+analysis never uses it.
+
 Every pairwise evaluation returns a validated, versioned result:
 
 ```json
@@ -578,6 +598,7 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_MAX_CANDIDATES` | `8` | Maximum candidates per ranking (round robin makes n(n-1)/2 comparisons). |
 | `JUDGE_MAX_INPUT_CHARS` | `50000` | Longer inputs are truncated (with a warning). |
 | `JUDGE_MAX_INSTRUCTIONS_CHARS` | `2000` | Longest judge guidance (`instructions`); longer text is truncated with a warning. |
+| `JUDGE_CACHE_SIZE` | `0` (off) | Opt-in in-memory cache of identical temperature-0 results; hits are marked `cache_hit`. |
 | `JUDGE_API_KEYS` | — | Comma-separated keys required by `/api/v1` (open if unset). |
 | `JUDGE_API_ADMIN_KEY` | — | Enables admin routes (they're disabled if unset). |
 | `JUDGE_API_RATE_LIMIT` | `60` | Requests per minute per client (0 disables). |

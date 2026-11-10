@@ -545,6 +545,10 @@ llm-judge batch --input qa_v1.jsonl --output v1.csv --experiment qa --run-name v
 llm-judge batch --input qa_v2.jsonl --output v2.csv --experiment qa --run-name v2
 llm-judge experiments runs --experiment qa
 llm-judge experiments compare <v1-run-id> <v2-run-id> --fail-on-regression
+
+# A shareable Markdown report: how the run was judged, results, failures,
+# reproducibility details, and (with --baseline) the comparison
+llm-judge experiments report <v2-run-id> --baseline <v1-run-id> --output report.md
 ```
 
 ```text

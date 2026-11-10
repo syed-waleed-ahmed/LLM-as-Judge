@@ -297,6 +297,18 @@ def _build_parser() -> argparse.ArgumentParser:
     ea.add_argument("run_a")
     ea.add_argument("run_b")
     ea.add_argument("--json", action="store_true")
+    rp = ex_sub.add_parser(
+        "report", help="Write a shareable Markdown report of a run (optionally vs a baseline)."
+    )
+    rp.add_argument("run_id", help="Run id (a unique prefix is enough).")
+    rp.add_argument("--baseline", default=None, help="Compare against this baseline run.")
+    rp.add_argument(
+        "--min-effect",
+        type=float,
+        default=0.02,
+        help="Smallest mean change counted as a regression/improvement (with --baseline).",
+    )
+    rp.add_argument("--output", default=None, help="Write to this .md file instead of stdout.")
     ee = ex_sub.add_parser("export", help="Write a stored run's rows to a file.")
     ee.add_argument("run_id")
     ee.add_argument("--output", required=True, help=".csv or .jsonl")
@@ -820,6 +832,20 @@ def _cmd_experiments(args: argparse.Namespace) -> int:
                 )
             for note in agreement.notes:
                 print(f"  note: {note}")
+            return 0
+        if command == "report":
+            from .experiments import run_report
+
+            text = run_report(
+                store, args.run_id, baseline_id=args.baseline, min_effect=args.min_effect
+            )
+            if args.output:
+                out = Path(args.output)
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_text(text, encoding="utf-8")
+                print(f"Wrote the report to {out}")
+            else:
+                print(text, end="")
             return 0
         if command == "export":
             rows = store.get_rows(args.run_id)

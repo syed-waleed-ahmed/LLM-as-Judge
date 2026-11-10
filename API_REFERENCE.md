@@ -44,12 +44,13 @@ format. It is recorded in `result.metadata["instructions"]`, and
 `DatasetRunner(..., instructions=...)` records it in the experiment run's
 configuration, so comparisons flag runs judged with different guidance. Text
 longer than `JUDGE_MAX_INSTRUCTIONS_CHARS` is truncated with an
-`input_truncated` warning.
+`input_truncated` warning. The mock judge, a text heuristic, ignores
+instructions.
 
 | Module | Key entry points |
 |---|---|
 | `llm_judge.datasets` | `load_dataset`, `validate_dataset`, `DatasetRunner`, `write_outcomes`, `summarize`, `load_sample`, `sample_records`, `split_records` |
-| `llm_judge.experiments` | `ExperimentStore`, `record_dataset_run`, `compare_runs`, `confidence_interval` |
+| `llm_judge.experiments` | `ExperimentStore`, `record_dataset_run`, `compare_runs`, `run_report`, `confidence_interval` |
 | `llm_judge.reliability` | `measure_consistency`, `judge_agreement`, `cohen_kappa`, `spearman` |
 | `llm_judge.providers` | `GroqProvider`, `OllamaProvider`, `OpenAICompatibleProvider`, `MockProvider`, `QuotaProvider`, `CallBudget`, `build_provider`, `register_provider`, `provider_names` |
 | `llm_judge.agents` | `AgentTrace`, `AgentStep`, `ToolSpec`, `check_trace`, `render_trace` |
@@ -80,7 +81,7 @@ Global options: `--provider {groq,ollama,openai_compatible,mock}` and
 | `llm-judge batch` | Dataset evaluation with checkpoints (`--resume`, `--sample`, `--limit`, `--skip-invalid`, `--experiment`) |
 | `llm-judge benchmark` | Run a bundled sample or a dataset file and print per-model statistics |
 | `llm-judge datasets` | `validate`, `samples`, `export` |
-| `llm-judge experiments` | `list`, `runs`, `show`, `compare` (`--fail-on-regression`), `agreement`, `export`, `delete` |
+| `llm-judge experiments` | `list`, `runs`, `show`, `compare` (`--fail-on-regression`), `agreement`, `report` (Markdown, optional `--baseline`), `export`, `delete` |
 | `llm-judge serve` | Run the REST API (`[api]` extra; localhost by default) |
 | `llm-judge providers` | List providers and whether each is configured |
 | `llm-judge health` | Check that the active provider is reachable (no inference) |
@@ -123,11 +124,13 @@ Errors use one envelope:
 | GET | `/api/v1/benchmarks` | Bundled sample benchmarks |
 | POST | `/api/v1/benchmarks/{name}/jobs` | Run a sample benchmark as a job |
 | GET | `/api/v1/experiments` | Experiments |
+| GET | `/api/v1/experiments/{experiment_name}` | One experiment and a page of its runs |
 | GET | `/api/v1/runs` | Recorded runs (paginated) |
 | GET | `/api/v1/runs/compare` | Compare two runs (regression check) |
 | GET | `/api/v1/runs/agreement` | Agreement between two runs (e.g. two judges) |
 | GET | `/api/v1/runs/{run_id}` | Run details |
 | DELETE | `/api/v1/runs/{run_id}` | Delete a run (admin) |
+| GET | `/api/v1/runs/{run_id}/report` | Markdown report (`?baseline=` adds a comparison) |
 | GET | `/api/v1/runs/{run_id}/rows` | Paginated run rows |
 | GET | `/api/v1/statistics` | Store-wide counts |
 

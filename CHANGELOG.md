@@ -39,9 +39,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - Hits are marked `metadata["cache_hit"]` and don't spend provider quota.
   - Answers from a fallback provider are never cached, and consistency
     analysis always bypasses the cache.
+- Evaluation reports: `run_report()`, `llm-judge experiments report` and
+  `GET /api/v1/runs/{id}/report` produce a shareable Markdown report of a
+  recorded run. It covers how the run was judged (criteria, instructions,
+  settings), the results (overall, per criterion, per model, warnings,
+  failures), an optional comparison with a baseline, and the reproducibility
+  metadata. Mock runs are labelled. The dashboard's Experiments page offers
+  run and comparison reports as downloads.
+- `GET /api/v1/experiments/{name}`: one experiment and a page of its runs.
 - The public demo is live at <https://llm-as-judge.streamlit.app/> (Streamlit Community
   Cloud, demo mode). The README, the documentation site and the package
   metadata link to it.
+
+### Fixed
+- The CLI's log handler kept the `stderr` stream that existed when logging was
+  set up. After a host or test runner replaced and closed that stream, log
+  calls failed with "I/O operation on closed file". It now follows the
+  current `sys.stderr`.
 
 ## [2.0.1] - 2026-11-10
 

@@ -30,7 +30,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import ValidationError as PydanticValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -65,6 +65,7 @@ from ..experiments import (
     RunInfo,
     compare_runs,
     record_dataset_run,
+    run_report,
 )
 from ..judge import Judge
 from ..models import Criterion, JudgeResult, PointwiseResult, RankingResult
@@ -81,6 +82,7 @@ from .schemas import (
     CriteriaOut,
     CriterionInput,
     ErrorResponse,
+    ExperimentDetail,
     JobInfo,
     JobRequest,
     PairwiseRequest,
@@ -739,6 +741,24 @@ def create_app(
     def experiments() -> list[Experiment]:
         return state.store().list_experiments()
 
+    @api.get(
+        "/experiments/{experiment_name}", response_model=ExperimentDetail, tags=["experiments"]
+    )
+    def get_experiment(experiment_name: str, offset: int = 0, limit: int = 50) -> ExperimentDetail:
+        """One experiment and a page of its runs (newest first)."""
+        store_ = state.store()
+        found = store_.get_experiment(experiment_name)
+        if found is None:
+            raise ApiError(404, "not_found", f"No experiment named '{experiment_name}'.")
+        offset, limit = _page(offset, limit)
+        return ExperimentDetail(
+            experiment=found,
+            total_runs=store_.count_runs(experiment=experiment_name),
+            offset=offset,
+            limit=limit,
+            runs=store_.list_runs(experiment=experiment_name, limit=limit, offset=offset),
+        )
+
     @api.get("/runs", response_model=RowsPage, tags=["experiments"])
     def runs(experiment: str | None = None, offset: int = 0, limit: int = 50) -> RowsPage:
         offset, limit = _page(offset, limit)
@@ -773,6 +793,22 @@ def create_app(
     @api.get("/runs/{run_id}", response_model=RunInfo, tags=["experiments"])
     def get_run(run_id: str) -> RunInfo:
         return _run(run_id)
+
+    @api.get(
+        "/runs/{run_id}/report",
+        response_class=PlainTextResponse,
+        tags=["experiments"],
+        responses={200: {"content": {"text/markdown": {}}}},
+    )
+    def get_run_report(
+        run_id: str,
+        baseline: str | None = None,
+        min_effect: Annotated[float, Query(ge=0, le=1)] = 0.02,
+    ) -> PlainTextResponse:
+        """A shareable Markdown report of a run, optionally compared with a baseline run."""
+        run = _run(run_id)
+        text = run_report(state.store(), run.id, baseline_id=baseline, min_effect=min_effect)
+        return PlainTextResponse(text, media_type="text/markdown; charset=utf-8")
 
     @api.get("/runs/{run_id}/rows", response_model=RowsPage, tags=["experiments"])
     def get_run_rows(run_id: str, offset: int = 0, limit: int = 50) -> RowsPage:

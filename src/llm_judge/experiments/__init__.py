@@ -70,6 +70,8 @@ def record_dataset_run(
     )
 
 
+from .report import run_report  # noqa: E402  (needs compare and store above)
+
 __all__ = [
     "Experiment",
     "ExperimentError",
@@ -82,4 +84,5 @@ __all__ = [
     "confidence_interval",
     "record_dataset_run",
     "reproducibility_config",
+    "run_report",
 ]

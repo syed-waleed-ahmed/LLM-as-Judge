@@ -229,7 +229,10 @@ def render_judge_badge(metadata: dict[str, Any]) -> None:
     else:
         st.badge(f"{provider} · {model}", icon=":material/gavel:", color="blue")
     if metadata.get("instructions"):
-        st.caption("Judged with your instructions.")
+        if provider == "mock":
+            st.caption("The mock judge ignores instructions; they apply to live judges only.")
+        else:
+            st.caption("Judged with your instructions.")
 
 
 def run_safely(action: Callable[[], T]) -> T | None:

@@ -80,7 +80,8 @@ def test_playground_applies_judge_instructions(app):
     app.text_area(key="pw:instructions").set_value("Penalise answers without a base case.")
     app.button(key="pw:run").click().run()
     assert not app.exception
-    assert any("Judged with your instructions" in c.value for c in app.caption)
+    # The app test runs the mock judge, which can't follow instructions, and says so.
+    assert any("mock judge ignores instructions" in c.value for c in app.caption)
 
 
 def test_playground_validates_inputs(app):
@@ -114,6 +115,9 @@ def test_benchmark_runs_are_recorded_and_comparable(app):
     _open(app, "experiments")
     assert app.selectbox(key="ex:base").value and app.selectbox(key="ex:cand").value
     assert any("No significant change" in i.value for i in app.info)
+    # A single-run report and a comparison report are offered as downloads.
+    assert app.selectbox(key="ex:report").value
+    assert len(app.get("download_button")) >= 2
 
 
 def test_datasets_page_runs_a_sample(app):

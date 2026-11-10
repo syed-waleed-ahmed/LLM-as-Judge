@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from ..agents import AgentTrace
 from ..datasets import DatasetKind, DatasetSummary
+from ..experiments import Experiment, RunInfo
 from ..models import Criterion, JudgeResult, PointwiseResult
 
 
@@ -216,6 +217,16 @@ class StatusOut(BaseModel):
     provider_health: ProviderHealthOut
     auth_required: bool
     limits: dict[str, int]
+
+
+class ExperimentDetail(BaseModel):
+    """An experiment with a page of its runs, newest first."""
+
+    experiment: Experiment
+    total_runs: int
+    offset: int
+    limit: int
+    runs: list[RunInfo]
 
 
 class StatisticsOut(BaseModel):

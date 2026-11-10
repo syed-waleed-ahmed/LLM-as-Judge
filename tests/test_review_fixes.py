@@ -407,3 +407,21 @@ def test_dashboard_charts_import_pandas_before_plotly():
     )
     root = Path(__file__).resolve().parent.parent
     subprocess.run([sys.executable, "-c", code], check=True, cwd=root)
+
+
+def test_log_handler_follows_a_replaced_stderr(monkeypatch):
+    """A handler bound to a stream that was later closed made every log call fail."""
+    import io
+    import logging
+    import sys
+
+    from llm_judge.logging_config import configure_logging
+
+    configure_logging("INFO")
+    first, second = io.StringIO(), io.StringIO()
+    monkeypatch.setattr(sys, "stderr", first)
+    logging.getLogger("llm_judge.test").warning("one")
+    first.close()  # e.g. a test runner's capture stream going away
+    monkeypatch.setattr(sys, "stderr", second)
+    logging.getLogger("llm_judge.test").warning("two")
+    assert "two" in second.getvalue()

@@ -12,6 +12,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - CodeQL code scanning for the Python code and the GitHub Actions workflows.
 - `make security` and `make docs`. `make check` now also runs Bandit, as CI
   does.
+- Pre-commit hooks (`.pre-commit-config.yaml`, `make hooks`): ruff, whitespace
+  and line endings, YAML and TOML syntax, merge-conflict markers, large files
+  and private keys.
+- Documentation site:
+  - instant navigation with a progress bar, top-level tabs, previous and
+    next links, search suggestions and shareable searches;
+  - Open Graph and Twitter card tags for link previews;
+  - fonts served from the site itself (privacy plugin), so pages make no
+    third-party requests.
+
+### Fixed
+- Links on the documentation site to repository files (`DEPLOYMENT.md`,
+  `.env.example`, `ROADMAP.md` and others) returned 404. A build hook
+  (`scripts/docs_links.py`) now points them to the matching page or to the
+  file on GitHub, and fails the strict build on links to missing files.
+- The committed knowledge graph (`graphify-out/`) described v1 and contained
+  absolute local paths. It is regenerated for v2, with repository-relative
+  paths.
 
 ### Changed
 - GitHub Release notes come from this changelog (`scripts/release_notes.py`)

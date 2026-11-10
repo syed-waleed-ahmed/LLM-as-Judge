@@ -1,7 +1,10 @@
-.PHONY: install test lint type security docs check format format-check run serve cli clean
+.PHONY: install hooks test lint type security docs check format format-check run serve cli clean
 
 install:  ## Install the package with every extra plus dev and docs tooling (editable)
 	pip install -e ".[all,dev,docs]"
+
+hooks:  ## Install the pre-commit hooks (ruff, whitespace, YAML/TOML, private keys)
+	pre-commit install
 
 test:  ## Run the test suite with coverage
 	pytest --cov=llm_judge --cov-report=term-missing

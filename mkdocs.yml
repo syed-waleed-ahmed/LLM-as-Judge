@@ -3,10 +3,16 @@ site_description: Open-source, free-tier LLM evaluation platform - pairwise, poi
 site_url: https://syed-waleed-ahmed.github.io/LLM-as-Judge/
 repo_url: https://github.com/syed-waleed-ahmed/LLM-as-Judge
 repo_name: syed-waleed-ahmed/LLM-as-Judge
-copyright: MIT licensed
+copyright: Copyright &copy; Syed Waleed Ahmed. MIT licensed.
+
+# Rewrites repository-relative links (DEPLOYMENT.md, .env.example, ...) so they work
+# on the site, and fails the strict build on links to files that don't exist.
+hooks:
+  - scripts/docs_links.py
 
 theme:
   name: material
+  custom_dir: overrides  # Open Graph and Twitter card tags for link previews
   icon:
     logo: material/scale-balance
   palette:
@@ -25,10 +31,33 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.tabs
     - navigation.sections
+    - navigation.footer
     - navigation.top
+    - toc.follow
     - content.code.copy
+    - search.suggest
     - search.highlight
+    - search.share
+
+plugins:
+  - search
+  # Downloads Google Fonts and other external assets at build time and serves
+  # them from the site: faster first load, and no third-party requests. Enabled
+  # in CI only (GitHub sets CI=true), because it needs symlinks, which Windows
+  # restricts by default.
+  - privacy:
+      enabled: !ENV [CI, false]
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/syed-waleed-ahmed/LLM-as-Judge
+      name: LLM-as-Judge on GitHub
 
 markdown_extensions:
   - admonition
@@ -48,8 +77,9 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
 
 # Pages include repository files (README sections, ARCHITECTURE.md, ...) as the single
-# source of truth; their repo-relative links don't resolve inside the site, so link
-# problems are reported at info level instead of failing the strict build.
+# source of truth. MkDocs can't resolve their repository-relative links, so it reports
+# them at info level; scripts/docs_links.py then rewrites them and warns (failing the
+# strict build) about any that point at a missing file.
 validation:
   links:
     not_found: info

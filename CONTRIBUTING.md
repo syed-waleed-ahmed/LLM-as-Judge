@@ -29,7 +29,12 @@ python -m venv .venv
 # Unix:     source .venv/bin/activate
 
 pip install -e ".[all,dev,docs]"   # or: make install
+pre-commit install                  # or: make hooks
 ```
+
+The pre-commit hooks run `ruff`, fix trailing whitespace and line endings,
+check YAML and TOML syntax, and block merge-conflict markers and private keys,
+on every commit.
 
 Python 3.10 to 3.13 are supported. No API key is needed for development: the
 test suite runs fully offline against an in-memory fake provider, and every

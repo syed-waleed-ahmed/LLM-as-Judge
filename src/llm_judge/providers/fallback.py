@@ -124,6 +124,7 @@ class FallbackProvider:
                     raise ProviderError(
                         "Every configured provider failed. " + " | ".join(errors),
                         retryable=exc.retryable,
+                        retry_after=exc.retry_after,
                     ) from exc
                 logger.warning(
                     "Provider %s failed (%s); falling back to %s.",

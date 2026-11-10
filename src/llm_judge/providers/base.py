@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import re
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Protocol, TypedDict, runtime_checkable
 
 #: HTTP status codes that indicate a transient, retryable server-side condition.
@@ -86,6 +90,45 @@ class UsageTracker:
                 "prompt_tokens": self._prompt_tokens,
                 "completion_tokens": self._completion_tokens,
             }
+
+
+_TRY_AGAIN = re.compile(
+    r"try again in\s+(?:(?P<min>\d+(?:\.\d+)?)m(?!s))?(?:(?P<num>\d+(?:\.\d+)?)(?P<unit>ms|s))?",
+    re.IGNORECASE,
+)
+
+
+def retry_after_seconds(
+    headers: Mapping[str, str] | None = None, message: str = ""
+) -> float | None:
+    """The wait a rate-limited provider asked for, in seconds, if it said.
+
+    Reads a ``Retry-After`` header (seconds or an HTTP date), then falls back to
+    the "Please try again in 6.48s" / "1m2.5s" / "500ms" wording that Groq and
+    OpenAI-style APIs put in error messages.
+    """
+    if headers:
+        value = next((v for k, v in headers.items() if k.lower() == "retry-after"), None)
+        if value:
+            try:
+                return max(0.0, float(value))
+            except ValueError:
+                try:
+                    when = parsedate_to_datetime(value)
+                except (TypeError, ValueError):
+                    when = None
+                if when is not None:
+                    if when.tzinfo is None:
+                        when = when.replace(tzinfo=timezone.utc)
+                    return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
+    match = _TRY_AGAIN.search(message or "")
+    if match and (match.group("min") or match.group("num")):
+        seconds = float(match.group("min") or 0) * 60
+        if match.group("num"):
+            number = float(match.group("num"))
+            seconds += number / 1000 if match.group("unit").lower() == "ms" else number
+        return seconds
+    return None
 
 
 def shorten(text: str, limit: int = 300) -> str:

@@ -74,6 +74,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   RAG evaluation. Previously it was only tested against simulated responses.
 
 ### Fixed
+- Rate limits on free tiers. Batch runs on Groq's free plan (8,000 tokens per
+  minute) lost rows: retries waited 0.5 to 2 s when Groq asked for 5 to 12 s,
+  and concurrent workers retried in lockstep. Retries now follow the provider's
+  own hint: the `Retry-After` header, or Groq's "try again in 6.48s" message
+  (`ProviderError.retry_after`), capped at 60 s and with jitter. A rate-limit
+  pause also applies to every worker sharing the judge. In a live stress test
+  of back-to-back benchmarks, 11 of 11 rows now succeed, against 8 of 11
+  before.
 - The CLI's log handler kept the `stderr` stream that existed when logging was
   set up. After a host or test runner replaced and closed that stream, log
   calls failed with "I/O operation on closed file". It now follows the

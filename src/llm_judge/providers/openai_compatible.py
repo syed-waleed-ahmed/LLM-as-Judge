@@ -15,7 +15,14 @@ from typing import Any
 import httpx
 
 from ..exceptions import ConfigurationError, ProviderError
-from .base import RETRYABLE_STATUS, ChatMessage, ProviderHealth, UsageTracker, shorten
+from .base import (
+    RETRYABLE_STATUS,
+    ChatMessage,
+    ProviderHealth,
+    UsageTracker,
+    retry_after_seconds,
+    shorten,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +85,9 @@ class OpenAICompatibleProvider:
             raise ProviderError(
                 f"{self.base_url} returned HTTP {response.status_code}: {shorten(response.text)}",
                 retryable=retryable,
+                retry_after=(
+                    retry_after_seconds(response.headers, response.text) if retryable else None
+                ),
             )
 
         try:

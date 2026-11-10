@@ -30,6 +30,8 @@ import contextvars
 import copy
 import functools
 import logging
+import random
+import threading
 import time
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -78,6 +80,60 @@ CriteriaInput = Sequence[Criterion | str] | Criterion | str
 # How much of a rejected reply is echoed back to the judge in a repair retry.
 _MAX_ECHO_CHARS = 4_000
 
+#: Longest single wait between retries, even when a provider asks for more.
+MAX_RETRY_WAIT_SECONDS = 60.0
+
+_backoff = wait_exponential(multiplier=0.5, max=8)
+
+
+def _retry_wait(state: Any) -> float:
+    """Exponential backoff, stretched to the provider's own retry-after hint if longer.
+
+    Free-tier rate limits (e.g. Groq's tokens per minute) often need several
+    seconds; retrying sooner than the provider asked just fails again. Up to
+    10% random jitter keeps concurrent workers from retrying in lockstep.
+    """
+    wait = float(_backoff(state))
+    exc = state.outcome.exception() if state.outcome else None
+    hint = getattr(exc, "retry_after", None)
+    if isinstance(hint, (int, float)) and hint > 0:
+        wait = max(wait, float(hint) + 0.25)
+    wait *= 1 + random.uniform(0, 0.1)  # nosec B311 - jitter, not security
+    return min(wait, MAX_RETRY_WAIT_SECONDS)
+
+
+def _sleep(seconds: float) -> None:
+    """Indirection so tests can observe retry waits without sleeping."""
+    time.sleep(seconds)
+
+
+def _now() -> float:
+    """Monotonic clock, patchable in tests together with :func:`_sleep`."""
+    return time.monotonic()
+
+
+class _Cooldown:
+    """A shared "don't call before" time for all threads using one judge."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._until = 0.0
+
+    def extend(self, seconds: float) -> None:
+        with self._lock:
+            target = _now() + min(float(seconds), MAX_RETRY_WAIT_SECONDS)
+            self._until = max(self._until, target)
+
+    def remaining(self) -> float:
+        with self._lock:
+            return max(0.0, self._until - _now())
+
+    def wait(self) -> None:
+        remaining = self.remaining()
+        if remaining > 0:
+            logger.info("Waiting %.1fs for the provider's rate limit to reset.", remaining)
+            _sleep(remaining)
+
 
 def _is_retryable(exc: BaseException) -> bool:
     return isinstance(exc, ProviderError) and exc.retryable
@@ -122,6 +178,9 @@ class Judge:
         self.cache: ResultCache[Any] | None = cache
         if cache is None and self.settings.cache_size > 0:
             self.cache = shared_cache(self.settings.cache_size)
+        # When the provider asks for a pause (a rate-limit retry-after hint), every
+        # worker using this judge waits it out, so they don't keep re-triggering it.
+        self._cooldown = _Cooldown()
 
     def without_cache(self) -> Judge:
         """A copy of this judge that never reads or writes the result cache."""
@@ -596,15 +655,23 @@ class Judge:
             reraise=True,
             retry=retry_if_exception(_is_retryable),
             stop=stop_after_attempt(self.settings.max_retries + 1),
-            wait=wait_exponential(multiplier=0.5, max=8),
+            wait=_retry_wait,
+            sleep=lambda seconds: _sleep(seconds),
             before_sleep=lambda state: logger.warning(
-                "Retrying judge call (attempt %s) after error: %s",
+                "Retrying judge call (attempt %s) in %.1fs after error: %s",
                 state.attempt_number,
+                state.next_action.sleep if state.next_action else 0.0,
                 state.outcome.exception() if state.outcome else "unknown",
             ),
         )
         def _do_call() -> str:
-            return self.provider.complete_json(messages)
+            self._cooldown.wait()
+            try:
+                return self.provider.complete_json(messages)
+            except ProviderError as exc:
+                if exc.retryable and exc.retry_after:
+                    self._cooldown.extend(exc.retry_after)
+                raise
 
         return _do_call()
 

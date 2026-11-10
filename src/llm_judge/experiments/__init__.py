@@ -51,7 +51,9 @@ def record_dataset_run(
 
     records = [o.record for o in report.outcomes]
     config: dict[str, Any] = reproducibility_config(
-        judge.settings, report.criteria_details or [{"name": c} for c in report.criteria]
+        judge.settings,
+        report.criteria_details or [{"name": c} for c in report.criteria],
+        report.instructions,
     )
     return store.record_run(
         report,

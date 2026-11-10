@@ -104,13 +104,16 @@ class Judge:
         *,
         candidate_a_model: str | None = None,
         candidate_b_model: str | None = None,
+        instructions: str | None = None,
     ) -> JudgeResult:
         """Judge ``output_a`` against ``output_b`` for ``task_description``.
 
         ``criteria`` may be a single name, a :class:`Criterion`, or a list of
         either. ``candidate_a_model`` and ``candidate_b_model`` optionally name
         the models that produced each output. They're recorded in the metadata
-        and used to detect self-preference risk.
+        and used to detect self-preference risk. ``instructions`` is optional
+        guidance for the judge, such as how strictly to score or what to
+        penalise; it is recorded in the metadata.
 
         Returns a validated :class:`JudgeResult`.
         """
@@ -120,18 +123,21 @@ class Judge:
         output_a = self.validate_text("output_a", output_a, warnings)
         output_b = self.validate_text("output_b", output_b, warnings)
         warnings.extend(injection_warnings({"A": output_a, "B": output_b}))
+        instructions = self.validate_instructions(instructions, warnings)
 
         started = time.perf_counter()
         runs: dict[str, object] = {}
         if self.settings.mitigate_position_bias:
             original, swapped_raw = self._run_both_orders(
-                task_description, output_a, output_b, resolved
+                task_description, output_a, output_b, resolved, instructions
             )
             swapped = swapped_raw.swapped()
             result = self._merge(resolved, original, swapped, warnings)
             runs = {"original": _run_summary(original), "swapped": _run_summary(swapped)}
         else:
-            result = self._evaluate_once(task_description, output_a, output_b, resolved)
+            result = self._evaluate_once(
+                task_description, output_a, output_b, resolved, instructions
+            )
         latency = round(time.perf_counter() - started, 3)
         warnings.extend(result.warnings)
 
@@ -156,6 +162,8 @@ class Judge:
         }
         if runs:
             metadata["runs"] = runs
+        if instructions:
+            metadata["instructions"] = instructions
         return result.model_copy(update={"warnings": warnings, "metadata": metadata})
 
     def evaluate_pointwise(
@@ -166,12 +174,14 @@ class Judge:
         *,
         reference: str | None = None,
         candidate_model: str | None = None,
+        instructions: str | None = None,
     ) -> PointwiseResult:
         """Grade a single ``output`` on its own merits.
 
         With ``reference``, the output is also judged against that expected
         answer. Prefer :meth:`evaluate_reference` for that, since it defaults
-        to reference-oriented criteria.
+        to reference-oriented criteria. ``instructions`` is optional judge
+        guidance, as in :meth:`evaluate`.
         """
         from .pointwise import run_pointwise
 
@@ -182,6 +192,7 @@ class Judge:
             criteria,
             reference=reference,
             candidate_model=candidate_model,
+            instructions=instructions,
         )
 
     def evaluate_reference(
@@ -192,6 +203,7 @@ class Judge:
         criteria: CriteriaInput | None = None,
         *,
         candidate_model: str | None = None,
+        instructions: str | None = None,
     ) -> PointwiseResult:
         """Grade ``output`` against an expected ``reference`` answer.
 
@@ -208,6 +220,7 @@ class Judge:
             list(DEFAULT_REFERENCE_CRITERIA) if criteria is None else criteria,
             reference=reference,
             candidate_model=candidate_model,
+            instructions=instructions,
         )
 
     def rank(
@@ -219,6 +232,7 @@ class Judge:
         strategy: Literal["round_robin", "pointwise"] = "round_robin",
         candidate_models: Mapping[str, str | None] | None = None,
         max_workers: int | None = None,
+        instructions: str | None = None,
     ) -> RankingResult:
         """Rank two or more candidate outputs and return a leaderboard.
 
@@ -236,6 +250,7 @@ class Judge:
             strategy=strategy,
             candidate_models=candidate_models,
             max_workers=max_workers,
+            instructions=instructions,
         )
 
     def evaluate_rag(
@@ -313,6 +328,31 @@ class Judge:
             return value[:limit]
         return value
 
+    def validate_instructions(
+        self, instructions: str | None, warnings: list[EvaluationWarning]
+    ) -> str | None:
+        """Normalise optional judge guidance: blank becomes None, oversized is truncated."""
+        if instructions is None:
+            return None
+        if not isinstance(instructions, str):
+            raise ValidationError("'instructions' must be a string.")
+        instructions = instructions.strip()
+        if not instructions:
+            return None
+        limit = self.settings.max_instructions_chars
+        if len(instructions) > limit:
+            warnings.append(
+                EvaluationWarning(
+                    code="input_truncated",
+                    message=(
+                        f"'instructions' was truncated from {len(instructions)} to "
+                        f"{limit} characters."
+                    ),
+                )
+            )
+            instructions = instructions[:limit]
+        return instructions
+
     def complete_and_parse(self, messages: list[ChatMessage], parse: Callable[[str], _T]) -> _T:
         """Call the provider and parse the reply, with repair retries.
 
@@ -348,17 +388,26 @@ class Judge:
     # -- internals ----------------------------------------------------------
 
     def _run_both_orders(
-        self, task: str, output_a: str, output_b: str, criteria: list[Criterion]
+        self,
+        task: str,
+        output_a: str,
+        output_b: str,
+        criteria: list[Criterion],
+        instructions: str | None = None,
     ) -> tuple[JudgeResult, JudgeResult]:
         """Judge (A, B) and (B, A). Returns the raw results of both orderings."""
         if not self.settings.parallel_bias_runs:
             return (
-                self._evaluate_once(task, output_a, output_b, criteria),
-                self._evaluate_once(task, output_b, output_a, criteria),
+                self._evaluate_once(task, output_a, output_b, criteria, instructions),
+                self._evaluate_once(task, output_b, output_a, criteria, instructions),
             )
         with ThreadPoolExecutor(max_workers=2, thread_name_prefix="llm-judge-swap") as pool:
-            first = pool.submit(self._evaluate_once, task, output_a, output_b, criteria)
-            second = pool.submit(self._evaluate_once, task, output_b, output_a, criteria)
+            first = pool.submit(
+                self._evaluate_once, task, output_a, output_b, criteria, instructions
+            )
+            second = pool.submit(
+                self._evaluate_once, task, output_b, output_a, criteria, instructions
+            )
             return first.result(), second.result()
 
     def _evaluate_once(
@@ -367,10 +416,12 @@ class Judge:
         output_a: str,
         output_b: str,
         criteria: list[Criterion],
+        instructions: str | None = None,
     ) -> JudgeResult:
         boundary = new_boundary(task_description, output_a, output_b)
+        system = build_system_prompt(criteria, boundary=boundary, instructions=instructions)
         messages: list[ChatMessage] = [
-            {"role": "system", "content": build_system_prompt(criteria, boundary=boundary)},
+            {"role": "system", "content": system},
             {
                 "role": "user",
                 "content": build_user_prompt(

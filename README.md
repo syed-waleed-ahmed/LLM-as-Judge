@@ -205,6 +205,11 @@ llm-judge evaluate --task-file task.txt \
 llm-judge evaluate --task-file task.txt \
   --output-a-file a.txt --output-b-file b.txt --json
 
+# Give the judge your own guidance (also: grade, rank, batch, benchmark)
+llm-judge evaluate --task-file task.txt \
+  --output-a-file a.txt --output-b-file b.txt \
+  --instructions "Penalise answers that state facts without a source."
+
 # Grade a whole dataset concurrently (checkpointed; resumable with --resume)
 llm-judge batch --input examples/sample_batch.csv \
   --output results.csv --criteria Helpfulness --workers 8
@@ -249,6 +254,16 @@ coverage = Criterion(
     name="Coverage", description="Covers every key point.", scale_min=0, scale_max=100, weight=2
 )
 judge.evaluate("...", "...", "...", [resolve_criterion("Helpfulness"), coverage])
+
+# Optional guidance for the judge: how strictly to score, what to penalise.
+# It's recorded in result.metadata["instructions"] and in experiment runs.
+judge.evaluate(
+    "...",
+    "...",
+    "...",
+    "Accuracy",
+    instructions="Penalise answers that state facts without a source.",
+)
 ```
 
 The same `Judge` also grades single outputs and ranks candidates:
@@ -560,6 +575,7 @@ All settings are read from the environment (or `.env`). See
 | `JUDGE_MAX_CRITERIA` | `20` | Maximum criteria per evaluation. |
 | `JUDGE_MAX_CANDIDATES` | `8` | Maximum candidates per ranking (round robin makes n(n-1)/2 comparisons). |
 | `JUDGE_MAX_INPUT_CHARS` | `50000` | Longer inputs are truncated (with a warning). |
+| `JUDGE_MAX_INSTRUCTIONS_CHARS` | `2000` | Longest judge guidance (`instructions`); longer text is truncated with a warning. |
 | `JUDGE_API_KEYS` | — | Comma-separated keys required by `/api/v1` (open if unset). |
 | `JUDGE_API_ADMIN_KEY` | — | Enables admin routes (they're disabled if unset). |
 | `JUDGE_API_RATE_LIMIT` | `60` | Requests per minute per client (0 disables). |

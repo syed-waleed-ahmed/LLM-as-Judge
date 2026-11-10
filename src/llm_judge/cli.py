@@ -77,6 +77,23 @@ def _read_text_arg(value: str | None, file_value: str | None, name: str) -> str:
     raise CliError(f"provide --{name} or --{name}-file")
 
 
+def _add_instructions_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--instructions",
+        default=None,
+        help='Optional guidance for the judge, e.g. "Penalise answers without sources."',
+    )
+    p.add_argument("--instructions-file", default=None, help="Read the guidance from a file.")
+
+
+def _guidance(args: argparse.Namespace) -> dict[str, str]:
+    """``{"instructions": text}`` when guidance was given, else ``{}``."""
+    text = _optional_text_arg(
+        getattr(args, "instructions", None), getattr(args, "instructions_file", None)
+    )
+    return {"instructions": text} if text and text.strip() else {}
+
+
 def _parse_criteria(raw: str) -> list[str]:
     return [c.strip() for c in raw.split(",") if c.strip()]
 
@@ -160,6 +177,7 @@ def _add_dataset_run_options(p: argparse.ArgumentParser) -> None:
     )
     p.add_argument("--run-name", default=None, help="Label for the recorded run.")
     p.add_argument("--db", default=None, help="Experiment database (default: JUDGE_DB_PATH).")
+    _add_instructions_args(p)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -206,6 +224,7 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run each pair in both orders and average to reduce position bias.",
     )
+    _add_instructions_args(ev)
     ev.add_argument("--json", action="store_true", help="Print raw JSON instead of a summary.")
 
     # batch ---------------------------------------------------------------
@@ -311,6 +330,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     gr.add_argument("--weights", default=None, help='Relative weights, e.g. "Correctness=2".')
     gr.add_argument("--model", default=None, help="Name of the model that produced the output.")
+    _add_instructions_args(gr)
     gr.add_argument("--json", action="store_true", help="Print raw JSON instead of a summary.")
 
     # rank ----------------------------------------------------------------
@@ -336,6 +356,7 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Judge every pair in both orders (round_robin only; doubles the calls).",
     )
+    _add_instructions_args(rk)
     rk.add_argument("--json", action="store_true", help="Print raw JSON instead of a summary.")
 
     # rag -----------------------------------------------------------------
@@ -462,7 +483,7 @@ def _cmd_grade(args: argparse.Namespace) -> int:
 
     judge = Judge(settings=_settings(args))
     result = judge.evaluate_pointwise(
-        task, output, criteria, reference=reference, candidate_model=args.model
+        task, output, criteria, reference=reference, candidate_model=args.model, **_guidance(args)
     )
     if args.json:
         print(_json_text(result.model_dump(mode="json")))
@@ -485,6 +506,7 @@ def _cmd_rank(args: argparse.Namespace) -> int:
         strategy=args.strategy,
         candidate_models={k: v for k, v in models.items() if v},
         max_workers=args.workers,
+        **_guidance(args),
     )
     if args.json:
         print(_json_text(result.model_dump(mode="json")))
@@ -510,6 +532,7 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
         criteria,
         candidate_a_model=args.model_a,
         candidate_b_model=args.model_b,
+        **_guidance(args),
     )
 
     if args.json:
@@ -575,6 +598,7 @@ def _run_dataset(
         progress=lambda done, total: print(
             f"\r  {done}/{total} done", end="", flush=True, file=sys.stderr
         ),
+        instructions=_guidance(args).get("instructions"),
     )
     print(
         f"Evaluating {len(records)} row(s) with {runner.max_workers} worker(s)...",

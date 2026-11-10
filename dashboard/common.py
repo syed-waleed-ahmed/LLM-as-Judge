@@ -228,6 +228,8 @@ def render_judge_badge(metadata: dict[str, Any]) -> None:
         st.caption(MOCK_NOTICE)
     else:
         st.badge(f"{provider} · {model}", icon=":material/gavel:", color="blue")
+    if metadata.get("instructions"):
+        st.caption("Judged with your instructions.")
 
 
 def run_safely(action: Callable[[], T]) -> T | None:
@@ -268,6 +270,25 @@ def criteria_picker(
             base = resolve_criterion(name)
             criteria.append(Criterion(**{**base.model_dump(), "weight": weight}))
     return criteria
+
+
+def instructions_input(key: str) -> str | None:
+    """Optional free-text guidance for the judge. Returns None when left blank."""
+    settings = app_settings()
+    limit = min(settings.max_instructions_chars, 1_000 if settings.demo_mode else 20_000)
+    with st.expander("Judge instructions (optional)"):
+        text = st.text_area(
+            "Guidance for the judge",
+            key=f"{key}:instructions",
+            height=90,
+            max_chars=limit,
+            placeholder="e.g. Penalise answers that state facts without a source.",
+            help=(
+                "Added to the judge's prompt as evaluator guidance. It can change how "
+                "outputs are scored, but not the response format."
+            ),
+        )
+    return text.strip() or None
 
 
 # --- results -------------------------------------------------------------------------

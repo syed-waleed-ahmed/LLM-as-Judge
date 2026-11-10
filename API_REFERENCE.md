@@ -16,15 +16,24 @@ judge = Judge(provider=..., settings=...)
 
 | Method | Returns | Purpose |
 |---|---|---|
-| `judge.evaluate(task_description, output_a, output_b, criteria, *, candidate_a_model=None, candidate_b_model=None)` | `JudgeResult` | Pairwise comparison |
-| `judge.evaluate_pointwise(task_description, output, criteria="Helpfulness", *, reference=None, candidate_model=None)` | `PointwiseResult` | Grade one output |
-| `judge.evaluate_reference(task_description, output, reference, criteria=None, *, candidate_model=None)` | `PointwiseResult` | Grade against an expected answer |
-| `judge.rank(task_description, candidates, criteria="Helpfulness", *, strategy="round_robin", candidate_models=None, max_workers=None)` | `RankingResult` | Leaderboard of 2+ candidates |
+| `judge.evaluate(task_description, output_a, output_b, criteria, *, candidate_a_model=None, candidate_b_model=None, instructions=None)` | `JudgeResult` | Pairwise comparison |
+| `judge.evaluate_pointwise(task_description, output, criteria="Helpfulness", *, reference=None, candidate_model=None, instructions=None)` | `PointwiseResult` | Grade one output |
+| `judge.evaluate_reference(task_description, output, reference, criteria=None, *, candidate_model=None, instructions=None)` | `PointwiseResult` | Grade against an expected answer |
+| `judge.rank(task_description, candidates, criteria="Helpfulness", *, strategy="round_robin", candidate_models=None, max_workers=None, instructions=None)` | `RankingResult` | Leaderboard of 2+ candidates |
 | `judge.evaluate_rag(question, contexts, answer, *, reference=None)` | `RagResult` | RAG faithfulness, relevance, context precision/recall |
 | `judge.evaluate_agent(trace, criteria=None, *, candidate_model=None)` | `AgentResult` | Agent trajectory checks and grade |
 
 Criteria may be preset names, custom names, or `Criterion(name, description,
 scale_min=1, scale_max=10, weight=1.0)` objects.
+
+`instructions` is optional guidance for the judge (for example "Penalise answers
+that state facts without a source"). It goes into the system prompt as evaluator
+guidance, outside the untrusted-content markers, and can't change the response
+format. It is recorded in `result.metadata["instructions"]`, and
+`DatasetRunner(..., instructions=...)` records it in the experiment run's
+configuration, so comparisons flag runs judged with different guidance. Text
+longer than `JUDGE_MAX_INSTRUCTIONS_CHARS` is truncated with an
+`input_truncated` warning.
 
 | Module | Key entry points |
 |---|---|
@@ -110,6 +119,10 @@ Errors use one envelope:
 | DELETE | `/api/v1/runs/{run_id}` | Delete a run (admin) |
 | GET | `/api/v1/runs/{run_id}/rows` | Paginated run rows |
 | GET | `/api/v1/statistics` | Store-wide counts |
+
+The pairwise, pointwise, reference, rank, batch, job and benchmark-job bodies
+accept an optional `instructions` string: guidance for the judge, as described
+for the Python API above.
 
 Authentication: set `JUDGE_API_KEYS` and send `X-API-Key: <key>` or
 `Authorization: Bearer <key>`. Admin routes additionally need `X-Admin-Key`,

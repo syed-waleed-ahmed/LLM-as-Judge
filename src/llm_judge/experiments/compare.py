@@ -128,16 +128,27 @@ def _comparability(baseline: RunInfo, candidate: RunInfo) -> list[str]:
             baseline.config.get("settings", {}).get("mitigate_position_bias"),
             candidate.config.get("settings", {}).get("mitigate_position_bias"),
         ),
+        (
+            "judge instructions",
+            baseline.config.get("instructions"),
+            candidate.config.get("instructions"),
+        ),
     )
     for label, a, b in pairs:
         if label.startswith("criterion definitions") and baseline.criteria != candidate.criteria:
             continue  # already reported as a change of criteria
         if a != b:
             warnings.append(
-                f"The runs differ in {label} ({a} vs {b}); score differences may reflect "
-                "the judging setup rather than the outputs."
+                f"The runs differ in {label} ({_short(a)} vs {_short(b)}); score differences "
+                "may reflect the judging setup rather than the outputs."
             )
     return warnings
+
+
+def _short(value: object, limit: int = 60) -> str:
+    """A compact rendering of a config value for warning messages."""
+    text = str(value)
+    return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
 def compare_runs(

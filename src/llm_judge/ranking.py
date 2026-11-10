@@ -99,6 +99,7 @@ def run_ranking(
     strategy: Strategy = "round_robin",
     candidate_models: Mapping[str, str | None] | None = None,
     max_workers: int | None = None,
+    instructions: str | None = None,
 ) -> RankingResult:
     """Rank candidates for ``task_description``; see :meth:`Judge.rank`."""
     texts = normalise_candidates(candidates)
@@ -115,12 +116,16 @@ def run_ranking(
     for cid, text in texts.items():
         judge.validate_text(f"candidate '{cid}'", text, [])
     workers = max_workers or judge.settings.batch_max_workers
+    guidance_warnings: list[EvaluationWarning] = []
+    instructions = judge.validate_instructions(instructions, guidance_warnings)
 
     started = time.perf_counter()
     if strategy == "round_robin":
-        result = _round_robin(judge, task_description, texts, resolved, models, workers)
+        result = _round_robin(
+            judge, task_description, texts, resolved, models, workers, instructions
+        )
     elif strategy == "pointwise":
-        result = _pointwise(judge, task_description, texts, resolved, models, workers)
+        result = _pointwise(judge, task_description, texts, resolved, models, workers, instructions)
     else:
         raise ValidationError(f"Unknown ranking strategy '{strategy}'.")
 
@@ -133,6 +138,9 @@ def run_ranking(
         "position_bias_mitigated": judge.settings.mitigate_position_bias,
         "latency_seconds": round(time.perf_counter() - started, 3),
     }
+    if instructions:
+        result.metadata["instructions"] = instructions
+    result.warnings = guidance_warnings + result.warnings
     return result
 
 
@@ -143,6 +151,7 @@ def _round_robin(
     criteria: list[Criterion],
     models: dict[str, str | None],
     workers: int,
+    instructions: str | None = None,
 ) -> RankingResult:
     ids = list(texts)
     pairs = list(itertools.combinations(range(len(ids)), 2))
@@ -161,6 +170,7 @@ def _round_robin(
                 criteria,
                 candidate_a_model=models.get(first),
                 candidate_b_model=models.get(second),
+                instructions=instructions,
             )
         except LLMJudgeError as exc:
             return PairwiseMatch(
@@ -261,13 +271,18 @@ def _pointwise(
     criteria: list[Criterion],
     models: dict[str, str | None],
     workers: int,
+    instructions: str | None = None,
 ) -> RankingResult:
     def grade(cid: str) -> tuple[str, PointwiseResult | None, str | None]:
         try:
             return (
                 cid,
                 judge.evaluate_pointwise(
-                    task, texts[cid], criteria, candidate_model=models.get(cid)
+                    task,
+                    texts[cid],
+                    criteria,
+                    candidate_model=models.get(cid),
+                    instructions=instructions,
                 ),
                 None,
             )

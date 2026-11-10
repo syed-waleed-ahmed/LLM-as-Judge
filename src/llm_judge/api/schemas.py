@@ -33,6 +33,20 @@ def _default_criteria() -> CriteriaField:
     return ["Helpfulness"]
 
 
+InstructionsField = Annotated[
+    str | None,
+    Field(
+        default=None,
+        max_length=20_000,
+        description=(
+            "Optional guidance for the judge, such as how strictly to score or what to "
+            "penalise. Longer than the server limit (JUDGE_MAX_INSTRUCTIONS_CHARS) is "
+            "truncated with a warning."
+        ),
+    ),
+]
+
+
 class PairwiseRequest(_Strict):
     task_description: str
     output_a: str
@@ -43,6 +57,7 @@ class PairwiseRequest(_Strict):
     mitigate_position_bias: bool | None = Field(
         default=None, description="Override the server default for this request."
     )
+    instructions: InstructionsField = None
 
 
 class PointwiseRequest(_Strict):
@@ -50,6 +65,7 @@ class PointwiseRequest(_Strict):
     output: str
     criteria: CriteriaField = Field(default_factory=_default_criteria, min_length=1)
     candidate_model: str | None = None
+    instructions: InstructionsField = None
 
 
 class ReferenceRequest(_Strict):
@@ -60,6 +76,7 @@ class ReferenceRequest(_Strict):
         default=None, description="Defaults to Correctness and Completeness."
     )
     candidate_model: str | None = None
+    instructions: InstructionsField = None
 
 
 class RankRequest(_Strict):
@@ -69,6 +86,7 @@ class RankRequest(_Strict):
     strategy: Literal["round_robin", "pointwise"] = "round_robin"
     candidate_models: dict[str, str] | None = None
     mitigate_position_bias: bool | None = None
+    instructions: InstructionsField = None
 
 
 class RagRequest(_Strict):
@@ -100,6 +118,7 @@ class BatchRequest(_Strict):
     kind: DatasetKind | None = Field(default=None, description="Inferred from the columns.")
     criteria: CriteriaField | None = None
     mitigate_position_bias: bool | None = None
+    instructions: InstructionsField = None
 
 
 class JobRequest(BatchRequest):
@@ -110,6 +129,7 @@ class JobRequest(BatchRequest):
 class BenchmarkJobRequest(_Strict):
     criteria: CriteriaField | None = Field(default=None, description="Defaults to the sample's.")
     mitigate_position_bias: bool | None = None
+    instructions: InstructionsField = None
     experiment: str | None = None
     run_name: str | None = None
 

@@ -462,6 +462,7 @@ def create_app(
                 _criteria(body.criteria) or ["Helpfulness"],
                 candidate_a_model=body.candidate_a_model,
                 candidate_b_model=body.candidate_b_model,
+                instructions=body.instructions,
             )
 
     @api.post("/evaluate/pointwise", response_model=PointwiseResult, tags=["evaluate"])
@@ -472,6 +473,7 @@ def create_app(
                 body.output,
                 _criteria(body.criteria) or ["Helpfulness"],
                 candidate_model=body.candidate_model,
+                instructions=body.instructions,
             )
 
     @api.post("/evaluate/reference", response_model=PointwiseResult, tags=["evaluate"])
@@ -483,6 +485,7 @@ def create_app(
                 body.reference,
                 _criteria(body.criteria),
                 candidate_model=body.candidate_model,
+                instructions=body.instructions,
             )
 
     @api.post("/evaluate/rank", response_model=RankingResult, tags=["evaluate"])
@@ -494,6 +497,7 @@ def create_app(
                 _criteria(body.criteria) or ["Helpfulness"],
                 strategy=body.strategy,
                 candidate_models=body.candidate_models,
+                instructions=body.instructions,
             )
 
     @api.post("/evaluate/rag", response_model=RagResult, tags=["evaluate"])
@@ -550,6 +554,7 @@ def create_app(
                 state.judge(body.mitigate_position_bias),
                 _criteria(body.criteria),
                 max_workers=min(settings.batch_max_workers, settings.api_max_concurrent),
+                instructions=body.instructions,
             )
             report = runner.run(records)
         return BatchResponse(
@@ -570,6 +575,7 @@ def create_app(
         payload: Any,
         response: Response,
         source: str,
+        instructions: str | None = None,
     ) -> JobInfo:
         if len(records) > settings.api_max_job_rows:
             raise ApiError(
@@ -585,6 +591,7 @@ def create_app(
                 max_workers=min(settings.batch_max_workers, settings.api_max_concurrent),
                 stop_event=stop,
                 progress=progress,
+                instructions=instructions,
             ).run(recs)
 
         def record(report: RunReport, job: Job) -> str | None:
@@ -645,6 +652,7 @@ def create_app(
             body.model_dump(mode="json"),
             response,
             "api:jobs",
+            body.instructions,
         )
 
     @api.get("/jobs", response_model=list[JobInfo], tags=["jobs"], dependencies=admin)
@@ -722,6 +730,7 @@ def create_app(
             {"benchmark": name, **body.model_dump(mode="json")},
             response,
             f"sample:{name}",
+            body.instructions,
         )
 
     # -- experiments -------------------------------------------------------------------

@@ -31,7 +31,7 @@ from .models import (
     clean_str_list,
 )
 from .parsing import extract_json_object
-from .prompts import PROMPT_VERSION, new_boundary
+from .prompts import PROMPT_VERSION, guidance_block, new_boundary
 from .providers.base import ChatMessage
 from .scoring import match_criteria, weighted_mean
 
@@ -63,7 +63,11 @@ def _scale(c: Criterion) -> str:
 
 
 def build_pointwise_system_prompt(
-    criteria: Sequence[Criterion], *, boundary: str, with_reference: bool
+    criteria: Sequence[Criterion],
+    *,
+    boundary: str,
+    with_reference: bool,
+    instructions: str | None = None,
 ) -> str:
     """System prompt for grading one output (optionally against a reference)."""
     criteria_block = "\n".join(f"- {c.name}: {c.description} Scale: {_scale(c)}." for c in criteria)
@@ -97,6 +101,7 @@ def build_pointwise_system_prompt(
         "output produced for a task, scoring it on every criterion below.\n\n"
         "Criteria:\n"
         f"{criteria_block}\n\n"
+        f"{guidance_block(instructions)}"
         f"{reference_rules}"
         "Untrusted content:\n"
         f"The {markers} appear in the user message between boundary markers that contain "
@@ -192,6 +197,7 @@ def run_pointwise(
     *,
     reference: str | None = None,
     candidate_model: str | None = None,
+    instructions: str | None = None,
 ) -> PointwiseResult:
     """Grade ``output`` for ``task_description``; see :meth:`Judge.evaluate_pointwise`."""
     from .judge import provider_name
@@ -203,13 +209,17 @@ def run_pointwise(
     if reference is not None:
         reference = judge.validate_text("reference", reference, warnings)
     warnings.extend(injection_warnings({"output": output}))
+    instructions = judge.validate_instructions(instructions, warnings)
 
     boundary = new_boundary(task_description, output, reference or "")
     messages: list[ChatMessage] = [
         {
             "role": "system",
             "content": build_pointwise_system_prompt(
-                resolved, boundary=boundary, with_reference=reference is not None
+                resolved,
+                boundary=boundary,
+                with_reference=reference is not None,
+                instructions=instructions,
             ),
         },
         {
@@ -250,10 +260,13 @@ def run_pointwise(
     judge_model = judge.provider.model
     warnings.extend(self_preference_warnings(judge_model, {"output": candidate_model}))
     update["warnings"] = warnings
-    update["metadata"] = {
+    metadata: dict[str, object] = {
         "judge": {"provider": provider_name(judge.provider), "model": judge_model},
         "candidate": {"model": candidate_model},
         "prompt_version": PROMPT_VERSION,
         "latency_seconds": latency,
     }
+    if instructions:
+        metadata["instructions"] = instructions
+    update["metadata"] = metadata
     return result.model_copy(update=update)

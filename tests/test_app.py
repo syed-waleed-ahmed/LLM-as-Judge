@@ -72,6 +72,17 @@ def test_playground_compares_two_outputs(app):
     assert app.session_state["evaluations"] == 1
 
 
+def test_playground_applies_judge_instructions(app):
+    _open(app, "playground")
+    app.text_area(key="pw:task").set_value("Explain recursion")
+    app.text_area(key="pw:a").set_value("A function that calls itself, with a base case.")
+    app.text_area(key="pw:b").set_value("Stuff repeats.")
+    app.text_area(key="pw:instructions").set_value("Penalise answers without a base case.")
+    app.button(key="pw:run").click().run()
+    assert not app.exception
+    assert any("Judged with your instructions" in c.value for c in app.caption)
+
+
 def test_playground_validates_inputs(app):
     _open(app, "playground")
     app.button(key="pw:run").click().run()

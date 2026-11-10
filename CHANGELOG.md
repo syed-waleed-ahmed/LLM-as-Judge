@@ -7,6 +7,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Evaluator instructions: optional guidance for the judge ("penalise answers
+  without sources") on pairwise, pointwise, reference and ranking
+  evaluations, dataset runs and benchmarks. It is available as
+  `instructions=` in the Python API, `--instructions` /
+  `--instructions-file` in the CLI, an `instructions` field in the REST API,
+  and a field on the dashboard's Playground. It goes into the system prompt
+  outside the untrusted-content markers, and can't change the response
+  format. It is recorded in the result metadata and the experiment run's
+  configuration; run comparisons flag different guidance, and resuming a
+  checkpoint with different guidance is refused. Its length is capped by
+  `JUDGE_MAX_INSTRUCTIONS_CHARS`. The prompt version is now 2.1.
 - The public demo is live at <https://llm-as-judge.streamlit.app/> (Streamlit Community
   Cloud, demo mode). The README, the documentation site and the package
   metadata link to it.

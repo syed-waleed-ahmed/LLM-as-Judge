@@ -83,6 +83,8 @@ class RunReport:
     criteria_details: list[dict[str, Any]] = field(default_factory=list)
     #: Why the run stopped early, when it did (e.g. an exhausted call budget).
     stop_reason: str | None = None
+    #: Evaluator guidance given to the judge for every row, if any.
+    instructions: str | None = None
 
     @property
     def succeeded(self) -> int:
@@ -196,9 +198,15 @@ class DatasetRunner:
         retry_failed: bool = True,
         progress: Callable[[int, int], None] | None = None,
         stop_event: threading.Event | None = None,
+        instructions: str | None = None,
     ) -> None:
         self.judge = judge
         self.criteria = list(criteria) if criteria else None
+        # Only touch the judge's newer API when guidance is given, so judge-like
+        # objects written against earlier versions keep working.
+        self.instructions = (
+            judge.validate_instructions(instructions, []) if instructions is not None else None
+        )
         self.max_workers = max_workers or judge.settings.batch_max_workers
         self.checkpoint = Path(checkpoint) if checkpoint else None
         self.resume = resume
@@ -226,11 +234,13 @@ class DatasetRunner:
             "mitigate_position_bias": settings.mitigate_position_bias,
             "tie_margin": settings.tie_margin,
             "prompt_version": PROMPT_VERSION,
+            "instructions": self.instructions,
         }
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
     def _evaluate(self, record: Record, kind: DatasetKind) -> RowOutcome:
         criteria = self._resolved
+        guidance: dict[str, Any] = {"instructions": self.instructions} if self.instructions else {}
         try:
             result: EvaluationResult
             if isinstance(record, PairwiseRecord):
@@ -241,6 +251,7 @@ class DatasetRunner:
                     criteria=criteria,
                     candidate_a_model=record.model_a,
                     candidate_b_model=record.model_b,
+                    **guidance,
                 )
             elif isinstance(record, ReferenceRecord):
                 result = self.judge.evaluate_reference(
@@ -249,11 +260,16 @@ class DatasetRunner:
                     record.reference,
                     criteria,
                     candidate_model=record.model,
+                    **guidance,
                 )
             else:
                 assert isinstance(record, PointwiseRecord)
                 result = self.judge.evaluate_pointwise(
-                    record.task_description, record.output, criteria, candidate_model=record.model
+                    record.task_description,
+                    record.output,
+                    criteria,
+                    candidate_model=record.model,
+                    **guidance,
                 )
         except QuotaExceededError as exc:
             # A spent budget will fail every remaining row too: stop instead.
@@ -329,6 +345,7 @@ class DatasetRunner:
             checkpoint=str(self.checkpoint) if self.checkpoint else None,
             criteria=[c.name for c in self._resolved],
             criteria_details=[c.model_dump() for c in self._resolved],
+            instructions=self.instructions,
             stop_reason=self._stop_reason,
         )
 

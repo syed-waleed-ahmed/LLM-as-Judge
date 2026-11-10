@@ -53,6 +53,8 @@ from . import charts
 T = TypeVar("T")
 
 MOCK_NOTICE = "Mock judge: a deterministic text heuristic, not an LLM. Use it to explore the UI."
+#: Judging settings a visitor may change for their own session (Settings page).
+SESSION_SETTINGS = ("temperature", "tie_margin")
 
 
 # --- configuration -------------------------------------------------------------------
@@ -109,6 +111,11 @@ def _session_budget(settings: Settings) -> CallBudget:
     return budget
 
 
+def demo_budgets(settings: Settings) -> tuple[CallBudget, CallBudget]:
+    """This session's live-call budget and the shared daily one (public demo)."""
+    return _session_budget(settings), _daily_budget(settings.demo_daily_calls)
+
+
 def judge_mode() -> str:
     return str(st.session_state.get("judge_mode", "mock"))
 
@@ -116,6 +123,14 @@ def judge_mode() -> str:
 def current_judge(*, mitigate: bool | None = None, temperature: float | None = None) -> Judge:
     """The judge for this session, with demo safeguards applied when enabled."""
     settings = app_settings()
+    # Per-session choices from the Settings page; an explicit argument still wins.
+    overrides = {
+        name: st.session_state[f"set:{name}"]
+        for name in SESSION_SETTINGS
+        if st.session_state.get(f"set:{name}") is not None
+    }
+    if overrides:
+        settings = settings.model_copy(update=overrides)
     if temperature is not None:
         settings = settings.model_copy(update={"temperature": temperature})
     if mitigate is None:

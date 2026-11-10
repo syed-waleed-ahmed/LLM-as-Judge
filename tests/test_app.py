@@ -23,7 +23,9 @@ PAGES = [
     "rag",
     "agents",
     "experiments",
+    "analytics",
     "reliability",
+    "settings",
     "about",
 ]
 
@@ -136,3 +138,78 @@ def test_demo_mode_is_labelled(tmp_path, monkeypatch):
     assert any("Public demo" in c.value for c in at.sidebar.caption)
     _open(at, "about")
     assert any("public demo" in m.value.lower() for m in at.markdown)
+
+
+# --- analytics and settings -----------------------------------------------------------------
+
+
+def test_analytics_explains_the_empty_state(app):
+    _open(app, "analytics")
+    assert any("No recorded runs yet" in i.value for i in app.info)
+
+
+def test_analytics_charts_recorded_runs(app):
+    _open(app, "benchmarks")
+    app.button(key="bm:run").click().run()
+    app.button(key="bm:run").click().run()
+    _open(app, "analytics")
+    assert not app.exception
+    assert app.selectbox(key="an:scope").value == "All runs"
+    assert app.selectbox(key="an:dist").value and app.selectbox(key="an:crit").value
+    charts = app.get("plotly_chart")
+    assert len(charts) >= 4  # trend, distribution, criteria and bias charts
+    assert any(m.label == "Rows" for m in app.metric)
+
+
+def test_session_settings_reach_the_judge(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("JUDGE_PROVIDER", "mock")
+
+    def script():
+        import streamlit as st
+
+        from dashboard.common import current_judge
+
+        st.session_state["set:temperature"] = 0.7
+        st.session_state["set:tie_margin"] = 0.15
+        judge = current_judge()
+        explicit = current_judge(temperature=0.2)
+        st.write(
+            f"t={judge.settings.temperature} m={judge.settings.tie_margin} "
+            f"explicit={explicit.settings.temperature}"
+        )
+
+    at = AppTest.from_function(script, default_timeout=60)
+    at.run()
+    assert not at.exception
+    assert at.markdown[0].value == "t=0.7 m=0.15 explicit=0.2"
+
+
+def test_settings_health_check_and_reset(app, monkeypatch):
+    from llm_judge.providers import MockProvider, registry
+
+    monkeypatch.setattr(registry, "build_provider", lambda settings, name=None: MockProvider())
+    _open(app, "settings")
+    app.slider(key="set:temperature").set_value(0.5).run()
+    assert app.session_state["set:temperature"] == 0.5
+    app.button(key="set:health").click().run()
+    assert not app.exception
+    assert len(app.dataframe) >= 3  # judges, health results, limits
+    app.button(key="set:reset").click().run()
+    assert app.slider(key="set:temperature").value == 0.0
+
+
+def test_demo_settings_can_delete_the_session_runs(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("JUDGE_PROVIDER", "mock")
+    monkeypatch.setenv("JUDGE_DEMO_MODE", "true")
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    _open(at, "benchmarks")
+    at.button(key="bm:run").click().run()
+    assert at.session_state["demo_store"].count_runs() == 1
+    _open(at, "settings")
+    assert any("left this session" in m.value for m in at.markdown)
+    at.button(key="set:forget").click().run()
+    assert at.session_state["demo_store"].count_runs() == 0
+    assert any("deleted" in s.value for s in at.success)

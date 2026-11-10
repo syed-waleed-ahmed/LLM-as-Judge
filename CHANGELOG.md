@@ -47,6 +47,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   metadata. Mock runs are labelled. The dashboard's Experiments page offers
   run and comparison reports as downloads.
 - `GET /api/v1/experiments/{name}`: one experiment and a page of its runs.
+- Dashboard **Analytics** page, computed only from recorded runs:
+  - score trends across runs, and the score or margin distribution of a run;
+  - per-criterion comparison;
+  - bias signals: the share of rows with each reliability warning, with the
+    caveat that these are heuristics;
+  - operational reliability: failure rate, judge latency, rows answered by
+    a fallback, cache hits.
+- Dashboard **Settings** page:
+  - judge temperature and tie margin for the current session;
+  - providers and their configuration, a provider health check (no
+    inference), and the fallback chain;
+  - limits in effect, including REST API limits;
+  - storage and cache status;
+  - privacy controls: in the public demo, delete your session's runs.
+
+  The About page now focuses on how results stay honest, and its install
+  instructions no longer point at PyPI.
 - The public demo is live at <https://llm-as-judge.streamlit.app/> (Streamlit Community
   Cloud, demo mode). The README, the documentation site and the package
   metadata link to it.

@@ -162,14 +162,16 @@ A multi-page dashboard over the same engine:
 | Page | What it does |
 |---|---|
 | **Overview** | Which judge is active, session and stored-run statistics, recent runs |
-| **Playground** | Compare two outputs, grade one, check against a reference, or rank candidates, with charts, explanations and warnings |
+| **Playground** | Compare two outputs, grade one, check against a reference, or rank candidates, with optional judge instructions, charts, explanations and warnings |
 | **Datasets** | Upload CSV/JSON/JSONL/YAML (or pick a sample), validate, evaluate, chart and download results |
 | **Benchmarks** | Run a bundled sample and see per-system statistics |
 | **RAG evaluation** | Faithfulness, answer relevance, context precision and recall, with claim-level verdicts |
 | **Agent evaluation** | Paste or upload a trace: deterministic checks plus a judged grade |
-| **Experiments** | Compare two recorded runs: verdict, confidence interval, per-row changes |
+| **Experiments** | Compare two recorded runs: verdict, confidence interval, per-row changes; download Markdown reports |
+| **Analytics** | Across recorded runs: score trends, score distributions, per-criterion comparison, bias signals and operational reliability |
 | **Reliability** | Repeated-judgment consistency and agreement between judges |
-| **About** | Providers, limits in effect, privacy, how to run it yourself |
+| **Settings** | Judge temperature and tie margin for your session, provider status and health checks, limits in effect, storage, cache and privacy controls |
+| **About** | How the results stay honest, privacy, how to run it yourself |
 
 The sidebar switches between the **live judge** (when a key is configured) and
 the **offline mock judge**. The mock judge works without any key, and its

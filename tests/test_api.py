@@ -325,6 +325,13 @@ def test_dataset_validation(client):
     assert "'format' is required" in no_format.json()["error"]["message"]
 
 
+@pytest.mark.parametrize("fmt", ["../../evil", "csv/../../x", "csv\\..\\..\\x", "CSV", "txt"])
+def test_dataset_upload_format_never_reaches_a_path(client, fmt):
+    """Only the listed formats are accepted, so a format can't name a file elsewhere."""
+    body = {"content": "task_description,output\nt,o\n", "format": fmt}
+    assert client.post("/api/v1/datasets/validate", json=body).status_code == 422
+
+
 def test_job_lifecycle_idempotency_and_experiment_recording(client):
     rows = [{"id": str(i), **PAIR} for i in range(4)]
     payload = {"rows": rows, "experiment": "api-exp", "run_name": "first"}

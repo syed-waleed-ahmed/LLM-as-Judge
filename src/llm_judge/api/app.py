@@ -114,6 +114,8 @@ access_log = logging.getLogger("llm_judge.api.access")
 
 _MAX_PAGE = 200
 _HEALTH_TTL_SECONDS = 30.0
+# File suffixes for /datasets/validate uploads, keyed by the request's "format".
+_UPLOAD_SUFFIXES = {"csv": ".csv", "jsonl": ".jsonl", "json": ".json", "yaml": ".yaml"}
 
 
 class _State:
@@ -696,8 +698,13 @@ def create_app(
             return load_dataset(body.rows, kind=body.kind, settings=settings)[1]
         if not body.format:
             raise ApiError(422, "invalid_request", "'format' is required with 'content'.")
+        # The schema only allows these formats; the file name still comes from this
+        # fixed table, so no client-supplied text ever reaches a filesystem path.
+        suffix = _UPLOAD_SUFFIXES.get(body.format)
+        if suffix is None:  # pragma: no cover - rejected by the schema first
+            raise ApiError(422, "invalid_request", "Unsupported 'format'.")
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / f"upload.{body.format}"
+            path = Path(tmp) / f"upload{suffix}"
             path.write_text(body.content or "", encoding="utf-8")
             report = load_dataset(path, kind=body.kind, settings=settings)[1]
         report.source = f"<upload.{body.format}>"

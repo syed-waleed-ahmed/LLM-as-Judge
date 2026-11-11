@@ -565,6 +565,8 @@ extra (`pip install -e ".[postgres]"`), then set
 `JUDGE_DB_PATH=postgresql://postgres.<ref>:<password>@<host>:6543/postgres`,
 the "Transaction pooler" connection string from the project's Connect dialog.
 Tables are created on first use, and both backends store the same data.
+[DEPLOYMENT.md](DEPLOYMENT.md#persistent-runs-on-supabase-optional-free)
+covers choosing a pooler and keeping the tables out of Supabase's REST API.
 
 Each run stores its per-row results with
 reproducibility metadata: dataset fingerprint, judge provider and model,
@@ -871,9 +873,10 @@ benchmark samples.
 Version 2.0.0 completed the planned phases, and 2.1.0 closed the gaps a
 line-by-line review of the plan found: evaluation modes, providers,
 datasets, experiment tracking, the REST API, the dashboard, RAG and agent
-evaluation, security hardening, and documentation. Open items include a
-Supabase/Postgres experiment store and publishing to PyPI. See
-[`ROADMAP.md`](ROADMAP.md) for the status of each phase and what's next.
+evaluation, security hardening, and documentation. Versions 2.2.0 and 2.3.0
+added a PostgreSQL/Supabase experiment store, live CI checks against Ollama,
+and publishing to PyPI. Open items are more providers and more benchmark
+samples. See [`ROADMAP.md`](ROADMAP.md) for the status of each phase.
 
 ---
 

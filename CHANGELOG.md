@@ -6,7 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [2.3.0] - 2026-11-10
+### Changed
+- The PostgreSQL store is verified against a live Supabase project (free plan),
+  through both the transaction pooler (port 6543) and the session pooler
+  (port 5432): the store's tests pass, and a dataset run recorded through the
+  CLI reads back. DEPLOYMENT.md explains which pooler to pick.
+- The PostgreSQL tests leave the database empty when they finish. One test set
+  a future schema version and left it behind, so a database used for the tests
+  refused to open afterwards.
+- The roadmap describes the current state: the PostgreSQL store, PyPI
+  publishing and the demo's quotas.
+
+## [2.3.0] - 2026-11-11
 
 Published on PyPI, with one-click releases. Python 3.10 support ends.
 

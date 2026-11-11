@@ -167,11 +167,15 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      # As in the release: the README PyPI shows has no relative links left.
+      - name: Point the README's relative links at this commit
+        run: python scripts/pypi_readme.py --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_SHA"
+
       - name: Build sdist and wheel
         run: |
           pip install build twine
           python -m build
-          twine check dist/*
+          twine check --strict dist/*
 
       - name: Install the wheel in a clean environment and run it
         run: |

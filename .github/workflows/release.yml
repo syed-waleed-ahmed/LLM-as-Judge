@@ -82,11 +82,18 @@ jobs:
             echo "Full changelog: https://github.com/$GITHUB_REPOSITORY/blob/$TAG/CHANGELOG.md"
           } > notes/release-notes.md
 
+      # PyPI shows the README without the repository's files: pin its relative
+      # links and screenshots to this release on GitHub.
+      - name: Point the README's relative links at this release
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: python scripts/pypi_readme.py --repo "$GITHUB_REPOSITORY" --ref "$TAG"
+
       - name: Build and check
         run: |
           pip install build twine
           python -m build
-          twine check dist/*
+          twine check --strict dist/*
 
       - uses: actions/upload-artifact@v7
         with:

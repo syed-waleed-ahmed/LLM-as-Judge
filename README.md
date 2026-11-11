@@ -147,13 +147,17 @@ python -m venv .venv
 # Library + UI + dev tooling
 pip install -e ".[ui,dev]"
 
-# Or everything (UI, REST API, YAML support)
+# Or everything (UI, REST API, YAML, PostgreSQL)
 pip install -e ".[all]"
 ```
 
 Every [GitHub Release](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases)
 also has the wheel and sdist attached. The dashboard lives in `app.py` and
 `dashboard/`, so it runs from a clone.
+
+Upgrading an environment from before 2.3.0? The distribution was renamed
+from `llm-as-judge`, so remove the old one first with
+`pip uninstall llm-as-judge`. Otherwise its files can shadow the new install.
 
 Then configure your key:
 

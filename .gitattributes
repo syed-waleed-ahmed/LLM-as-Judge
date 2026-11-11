@@ -8,3 +8,7 @@
 *.gif binary
 *.ico binary
 *.pdf binary
+
+# Generated artifacts (the code knowledge graph): excluded from GitHub's
+# language statistics and collapsed in diffs.
+graphify-out/** linguist-generated=true

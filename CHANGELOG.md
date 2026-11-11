@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- The PyPI page showed broken screenshots and links: PyPI displays the README
+  without the repository's files. The release build now points the README's
+  relative links and images at GitHub, pinned to the release tag
+  (`scripts/pypi_readme.py`), and CI checks the result on every pull request.
+  Builds run `twine check --strict`.
+- GitHub reported the repository as mostly HTML, because the generated code
+  knowledge graph (`graphify-out/`) counted as source. It's now marked as
+  generated.
+- The README explains how to upgrade an environment from before 2.3.0:
+  uninstall the old `llm-as-judge` distribution first. Otherwise its files can
+  shadow the renamed package, as a browser test of the dashboard showed.
+
 ### Changed
 - The PostgreSQL store is verified against a live Supabase project (free plan),
   through both the transaction pooler (port 6543) and the session pooler

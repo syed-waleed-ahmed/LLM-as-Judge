@@ -3,11 +3,11 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "llm-as-judge"
+name = "llm-as-judge-platform"
 dynamic = ["version"]
 description = "Open-source LLM-as-a-Judge evaluation platform: pairwise, pointwise, reference, ranking, RAG and agent evaluation with bias mitigation, as a Python library, CLI, REST API and Streamlit dashboard. Runs on free tiers or offline."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Syed Waleed Ahmed", email = "syedwaleedahmed9@gmail.com" }]
@@ -30,7 +30,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Framework :: FastAPI",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -57,7 +56,7 @@ postgres = ["psycopg[binary]>=3.1"]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
 # MkDocs 2.0 drops the plugin/theme system Material relies on, so stay on 1.x.
 docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5,<10"]
-all = ["llm-as-judge[ui,api,yaml,postgres]"]
+all = ["llm-as-judge-platform[ui,api,yaml,postgres]"]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
@@ -100,7 +99,7 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "W"]
@@ -113,7 +112,7 @@ select = ["E", "F", "I", "B", "UP", "W"]
 skips = ["B101", "B311", "B615"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 mypy_path = "src"
 files = ["src/llm_judge", "app.py", "dashboard"]
 warn_unused_ignores = true

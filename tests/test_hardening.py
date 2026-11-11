@@ -74,9 +74,13 @@ def test_result_csv_never_starts_a_cell_with_a_formula(tmp_path):
 
 def test_deeply_nested_json_is_a_clean_error(tmp_path):
     deep = "[" * 100_000 + "]" * 100_000
-    with pytest.raises(DatasetError, match="invalid JSON"):
+    # Up to Python 3.13 the parser hits its recursion limit ("invalid JSON"); 3.14 can
+    # parse this depth, and the result is then rejected for not being an object.
+    # Either way the caller gets a clean DatasetError, never a RecursionError.
+    rejected = "invalid JSON|expected a JSON object|is not an object"
+    with pytest.raises(DatasetError, match=rejected):
         list(iter_rows(_write(tmp_path / "d.jsonl", deep + "\n")))
-    with pytest.raises(DatasetError, match="invalid JSON"):
+    with pytest.raises(DatasetError, match=rejected):
         list(iter_rows(_write(tmp_path / "d.json", deep)))
     with pytest.raises(ResponseParsingError):
         parse_judge_result("{" * 50_000)

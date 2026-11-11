@@ -36,7 +36,10 @@ def main(argv: list[str]) -> int:
     if notes is None:
         print(f"No section for {argv[0]} in {path}", file=sys.stderr)
         return 1
-    sys.stdout.write(notes)
+    # Always UTF-8: the changelog uses characters (such as arrows) that some
+    # console encodings, like Windows cp1252, can't represent.
+    sys.stdout.buffer.write(notes.encode("utf-8"))
+    sys.stdout.flush()
     return 0
 
 

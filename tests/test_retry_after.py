@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 
 import httpx
@@ -41,7 +41,7 @@ def test_retry_after_parsing(headers, message, expected):
 
 
 def test_retry_after_http_date():
-    when = datetime.now(timezone.utc) + timedelta(seconds=30)
+    when = datetime.now(UTC) + timedelta(seconds=30)
     seconds = retry_after_seconds({"Retry-After": format_datetime(when, usegmt=True)})
     assert seconds is not None and 25 <= seconds <= 31
 

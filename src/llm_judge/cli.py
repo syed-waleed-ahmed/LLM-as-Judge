@@ -890,7 +890,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         from .api import create_app
     except ImportError:
         raise CliError(
-            "the API server needs FastAPI and Uvicorn: pip install 'llm-as-judge[api]'"
+            "the API server needs FastAPI and Uvicorn: pip install 'llm-as-judge-platform[api]'"
         ) from None
     settings = _settings(args)
     if args.host not in _LOCAL_HOSTS and not settings.api_keys:

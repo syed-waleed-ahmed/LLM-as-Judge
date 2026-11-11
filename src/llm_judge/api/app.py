@@ -1,6 +1,6 @@
 """FastAPI application factory for the LLM-as-Judge REST API.
 
-Run it with ``llm-judge serve`` (``pip install "llm-as-judge[api]"``), then open
+Run it with ``llm-judge serve`` (``pip install "llm-as-judge-platform[api]"``), then open
 ``/docs`` for the interactive OpenAPI documentation.
 
 Security model:

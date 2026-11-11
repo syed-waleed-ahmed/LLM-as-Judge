@@ -37,14 +37,10 @@ tested, waiting for an account-specific step.
 These are open and welcome contributions. Open an issue to discuss an approach
 before starting.
 
-- **Publishing to PyPI.** The release workflow is ready; it needs the PyPI
-  trusted-publisher setup described in DEPLOYMENT.md.
 - **More providers.** Further free or local backends, through the provider
   registry or the `llm_judge.providers` entry-point group.
 - **More benchmark samples.** Nine ship today. More small, synthetic, clearly
   licensed datasets are welcome, for example translation or multi-turn dialogue.
-- **Drop Python 3.10.** It is deprecated (end of life since October 2026) and
-  can be removed in the next major or minor release.
 
 ## Known free-tier limits
 

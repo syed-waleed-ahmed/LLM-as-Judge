@@ -16,9 +16,6 @@ Quick start::
 
 from __future__ import annotations
 
-import sys
-import warnings
-
 from .agents import AgentResult, AgentStep, AgentTrace, ToolSpec
 from .config import Settings, get_settings
 from .criteria import (
@@ -54,15 +51,8 @@ from .rag import RagResult
 from .reliability import ConsistencyReport, JudgeAgreement
 
 # Single source of truth for the package version (read by setuptools).
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 
-if sys.version_info < (3, 11):  # pragma: no cover - depends on the interpreter
-    warnings.warn(
-        "Python 3.10 reached end of life in October 2026, and LLM-as-Judge's support for "
-        "it is deprecated. Please upgrade to Python 3.11 or later.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
 
 __all__ = [
     "Judge",

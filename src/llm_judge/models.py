@@ -67,7 +67,7 @@ def _coerce_winner(value: object) -> object:
     return value
 
 
-class Winner(str, Enum):
+class Winner(str, Enum):  # noqa: UP042 - StrEnum would change str(Winner.A) for users
     """Which output a judge preferred."""
 
     A = "A"

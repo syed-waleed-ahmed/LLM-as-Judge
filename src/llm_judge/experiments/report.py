@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .compare import RunComparison, compare_runs
 from .store import ExperimentStore, RunInfo
@@ -278,7 +278,7 @@ def run_report(
     from .. import __version__
 
     run = store.require_run(run_id)
-    when = (generated_at or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M UTC")
+    when = (generated_at or datetime.now(UTC)).strftime("%Y-%m-%d %H:%M UTC")
     lines = [
         f"# Evaluation report: {run.name or run.id}",
         "",

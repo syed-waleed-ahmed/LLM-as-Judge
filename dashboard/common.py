@@ -14,7 +14,6 @@ the offline mock. Every result says which one produced it.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -105,8 +104,13 @@ def chart_theme() -> charts.Theme:
 
 
 @st.cache_resource(show_spinner=False)
-def _shared_provider(name: str, model_key: str, temperature: float) -> LLMProvider:
-    """One live client per (provider, model, temperature) per process."""
+def _shared_provider(name: str, model: str, api_key: str, temperature: float) -> LLMProvider:
+    """One live client per (provider, model, API key, temperature) per process.
+
+    ``model`` and ``api_key`` only make the cache entry change with them, so a
+    rotated key gets a new client. Streamlit derives the in-memory cache key
+    from the arguments itself; nothing here stores or logs the key.
+    """
     return build_provider(app_settings().model_copy(update={"temperature": temperature}), name)
 
 
@@ -157,10 +161,12 @@ def current_judge(*, mitigate: bool | None = None, temperature: float | None = N
         mitigate = bool(st.session_state.get("mitigate_bias", False))
     provider: LLMProvider
     if judge_mode() == "live":
-        key = hashlib.sha256(
-            f"{settings.provider}|{settings.groq_model}|{settings.groq_api_key}".encode()
-        ).hexdigest()
-        provider = _shared_provider(settings.provider, key, settings.temperature)
+        provider = _shared_provider(
+            settings.provider,
+            settings.groq_model,
+            settings.groq_api_key or "",
+            settings.temperature,
+        )
         if settings.demo_mode:
             provider = QuotaProvider(
                 provider, [_session_budget(settings), _daily_budget(settings.demo_daily_calls)]

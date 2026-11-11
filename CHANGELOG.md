@@ -17,6 +17,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The roadmap describes the current state: the PostgreSQL store, PyPI
   publishing and the demo's quotas.
 
+### Security
+- Resolved all seven open CodeQL alerts. None was exploitable, but each fix
+  removes the pattern rather than dismissing the alert:
+  - `POST /api/v1/datasets/validate` names its temporary upload file from a
+    fixed suffix table, so the client's `format` value never reaches a path.
+    The schema already rejected anything but `csv`, `jsonl`, `json` and
+    `yaml`, and a new test checks hostile values such as `../../evil`.
+  - The dashboard no longer hashes the Groq API key to build its client
+    cache key. It passes the values to Streamlit's in-memory cache instead,
+    which still gives a rotated key a new client.
+
 ## [2.3.0] - 2026-11-11
 
 Published on PyPI, with one-click releases. Python 3.10 support ends.

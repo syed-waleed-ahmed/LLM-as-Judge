@@ -20,6 +20,7 @@ from llm_judge.datasets import (
     infer_kind,
     iter_rows,
     load_dataset,
+    load_rows,
     load_sample,
     read_checkpoint,
     record_fingerprint,
@@ -205,6 +206,20 @@ def test_in_memory_sources_and_limits():
     assert records == [record] and report.format == "python"
     with pytest.raises(DatasetError, match="More than 1 rows"):
         load_dataset([PAIR, PAIR], settings=_settings(max_dataset_rows=1))
+
+
+def test_load_rows_matches_load_dataset_and_never_reads_files(tmp_path):
+    rows = [PAIR, {**PAIR, "id": "second"}]
+    via_rows, rows_report = load_rows(rows, settings=_settings())
+    via_dataset, dataset_report = load_dataset(rows, settings=_settings())
+    assert via_rows == via_dataset and rows_report == dataset_report
+    with pytest.raises(DatasetError, match="Unknown dataset kind"):
+        load_rows(rows, kind="weird", settings=_settings())  # type: ignore[arg-type]
+    # A path is a string, never rows: load_rows refuses it instead of opening it.
+    path = _jsonl(tmp_path / "d.jsonl", [PAIR])
+    for value in (str(path), str(path).encode()):
+        with pytest.raises(DatasetError, match="not a string"):
+            load_rows(value, settings=_settings())  # type: ignore[arg-type]
 
 
 def test_issue_list_is_capped(tmp_path):

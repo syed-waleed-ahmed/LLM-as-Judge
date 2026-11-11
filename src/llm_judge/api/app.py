@@ -47,6 +47,7 @@ from ..datasets import (
     RunReport,
     kind_of,
     load_dataset,
+    load_rows,
     load_sample,
     summarize,
 )
@@ -533,7 +534,8 @@ def create_app(
             )
 
     def _load_rows(rows: list[dict[str, Any]], kind: Any) -> list[Record]:
-        records, report = load_dataset(rows, kind=kind, settings=settings)
+        # In-memory rows only: no request value can reach the file readers.
+        records, report = load_rows(rows, kind=kind, settings=settings)
         if not report.ok:
             raise ApiError(
                 422,
@@ -695,7 +697,7 @@ def create_app(
         if (body.rows is None) == (body.content is None):
             raise ApiError(422, "invalid_request", "Provide exactly one of 'rows' or 'content'.")
         if body.rows is not None:
-            return load_dataset(body.rows, kind=body.kind, settings=settings)[1]
+            return load_rows(body.rows, kind=body.kind, settings=settings)[1]
         if not body.format:
             raise ApiError(422, "invalid_request", "'format' is required with 'content'.")
         # The schema only allows these formats; the file name still comes from this

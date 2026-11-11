@@ -111,28 +111,58 @@ def load_dataset(
     Rows without an ``id`` get their 0-based row index. Raises
     :class:`DatasetError` only when the source as a whole can't be read.
     """
+    if not isinstance(source, (str, Path)):
+        return load_rows(source, kind=kind, settings=settings, preview_rows=preview_rows)
     settings = settings or get_settings()
+    _check_kind(kind)
+    path = Path(source)
+    fmt = detect_format(path).lstrip(".")
+    raw = iter_rows(path, max_bytes=settings.max_dataset_bytes, max_rows=settings.max_dataset_rows)
+    return _validate(raw, fmt, str(path), kind, settings, preview_rows)
+
+
+def load_rows(
+    rows: Sequence[Mapping[str, Any] | Record],
+    *,
+    kind: DatasetKind | None = None,
+    settings: Settings | None = None,
+    preview_rows: int = 5,
+) -> tuple[list[Record], DatasetReport]:
+    """Load and validate in-memory rows (dicts or record objects); never reads a file.
+
+    Same result as :func:`load_dataset` for in-memory rows. Use it for untrusted
+    input, such as REST API request bodies: no value passed here can reach the
+    file readers.
+    """
+    if isinstance(rows, (str, bytes)):
+        raise DatasetError("Expected a list of rows, not a string.")
+    settings = settings or get_settings()
+    _check_kind(kind)
+    if len(rows) > settings.max_dataset_rows:
+        raise DatasetError(f"More than {settings.max_dataset_rows:,} rows supplied.")
+    raw = [
+        r.model_dump(exclude_none=True)
+        if isinstance(r, (PairwiseRecord, PointwiseRecord, ReferenceRecord))
+        else r
+        for r in rows
+    ]
+    return _validate(raw, "python", "<in-memory>", kind, settings, preview_rows)
+
+
+def _check_kind(kind: DatasetKind | None) -> None:
     if kind is not None and kind not in KINDS:
         raise DatasetError(f"Unknown dataset kind '{kind}'. Use one of: {', '.join(KINDS)}.")
 
-    if isinstance(source, (str, Path)):
-        path = Path(source)
-        fmt = detect_format(path).lstrip(".")
-        raw: Iterable[Mapping[str, Any]] = iter_rows(
-            path, max_bytes=settings.max_dataset_bytes, max_rows=settings.max_dataset_rows
-        )
-        label = str(path)
-    else:
-        if len(source) > settings.max_dataset_rows:
-            raise DatasetError(f"More than {settings.max_dataset_rows:,} rows supplied.")
-        raw = [
-            r.model_dump(exclude_none=True)
-            if isinstance(r, (PairwiseRecord, PointwiseRecord, ReferenceRecord))
-            else r
-            for r in source
-        ]
-        fmt, label = "python", "<in-memory>"
 
+def _validate(
+    raw: Iterable[Mapping[str, Any]],
+    fmt: str,
+    label: str,
+    kind: DatasetKind | None,
+    settings: Settings,
+    preview_rows: int,
+) -> tuple[list[Record], DatasetReport]:
+    """Validate parsed rows and build the report (shared by files and in-memory rows)."""
     rows = [{str(k): v for k, v in r.items()} for r in raw]
     columns: list[str] = []
     for row in rows:

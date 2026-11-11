@@ -69,6 +69,11 @@ dashboard. Three checks are suppressed after review (see `[tool.bandit]` in
 - **B615 (Hugging Face download)**: a false positive. This project's own
   `load_dataset()` reads local files only.
 
+CodeQL also scans every pull request. Request data never reaches a file path:
+the REST API validates request rows with `load_rows()`, which only accepts
+in-memory rows. Uploaded dataset text is written to a temporary file whose
+name comes from a fixed table of suffixes.
+
 ## Handling secrets
 
 - Keys come from the environment, a local `.env` file or Streamlit secrets.

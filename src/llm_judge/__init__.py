@@ -51,7 +51,7 @@ from .rag import RagResult
 from .reliability import ConsistencyReport, JudgeAgreement
 
 # Single source of truth for the package version (read by setuptools).
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 
 
 __all__ = [

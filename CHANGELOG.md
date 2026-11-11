@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-11
+
+Security hardening, a working PyPI page, and Supabase verified live.
+
 ### Fixed
 - The PyPI page showed broken screenshots and links: PyPI displays the README
   without the repository's files. The release build now points the README's
@@ -656,7 +660,8 @@ of scripts into an installable, tested, and documented framework.
 - Legacy flat modules (`config.py`, `judge.py`, `prompts.py`) superseded by the
   package.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/syed-waleed-ahmed/LLM-as-Judge/compare/v2.0.1...v2.1.0

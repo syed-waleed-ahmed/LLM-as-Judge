@@ -1,4 +1,4 @@
-# Delivery report: LLM-as-Judge 2.3
+# Delivery report: LLM-as-Judge 2.4
 
 This report closes the platform plan that started with the
 [Phase 0 audit](phase-0-audit.md). Version 2.1 completed the plan, and 2.2 took
@@ -34,9 +34,10 @@ design principles are in
 |---|---|
 | 2.0.0 | Phases 0 to 11 of the plan: hardened core, new evaluation modes, providers, datasets, experiments, REST API, dashboard, RAG and agent evaluation, security hardening, public demo, docs site and release automation. Two independent code reviews and browser end-to-end tests found 32 defects, all fixed. |
 | 2.0.1 | Open-source readiness (community files, CodeQL, Dependabot), docs-site link fixes, and a Streamlit 1.67 dashboard fix found in browser testing. |
-| 2.3.0 | Published on PyPI as `llm-as-judge-platform`, with one-click releases from the Actions tab. Python 3.10 support ended. OpenAI-compatible chat and embeddings are verified live in CI. |
-| 2.2.0 | The next phases: a PostgreSQL/Supabase experiment store tested in CI against a real server, live CI checks of the Ollama provider and embeddings, and three more benchmark samples. |
 | 2.1.0 | The gaps a line-by-line review against the plan found: judge instructions, provider fallback, async methods, a result cache, evaluation reports, the Analytics and Settings pages, semantic similarity, a free-tier rate-limit fix, screenshots, a coverage badge and Python 3.10 deprecation. |
+| 2.2.0 | The next phases: a PostgreSQL/Supabase experiment store tested in CI against a real server, live CI checks of the Ollama provider and embeddings, and three more benchmark samples. |
+| 2.3.0 | Published on PyPI as `llm-as-judge-platform`, with one-click releases from the Actions tab. Python 3.10 support ended. OpenAI-compatible chat and embeddings are verified live in CI. |
+| 2.4.0 | Resolved all CodeQL alerts (request data can't reach a file path; no hashing of the API key), a PyPI page with working screenshots and links, and the PostgreSQL store verified against a live Supabase project. |
 
 Since v1.0.0, 154 files changed (+22,380 / -610 lines, excluding generated
 graph data and screenshots).

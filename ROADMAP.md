@@ -3,7 +3,9 @@
 Version 2.0.0 (released 2026-11-10) turned a pairwise judging library (v1.0.0)
 into an open-source LLM evaluation platform, in the phases below. Version 2.1.0
 closed the remaining gaps that a line-by-line review against the original plan
-found; the [delivery report](docs/design/delivery-report.md) lists them. The
+found. Versions 2.2.0 and 2.3.0 added a PostgreSQL/Supabase store, live CI
+checks against a real Ollama server, and publishing to PyPI. The
+[delivery report](docs/design/delivery-report.md) lists each release. The
 guiding constraints, which still apply to new work:
 
 - **$0 to run.** Use only open-source software and free tiers, with no
@@ -24,13 +26,13 @@ tested, waiting for an account-specific step.
 | 2 | Evaluation modes: pointwise, reference-based, multi-candidate ranking | done |
 | 3 | Providers: mock (no key), Ollama (local), generic OpenAI-compatible, provider registry | done |
 | 4 | Datasets: validation, streaming reads, checkpointed and resumable batches, bundled synthetic sample sets | done |
-| 5 | Experiment tracking: SQLite store, run comparison, regression detection (Supabase adapter deferred: not verifiable in CI) | done |
+| 5 | Experiment tracking: SQLite or PostgreSQL/Supabase store (2.2.0; tested in CI against PostgreSQL 16 and verified against a live Supabase project), run comparison, regression detection | done |
 | 6 | REST API (FastAPI, local or self-hosted) and expanded CLI | done |
 | 7 | Multi-page Streamlit dashboard with demo mode and quotas | done |
 | 8 | RAG and agent evaluation, reliability analytics (repeat-sampling confidence intervals) | done |
 | 9 | Security and performance hardening (upload limits, dependency audit, concurrency tests) | done |
 | 10 | Free-tier public demo on Streamlit Community Cloud ([live](https://llm-as-judge.streamlit.app/), [guide](DEPLOYMENT.md)), tested in a browser | done |
-| 11 | Documentation site (MkDocs Material, [published](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)) and release automation ([v2.0.0](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/tag/v2.0.0)) | done; PyPI publishing is opt-in (see DEPLOYMENT.md) |
+| 11 | Documentation site (MkDocs Material, [published](https://syed-waleed-ahmed.github.io/LLM-as-Judge/)) and release automation ([v2.0.0](https://github.com/syed-waleed-ahmed/LLM-as-Judge/releases/tag/v2.0.0)) and PyPI publishing ([`llm-as-judge-platform`](https://pypi.org/project/llm-as-judge-platform/), 2.3.0) | done |
 
 ## What's next
 
@@ -49,8 +51,8 @@ These limits shape the design. Each is documented where it applies.
 - **Groq free plan**: rate-limited per model. The judge retries 429s with
   backoff, and batch concurrency is configurable.
 - **Streamlit Community Cloud**: apps sleep when idle and have limited
-  resources. The demo therefore defaults to mock mode, and live calls are
-  quota-limited.
+  resources. The demo therefore caps live judge calls per visitor and per
+  day, and offers the mock judge when the quota runs out.
 - **Supabase free plan**: inactive projects can be paused. SQLite is the
   default store, and Supabase stays optional.
 - **Public API hosting**: no verified always-free host is assumed. The FastAPI

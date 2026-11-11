@@ -1,7 +1,9 @@
 """The experiment store behaves the same on SQLite and PostgreSQL (e.g. Supabase).
 
 PostgreSQL tests run when ``JUDGE_TEST_POSTGRES_URL`` points at a server
-(CI starts one as a service container); otherwise they're skipped.
+(CI starts one as a service container); otherwise they're skipped. They drop and
+recreate the store's tables (run_rows, runs, experiments, meta), so point them at
+a database used only for testing.
 """
 
 from __future__ import annotations
@@ -47,6 +49,10 @@ def store(request, tmp_path):
         s = ExperimentStore(POSTGRES_URL)
     yield s
     s.close()
+    if request.param == "postgres":
+        # Leave the database empty, not in a test's state (for example a future
+        # schema version), so the same server is usable after the tests.
+        _reset_postgres(POSTGRES_URL)
 
 
 def _judge() -> Judge:

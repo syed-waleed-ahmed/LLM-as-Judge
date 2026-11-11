@@ -95,14 +95,13 @@ weekly against a real Ollama server:
 - Ollama embeddings for semantic similarity (`nomic-embed-text`).
 
 The PostgreSQL store runs its tests against a real PostgreSQL 16 server in CI.
+On 2026-11-11 the same tests also passed against a live Supabase project on the
+free plan, through both the transaction pooler and the session pooler, and a
+dataset run recorded through the CLI read back from it. This was a one-off
+manual check: CI has no Supabase credentials.
 
 Since 2.3, the same workflow also verifies the `openai_compatible` provider and
 OpenAI-compatible embeddings, through Ollama's OpenAI-compatible `/v1` API.
-
-**Implemented, not externally verified**
-
-- **Supabase specifically:** the PostgreSQL store is tested against PostgreSQL
-  16, which Supabase runs, but not against a Supabase project or its pooler.
 
 ## 4. Features intentionally deferred
 
@@ -274,5 +273,4 @@ step by step in
 
 Open items, which contributions are welcome on, are in
 [ROADMAP.md](https://github.com/syed-waleed-ahmed/LLM-as-Judge/blob/main/ROADMAP.md):
-- more providers and benchmark samples;
-- verifying the PostgreSQL store against a live Supabase project.
+- more providers and benchmark samples.

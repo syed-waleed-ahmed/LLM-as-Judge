@@ -127,18 +127,33 @@ runs persist to `JUDGE_DB_PATH` (default `.llm_judge/experiments.db`).
 To share recorded runs between the CLI, the REST API and a self-hosted dashboard,
 or across machines, store them in PostgreSQL. Supabase's free plan provides one:
 
-1. Create a project at <https://supabase.com>. Open **Connect** and copy the
-   **Transaction pooler** connection string (port 6543).
-2. Install the extra: `pip install -e ".[postgres]"`, or `.[all]`.
-3. Set `JUDGE_DB_PATH` to the connection string, with your database password
-   filled in, in `.env`, Streamlit secrets or the environment.
-   It's a secret, so treat it like an API key.
+1. Create a project at <https://supabase.com>. The store connects to Postgres
+   directly, so you can untick **Enable Data API** when creating it; that keeps
+   the run tables out of Supabase's public REST API.
+2. Open **Connect** → **Direct** and copy a pooler connection string:
+   - **Transaction pooler** (port 6543) for short-lived processes, such as the
+     CLI, CI jobs and a Streamlit app;
+   - **Session pooler** (port 5432) for a long-running REST API server.
+
+   Both work over IPv4. The "Direct connection" host is IPv6-only on the free
+   plan.
+3. Install the extra: `pip install -e ".[postgres]"`, or `.[all]`.
+4. Set `JUDGE_DB_PATH` to the connection string, with your database password
+   filled in, in `.env`, Streamlit secrets or the environment. Percent-encode
+   special characters in the password (`@` becomes `%40`). The string is a
+   secret, so treat it like an API key.
 
 The tables are created on first use. The store disables server-side prepared
 statements, which transaction poolers don't support. The location is shown with
 the password redacted everywhere. CI runs the store's tests against a real
-PostgreSQL 16 server. Free Supabase projects pause after a week of inactivity,
+PostgreSQL 16 server, and they have also passed against a free Supabase project
+through both poolers. Free Supabase projects pause after a week of inactivity,
 so resume yours in the Supabase dashboard if connections start failing.
+
+To run the store's tests against your own database, set
+`JUDGE_TEST_POSTGRES_URL` and run `pytest tests/test_store_backends.py`. The
+tests drop and recreate the store's tables, so use a database that holds
+nothing else.
 
 ## 3. REST API (local or self-hosted)
 

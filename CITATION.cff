@@ -12,7 +12,7 @@ authors:
   - given-names: Syed Waleed
     family-names: Ahmed
 version: 2.3.0
-date-released: "2026-11-10"
+date-released: "2026-11-11"
 license: MIT
 repository-code: "https://github.com/syed-waleed-ahmed/LLM-as-Judge"
 url: "https://syed-waleed-ahmed.github.io/LLM-as-Judge/"

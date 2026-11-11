@@ -130,13 +130,11 @@ or across machines, store them in PostgreSQL. Supabase's free plan provides one:
 1. Create a project at <https://supabase.com>. The store connects to Postgres
    directly, so you can untick **Enable Data API** when creating it; that keeps
    the run tables out of Supabase's public REST API.
-2. Open **Connect** → **Direct** and copy a pooler connection string:
-   - **Transaction pooler** (port 6543) for short-lived processes, such as the
-     CLI, CI jobs and a Streamlit app;
-   - **Session pooler** (port 5432) for a long-running REST API server.
-
-   Both work over IPv4. The "Direct connection" host is IPv6-only on the free
-   plan.
+2. Open **Connect** → **Direct** and copy a pooler connection string: the
+   **Transaction pooler** (port 6543) for short-lived processes, such as the
+   CLI, CI jobs and a Streamlit app, or the **Session pooler** (port 5432) for a
+   long-running REST API server. Both work over IPv4; the "Direct connection"
+   host is IPv6-only on the free plan.
 3. Install the extra: `pip install -e ".[postgres]"`, or `.[all]`.
 4. Set `JUDGE_DB_PATH` to the connection string, with your database password
    filled in, in `.env`, Streamlit secrets or the environment. Percent-encode

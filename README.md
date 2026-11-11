@@ -101,7 +101,7 @@ this project handles the parts that usually get skipped:
 | **Retries & repair** | Backoff for transient errors; repair retries for malformed replies. |
 | **Experiment tracking** | Run history in SQLite (default) or PostgreSQL/Supabase, run comparison with confidence intervals, Markdown reports, and a regression gate for CI. |
 | **Datasets & batches** | CSV/JSON/JSONL/YAML validation, checkpointed and resumable batch runs, per-model summaries, bundled benchmark samples. |
-| **Fully tested** | Offline unit and property-based tests (Hypothesis), no network calls in CI. |
+| **Fully tested** | Offline unit and property-based tests (Hypothesis) with no network calls, plus CI jobs against a real PostgreSQL server and live Ollama models. |
 | **Pluggable providers** | Groq, Ollama (local), any OpenAI-compatible API, and an offline mock; add your own by implementing one method. |
 | **Typed & linted** | Pydantic models, `mypy`-clean, `ruff`-clean and `ruff format`-clean. |
 
@@ -355,7 +355,7 @@ Every pairwise evaluation returns a validated, versioned result:
     "model": "openai/gpt-oss-120b",
     "judge": { "provider": "groq", "model": "openai/gpt-oss-120b" },
     "candidates": { "A": { "model": "gpt-4o" }, "B": { "model": null } },
-    "prompt_version": "2.0",
+    "prompt_version": "2.1",
     "position_bias_mitigated": false,
     "latency_seconds": 0.93
   }
@@ -756,6 +756,8 @@ src/llm_judge/           # Installable package (src layout)
 ├─ agents.py             # Agent trace checks + judged trajectory grade
 ├─ reliability.py        # Consistency, Cohen's kappa, Spearman agreement
 ├─ batch.py              # v1 batch API (kept for compatibility)
+├─ cache.py              # Opt-in in-memory cache of identical temperature-0 results
+├─ csv_safety.py         # Neutralises spreadsheet formulas in exported CSV cells
 ├─ datasets/             # Readers, validation, checkpointed runner, summaries,
 │                        #   bundled synthetic samples
 ├─ experiments/          # Run store (SQLite or PostgreSQL), comparison, reports
@@ -877,9 +879,9 @@ benchmark samples.
 Version 2.0.0 completed the planned phases, and 2.1.0 closed the gaps a
 line-by-line review of the plan found: evaluation modes, providers,
 datasets, experiment tracking, the REST API, the dashboard, RAG and agent
-evaluation, security hardening, and documentation. Versions 2.2.0 and 2.3.0
+evaluation, security hardening, and documentation. Versions 2.2.0 to 2.4.0
 added a PostgreSQL/Supabase experiment store, live CI checks against Ollama,
-and publishing to PyPI. Open items are more providers and more benchmark
+publishing to PyPI, and security hardening driven by CodeQL. Open items are more providers and more benchmark
 samples. See [`ROADMAP.md`](ROADMAP.md) for the status of each phase.
 
 ---

@@ -15,6 +15,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GitHub reported the repository as mostly HTML, because the generated code
   knowledge graph (`graphify-out/`) counted as source. It's now marked as
   generated.
+- The README explains how to upgrade an environment from before 2.3.0:
+  uninstall the old `llm-as-judge` distribution first. Otherwise its files can
+  shadow the renamed package, as a browser test of the dashboard showed.
 
 ### Changed
 - The PostgreSQL store is verified against a live Supabase project (free plan),

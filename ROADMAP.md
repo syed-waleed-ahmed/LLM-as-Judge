@@ -3,8 +3,9 @@
 Version 2.0.0 (released 2026-11-10) turned a pairwise judging library (v1.0.0)
 into an open-source LLM evaluation platform, in the phases below. Version 2.1.0
 closed the remaining gaps that a line-by-line review against the original plan
-found. Versions 2.2.0 and 2.3.0 added a PostgreSQL/Supabase store, live CI
-checks against a real Ollama server, and publishing to PyPI. The
+found. Versions 2.2.0 to 2.4.0 added a PostgreSQL/Supabase store, live CI
+checks against a real Ollama server, publishing to PyPI, and security
+hardening driven by CodeQL. The
 [delivery report](docs/design/delivery-report.md) lists each release. The
 guiding constraints, which still apply to new work:
 

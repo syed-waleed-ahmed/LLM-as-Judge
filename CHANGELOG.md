@@ -27,6 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - The dashboard no longer hashes the Groq API key to build its client
     cache key. It passes the values to Streamlit's in-memory cache instead,
     which still gives a rotated key a new client.
+  - New `llm_judge.datasets.load_rows()` validates in-memory rows and never
+    reads a file. The REST API uses it for request bodies, so no request
+    value can reach the file readers. `load_dataset()` is unchanged and
+    hands in-memory rows to it.
 
 ## [2.3.0] - 2026-11-11
 

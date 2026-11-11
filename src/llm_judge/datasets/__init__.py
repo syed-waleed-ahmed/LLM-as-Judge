@@ -38,7 +38,7 @@ from .records import (
 from .runner import DatasetRunner, RowOutcome, RunReport, read_checkpoint, write_outcomes
 from .samples import SAMPLE_DATASETS, SampleDataset, get_sample, load_sample, sample_text
 from .summary import DatasetSummary, ModelStats, summarize
-from .validation import DatasetReport, RowIssue, load_dataset, validate_dataset
+from .validation import DatasetReport, RowIssue, load_dataset, load_rows, validate_dataset
 
 __all__ = [
     "KINDS",
@@ -64,6 +64,7 @@ __all__ = [
     "iter_rows",
     "kind_of",
     "load_dataset",
+    "load_rows",
     "load_sample",
     "read_checkpoint",
     "record_fingerprint",

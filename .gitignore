@@ -44,8 +44,8 @@ Thumbs.db
 *.results.csv
 *.results.jsonl
 
-# Graphify: ignore only the regenerable cache; the graph artifacts are kept as docs.
-graphify-out/cache/
+# A local code-graph tool's output, regenerable and unused by the project.
+graphify-out/
 
 # Local experiment database and checkpoints
 .llm_judge/
